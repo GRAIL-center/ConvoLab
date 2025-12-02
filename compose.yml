@@ -1,0 +1,82 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: conversation-coach-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: conversation_coach
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - conversation-coach
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    container_name: conversation-coach-api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/conversation_coach?schema=public
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_ENV: development
+      FRONTEND_URL: http://localhost:5173
+      AUTH_METHOD: email
+      SESSION_SECRET: dev-secret-change-in-production
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      # Mount source for hot reloading
+      - ./packages/api/src:/app/packages/api/src
+      - ./packages/database:/app/packages/database
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+      - /app/packages/api/node_modules
+      - /app/packages/database/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - conversation-coach
+
+  app:
+    build:
+      context: .
+      dockerfile: packages/app/Dockerfile
+    container_name: conversation-coach-app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      # Mount source for hot reloading
+      - ./packages/app/src:/app/packages/app/src
+      - ./packages/app/index.html:/app/packages/app/index.html
+      - ./packages/app/vite.config.ts:/app/packages/app/vite.config.ts
+      - ./packages/app/tailwind.config.js:/app/packages/app/tailwind.config.js
+      - ./packages/app/postcss.config.js:/app/packages/app/postcss.config.js
+      - ./packages/database:/app/packages/database
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+      - /app/packages/app/node_modules
+      - /app/packages/database/node_modules
+    depends_on:
+      - api
+    networks:
+      - conversation-coach
+
+networks:
+  conversation-coach:
+    driver: bridge
+
+volumes:
+  postgres_data:

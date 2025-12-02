@@ -1,0 +1,250 @@
+version: '3'
+
+# Common development tasks for Conversation Coach
+# Install: brew install go-task/tap/go-task
+# Usage: task <command>
+# List all tasks: task --list
+
+vars:
+  API_CONTAINER: conversation-coach-api
+  APP_CONTAINER: conversation-coach-app
+  DB_CONTAINER: conversation-coach-db
+
+tasks:
+  # === Quick Start ===
+
+  setup:
+    desc: "Initial setup - create .env if missing"
+    cmds:
+      - |
+        if [ ! -f .env ]; then
+          cp .env.example .env
+          echo "✓ Created .env - please add your ANTHROPIC_API_KEY"
+        else
+          echo "✓ .env already exists"
+        fi
+
+  up:
+    desc: "Start all services (builds on first run)"
+    cmds:
+      - docker compose up --build
+
+  up:bg:
+    desc: "Start all services in background"
+    cmds:
+      - docker compose up -d --build
+      - echo "✓ Services starting in background"
+      - echo "  API: http://localhost:3000"
+      - echo "  App: http://localhost:5173"
+      - echo ""
+      - echo "Run 'task migrate' to set up the database"
+
+  down:
+    desc: "Stop all services"
+    cmds:
+      - docker compose down
+
+  restart:
+    desc: "Restart all services"
+    cmds:
+      - docker compose restart
+
+  # === Database ===
+
+  migrate:
+    desc: "Run database migrations (creates tables + seeds data)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate"
+
+  migrate:deploy:
+    desc: "Run migrations in production mode (no prompts)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate:deploy"
+
+  db:seed:
+    desc: "Re-run database seed (adds sample scenarios)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm seed"
+
+  db:studio:
+    desc: "Open Prisma Studio (visual database browser)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm studio"
+
+  db:reset:
+    desc: "Reset database (WARNING: deletes all data)"
+    prompt: "This will delete ALL data. Continue?"
+    cmds:
+      - docker compose down -v
+      - docker compose up -d db
+      - sleep 3
+      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate"
+
+  # === Logs ===
+
+  logs:
+    desc: "View logs from all services"
+    cmds:
+      - docker compose logs -f
+
+  logs:api:
+    desc: "View API server logs"
+    cmds:
+      - docker compose logs -f api
+
+  logs:app:
+    desc: "View React app logs"
+    cmds:
+      - docker compose logs -f app
+
+  logs:db:
+    desc: "View database logs"
+    cmds:
+      - docker compose logs -f db
+
+  # === Development ===
+
+  shell:api:
+    desc: "Open shell in API container"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} sh
+
+  shell:app:
+    desc: "Open shell in app container"
+    cmds:
+      - docker compose exec {{.APP_CONTAINER}} sh
+
+  install:api:
+    desc: "Install package in API (usage: task install:api -- <package>)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} pnpm -F @workspace/api add {{.CLI_ARGS}}
+      - echo "✓ Package installed. Restart API: task restart:api"
+
+  install:app:
+    desc: "Install package in app (usage: task install:app -- <package>)"
+    cmds:
+      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app add {{.CLI_ARGS}}
+      - echo "✓ Package installed. Restart app: task restart:app"
+
+  restart:api:
+    desc: "Restart API server"
+    cmds:
+      - docker compose restart api
+      - echo "✓ API server restarted"
+
+  restart:app:
+    desc: "Restart React app"
+    cmds:
+      - docker compose restart app
+      - echo "✓ React app restarted"
+
+  # === Testing & Quality ===
+
+  test:
+    desc: "Run tests (when implemented)"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} pnpm test
+      - docker compose exec {{.APP_CONTAINER}} pnpm test
+
+  typecheck:
+    desc: "Run TypeScript type checking"
+    cmds:
+      - docker compose exec {{.API_CONTAINER}} pnpm -F @workspace/api type-check
+      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app type-check
+
+  lint:
+    desc: "Run linting"
+    cmds:
+      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app lint
+
+  # === Cleanup ===
+
+  clean:
+    desc: "Remove containers and volumes (fresh start)"
+    prompt: "This removes all containers, volumes, and database data. Continue?"
+    cmds:
+      - docker compose down -v
+      - echo "✓ Cleaned. Run 'task up' to start fresh"
+
+  clean:all:
+    desc: "Deep clean - remove everything including images"
+    prompt: "This removes containers, volumes, images, and build cache. Continue?"
+    cmds:
+      - docker compose down -v --rmi all
+      - docker system prune -f
+      - echo "✓ Deep clean complete. Run 'task up' to rebuild"
+
+  # === Status ===
+
+  status:
+    desc: "Show status of all services"
+    cmds:
+      - docker compose ps
+      - echo ""
+      - echo "URLs:"
+      - echo "  App:  http://localhost:5173"
+      - echo "  API:  http://localhost:3000/health"
+      - echo "  DB:   localhost:5432"
+
+  # === Local Development (without Docker) ===
+
+  local:install:
+    desc: "Install dependencies locally (for non-Docker development)"
+    cmds:
+      - pnpm install
+
+  local:dev:
+    desc: "Start dev servers locally (requires local pnpm install)"
+    cmds:
+      - pnpm dev
+
+  local:db:up:
+    desc: "Start only database (for local development)"
+    cmds:
+      - docker compose up -d db
+      - echo "✓ Database running on localhost:5432"
+
+  local:migrate:
+    desc: "Run migrations locally"
+    cmds:
+      - pnpm db:migrate
+
+  # === Help ===
+
+  help:
+    desc: "Show common workflows"
+    cmds:
+      - |
+        echo "🚀 Conversation Coach - Common Workflows"
+        echo ""
+        echo "📦 First time setup:"
+        echo "  task setup        # Create .env file"
+        echo "  task up:bg        # Start services in background"
+        echo "  task migrate      # Set up database"
+        echo "  task status       # Verify everything is running"
+        echo ""
+        echo "🔄 Daily development:"
+        echo "  task up           # Start (shows logs)"
+        echo "  task logs:api     # Watch API logs"
+        echo "  task db:studio    # Browse database"
+        echo "  task down         # Stop everything"
+        echo ""
+        echo "📝 Database operations:"
+        echo "  task migrate      # Run migrations"
+        echo "  task db:seed      # Add sample data"
+        echo "  task db:reset     # Fresh database (deletes data!)"
+        echo ""
+        echo "📦 Install packages:"
+        echo "  task install:api -- fastify-plugin"
+        echo "  task install:app -- zustand"
+        echo ""
+        echo "🧹 Cleanup:"
+        echo "  task clean        # Remove containers & data"
+        echo "  task clean:all    # Deep clean (slower rebuild)"
+        echo ""
+        echo "See all tasks: task --list"
+
+  default:
+    desc: "Show help"
+    cmds:
+      - task: help

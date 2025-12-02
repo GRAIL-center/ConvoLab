@@ -25,28 +25,29 @@ PostgreSQL (Prisma ORM)
 
 ## Technology Stack
 
-### Backend
-- **Fastify** - API server + WebSocket host (single process)
-- **tRPC** - Type-safe API layer (CRUD operations)
-- **Prisma** - ORM + type generation (chosen over Drizzle for better AI assistance, mature migrations, Prisma Studio)
+### Backend (December 2024 - Modernized)
+- **Fastify 5** - API server + WebSocket host (single process)
+- **tRPC 11** - Type-safe API layer (CRUD operations)
+- **Prisma 7** - ORM + type generation (chosen over Drizzle for better AI assistance, mature migrations, Prisma Studio)
+  - **Note:** Prisma 7 uses new connection pattern - see [database README](./packages/database/README.md)
 - **Passport.js** - Auth (local strategy + SAML strategy)
-- **ws** - WebSocket library (native, simple)
-- **Anthropic SDK** - Streaming AI responses
+- **ws 8** - WebSocket library (native, simple)
+- **Anthropic SDK 0.71** - Streaming AI responses
 
 ### Frontend (Main App)
-- **Vite + React 18 + TypeScript**
-- **TanStack Query** - Server state management
-- **React Router** - Client routing (or TanStack Router for type safety)
-- **TailwindCSS** - Styling (reuse Purdue branding from template)
+- **Vite 7 + React 19 + TypeScript 5**
+- **TanStack Query 5** - Server state management
+- **React Router 7** - Client routing
+- **Tailwind CSS 3/4** - Styling (reuse Purdue branding from template)
 - **Native WebSocket client** - Real-time connection
 
 ### Landing Pages
-- **Astro** - Separate service for SSR public pages (link previews, SEO)
+- **Astro 5** - Static site generation for public pages (link previews, SEO)
 - Can fetch from Fastify API for dynamic content
 
 ### Infrastructure
-- **pnpm workspaces** - Monorepo
-- **PostgreSQL** - Primary database
+- **pnpm 10 workspaces** - Monorepo
+- **PostgreSQL 17** - Primary database
 - **Cloud Run** - Deployment (3 services: landing, app, api)
 - **GitHub Actions** - CI/CD on GitHub.com (external collaborators)
 
@@ -97,10 +98,13 @@ conversation-coach/
 │       └── package.json
 │
 ├── pnpm-workspace.yaml
-├── docker-compose.yml      # Local development
+├── compose.yml            # Local development (Docker Compose V2)
+├── Taskfile.yml          # Task automation for common commands
 └── .github/workflows/
-    └── deploy.yml         # Cloud Run deployment
+    └── deploy.yml         # Cloud Run deployment (TODO)
 ```
+
+> **Note:** This project now uses `compose.yml` (Docker Compose V2 naming) instead of `docker-compose.yml`.
 
 ## Data Models
 
@@ -162,6 +166,54 @@ model Message {
 ```
 
 **Type sharing:** All packages import `@workspace/database` for types. Zero duplication.
+
+## Prisma 7 Migration (December 2024)
+
+Prisma 7 introduces breaking changes to how database connections work:
+
+**Old pattern (Prisma 5-6)**:
+```prisma
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")  // ❌ No longer supported
+}
+```
+
+**New pattern (Prisma 7)**:
+```prisma
+// schema.prisma
+datasource db {
+  provider = "postgresql"  // ✓ No url field
+}
+```
+
+```typescript
+// index.ts - Connection passed at runtime
+export const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,  // ✓ URL in constructor
+});
+```
+
+```typescript
+// prisma/prisma.config.ts - For migrations
+import { defineConfig } from '@prisma/client';
+
+export default defineConfig({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
+```
+
+**Benefits:**
+- Better security (no hardcoded connection patterns)
+- Enables Prisma Accelerate (optional caching/connection pooling)
+- Multi-environment flexibility
+
+See [packages/database/README.md](./packages/database/README.md) for full migration guide.
 
 ## Key Implementation Areas
 

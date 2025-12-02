@@ -1,0 +1,49 @@
+---
+const pageTitle = "Conversation Coach - Practice Difficult Conversations";
+const pageDescription = "Master challenging conversations with AI-powered role-play and real-time coaching.";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- SEO -->
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+
+    <!-- Open Graph / Facebook / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+  </head>
+  <body class="min-h-screen bg-gray-50">
+    <main class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div class="text-center">
+        <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+          Conversation Coach
+        </h1>
+        <p class="mt-6 text-lg leading-8 text-gray-600">
+          Practice difficult conversations with AI-powered role-play and real-time coaching.
+        </p>
+        <div class="mt-10 flex items-center justify-center gap-x-6">
+          <a
+            href="/app"
+            class="rounded-md bg-purdue-gold px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-purdue-gold-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Get started
+          </a>
+          <a href="/scenarios" class="text-sm font-semibold leading-6 text-gray-900">
+            Browse scenarios <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

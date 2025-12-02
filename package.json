@@ -1,0 +1,17 @@
+{
+  "name": "conversation-coach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm -F @workspace/api dev\" \"pnpm -F @workspace/app dev\"",
+    "dev:landing": "pnpm -F @workspace/landing dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm -F @workspace/database migrate",
+    "db:studio": "pnpm -F @workspace/database studio"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}

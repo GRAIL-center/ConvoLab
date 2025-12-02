@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* TODO: Copy Purdue font imports from django-react-template */

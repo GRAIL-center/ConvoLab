@@ -1,0 +1,76 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  username     String
+  passwordHash String?   // Null for SAML users
+  isStaff      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions     ConversationSession[]
+}
+
+model Scenario {
+  id                  Int      @id @default(autoincrement())
+  name                String
+  slug                String   @unique // For URLs
+  description         String   @db.Text
+
+  // AI configuration
+  partnerPersona      String   // "Angry Uncle at Thanksgiving"
+  partnerSystemPrompt String   @db.Text
+  coachSystemPrompt   String   @db.Text
+  partnerModel        String   @default("claude-3-5-sonnet-20241022")
+  coachModel          String   @default("claude-3-5-sonnet-20241022")
+
+  // Metadata
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sessions            ConversationSession[]
+}
+
+model ConversationSession {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  scenarioId      Int
+  status          String    @default("active") // active | completed | abandoned
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  totalMessages   Int       @default(0)
+  durationSeconds Int?
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario        Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  messages        Message[]
+
+  @@index([userId])
+  @@index([scenarioId])
+  @@index([status])
+}
+
+model Message {
+  id          Int       @id @default(autoincrement())
+  sessionId   Int
+  role        String    // "user" | "partner" | "coach"
+  content     String    @db.Text
+  timestamp   DateTime  @default(now())
+  audioUrl    String?   // For future voice integration
+  metadata    Json?     // Token counts, latency, etc.
+
+  session     ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([role])
+}
