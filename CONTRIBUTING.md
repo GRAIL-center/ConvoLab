@@ -379,10 +379,10 @@ chore: upgrade dependencies to latest versions
 
 ### Optional
 
-- `AUTH_METHOD` - `email` (default) or `saml`
-- `SESSION_SECRET` - Random string for sessions
+- `SESSION_KEY` - 64-char hex for encrypted sessions
+- `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 - `FRONTEND_URL` - Frontend URL for CORS
-- `SAML_*` - SAML configuration (if using SAML auth)
 
 See `.env.example` for full list.
 

@@ -1,190 +1,87 @@
 # Conversation Coach
 
-AI-powered conversation practice app with dual streaming (dialog partner + coach) and future voice integration.
+AI-powered conversation practice with dual streaming (dialog partner + coach).
 
 ## Architecture
 
-See [conversation-coach-architecture.md](./conversation-coach-architecture.md) for detailed technical design decisions.
+See [conversation-coach-architecture.md](./conversation-coach-architecture.md) for details.
 
 **Stack:**
-- **Backend:** Fastify 5 + tRPC 11 + WebSockets (Node.js/TypeScript)
-- **Database:** PostgreSQL 17 + Prisma 7 ORM
+- **Backend:** Fastify 5 + tRPC 11 + WebSocket
+- **Database:** PostgreSQL 17 + Prisma 7
 - **Frontend:** Vite 7 + React 19 + TanStack Query 5
-- **Landing:** Astro 5 (static site generation)
+- **Landing:** Astro 5
+- **Auth:** Google OAuth + invitation links
 - **Monorepo:** pnpm workspaces
 
 ## Project Structure
 
 ```
 packages/
-├── database/    # Prisma schema + generated types (shared)
-├── api/         # Fastify server (tRPC + WebSockets)
-├── app/         # React SPA (main application)
-└── landing/     # Astro landing pages (public)
+├── database/    # Prisma schema + types
+├── api/         # Fastify server
+├── app/         # React SPA
+└── landing/     # Astro pages
+docs/
+└── plans/       # Implementation phases
 ```
 
-## For New Contributors
-
-**Welcome!** This project is designed to be approachable whether you're an experienced developer or just getting started.
-
-### Use AI Assistance!
-
-We **strongly encourage** using AI coding assistants (Claude, GitHub Copilot, ChatGPT, etc.) to:
-- Understand the codebase
-- Prototype features quickly
-- Learn new technologies
-- Debug issues
-
-**Disposable prototypes are valuable!** As Andrew Ng says, rapid experimentation is key. Don't worry about building the "perfect" solution - build quickly, learn, and iterate. It's totally fine to have multiple implementations of the same feature as experiments running in parallel.
-
-### Questions?
-
-- Check the [QUICKSTART.md](./QUICKSTART.md) for setup
-- See [CONTRIBUTING.md](./CONTRIBUTING.md) for development workflow
-- Read [conversation-coach-architecture.md](./conversation-coach-architecture.md) for system design
-- Package-specific READMEs in each `packages/*/README.md` folder
-
-## Getting Started
-
-**Quick start with Taskfile (recommended):**
+## Quick Start
 
 ```bash
-# 1. Install Task (if not already installed)
-brew install go-task/tap/go-task  # macOS
-# or: https://taskfile.dev/installation/
+# 1. Install Task (optional but recommended)
+brew install go-task/tap/go-task
 
-# 2. Set up environment
-task setup          # Creates .env file
-# Edit .env and add your ANTHROPIC_API_KEY
+# 2. Setup
+task setup          # Creates .env
+# Edit .env: add ANTHROPIC_API_KEY
 
-# 3. Start services and initialize database
-task up:bg          # Start in background
-task migrate        # Create tables + seed data
+# 3. Start
+task up:bg          # Start containers
+task migrate        # Create tables + seed
 
 # 4. Open http://localhost:5173
-task status         # Check everything is running
 ```
 
-**Without Taskfile:**
-
+**Without Task:**
 ```bash
-cp .env.example .env            # Edit and add ANTHROPIC_API_KEY
-docker compose up --build       # Start all services (first build takes 3-5 min)
+cp .env.example .env
+docker compose up --build
 docker compose exec api sh -c "cd packages/database && pnpm migrate"
 ```
 
-> **Note:** This project uses modern `compose.yml` (not `docker-compose.yml`). Requires Docker Compose V2+.
+## For Contributors
 
-See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions and troubleshooting.
+Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimental implementations are welcome.
 
-### Local Development (Without Docker)
+- [QUICKSTART.md](./QUICKSTART.md) - Setup details
+- [CONTRIBUTING.md](./CONTRIBUTING.md) - Dev workflow
+- [docs/plans/](./docs/plans/) - Implementation phases
 
-If you prefer to run services locally:
+## Implementation Status
 
-1. Install Node.js 20+ and pnpm 9+
-2. Start PostgreSQL: `docker compose up -d db`
-3. Install dependencies: `pnpm install`
-4. Copy `.env.example` to `.env` and configure
-5. Generate Prisma client: `pnpm -F @workspace/database generate`
-6. Run migrations: `pnpm db:migrate`
-7. Start dev servers: `pnpm dev`
+### Done
+- [x] Project structure + Docker setup
+- [x] Prisma schema (basic)
+- [x] Taskfile automation
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed local development setup.
+### In Progress
+- [ ] Auth (Google OAuth + invitations)
+- [ ] tRPC routers
+- [ ] WebSocket handler (dual AI streaming)
 
-### Useful Commands
+### Future
+- [ ] Conversation UI
+- [ ] Admin interface
+- [ ] Voice integration
 
-**With Taskfile (recommended):**
-
-```bash
-task                    # Show help and common workflows
-task --list             # List all available tasks
-
-# Daily development
-task up                 # Start services (foreground)
-task up:bg              # Start services (background)
-task logs:api           # View API logs
-task logs:app           # View app logs
-task down               # Stop services
-
-# Database
-task migrate            # Run migrations
-task db:studio          # Open Prisma Studio
-task db:seed            # Re-seed sample data
-task db:reset           # Fresh database (deletes all data!)
-
-# Package management
-task install:api -- <package>    # Install in API
-task install:app -- <package>    # Install in app
-
-# Cleanup
-task clean              # Remove containers & data
-task restart            # Restart all services
-```
-
-**Without Taskfile:**
+## Useful Commands
 
 ```bash
-# Docker commands
-docker compose up --build                  # Start services
-docker compose logs -f api                 # View API logs
-docker compose exec api sh -c "cd packages/database && pnpm migrate"
-docker compose exec api sh -c "cd packages/database && pnpm studio"
-docker compose down                        # Stop services
-docker compose down -v                     # Stop and remove volumes
-
-# Local development (requires pnpm install)
-pnpm dev                                   # Start API + App locally
-pnpm db:migrate                            # Run migrations (needs local DB)
-pnpm -F @workspace/api add <package>       # Add package to API
-pnpm -F @workspace/app add <package>       # Add package to App
+task                 # Show help
+task up              # Start (foreground)
+task logs:api        # API logs
+task db:studio       # Prisma Studio
+task migrate         # Run migrations
+task down            # Stop
 ```
-
-## Key Implementation Areas
-
-### TODO: Core Features
-
-- [ ] **Authentication** (Passport.js with email + SAML)
-- [ ] **tRPC routers** (scenarios, sessions, users)
-- [ ] **WebSocket handler** for dual AI streaming
-- [ ] **Conversation manager** (partner + coach contexts)
-- [ ] **React conversation UI** (dual chat streams)
-- [ ] **Admin interface** (AdminJS or custom)
-
-See architecture doc for detailed implementation guidance.
-
-## Deployment
-
-Target: Google Cloud Run (3 services)
-
-```bash
-# Deploy via GitHub Actions
-git push origin main
-```
-
-See `.github/workflows/deploy.yml` (TODO: create)
-
-## Recent Updates
-
-**December 2024**: Major dependency modernization
-- Upgraded to Prisma 7 (new connection pattern - see [database README](./packages/database/README.md))
-- Upgraded to React 19 with improved type safety
-- Upgraded to Astro 5 with static site generation
-- Modernized Docker Compose configuration (`compose.yml`)
-
-If you're pulling recent changes, run:
-```bash
-pnpm install
-pnpm -F @workspace/database generate
-```
-
-## Migration from Django Template
-
-Files to copy selectively from `django-react-template`:
-- [ ] Frontend layout components
-- [ ] TailwindCSS Purdue branding config
-- [ ] Font imports and CSS
-- [ ] GitHub Actions structure (adapt)
-
-## License
-
-See [LICENSE](./LICENSE)

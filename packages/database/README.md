@@ -62,11 +62,11 @@ Prisma 7's new pattern:
 ### Models
 
 **User** - Authentication and user management
-- `id` - Primary key
+- `id` - Primary key (cuid)
 - `email` - Unique email address
-- `username` - Display name
-- `passwordHash` - Hashed password (null for SAML users)
-- `isStaff` - Admin flag
+- `name` - Display name
+- `googleId` - Google OAuth identity
+- `role` - GUEST | USER | POWER_USER | ADMIN
 - `sessions` - One-to-many relationship with ConversationSession
 
 **Scenario** - Conversation templates
@@ -150,8 +150,8 @@ task db:seed
 ```
 
 Current seed data:
-- Test user: `test@example.com` / `password123`
-- Two sample scenarios (Angry Uncle, Difficult Coworker)
+- Sample scenarios (Angry Uncle, Difficult Coworker)
+- Quota presets
 
 ### Open Prisma Studio
 

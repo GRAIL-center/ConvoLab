@@ -67,9 +67,7 @@ In another terminal:
 docker compose exec api sh -c "cd packages/database && pnpm migrate"
 ```
 
-This creates tables and runs the seed script to add:
-- Test user: `test@example.com` / `password123`
-- Two sample scenarios (angry uncle, difficult coworker)
+This creates tables and runs the seed script to add sample scenarios.
 
 ### 4. Open in Browser
 
@@ -202,12 +200,12 @@ See original README for details.
 
 The scaffold is ready but core features need implementation:
 
-1. **Authentication** - Passport.js setup in `packages/api/src/auth/`
-2. **tRPC routers** - CRUD endpoints in `packages/api/src/routers/`
+1. **Authentication** - Google OAuth + invitations in `packages/api/src/`
+2. **tRPC routers** - CRUD endpoints in `packages/api/src/trpc/routers/`
 3. **WebSocket handler** - Dual AI streaming in `packages/api/src/websockets/`
 4. **React UI** - Conversation interface in `packages/app/src/`
 
-See [conversation-coach-architecture.md](./conversation-coach-architecture.md) for detailed implementation guidance.
+See [docs/plans/](./docs/plans/) for implementation phases.
 
 ## Project Structure
 
