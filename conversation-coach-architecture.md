@@ -56,8 +56,7 @@ packages/
 
 ### Google OAuth (primary)
 - @fastify/oauth2 with Google OIDC
-- Stateless sessions via encrypted cookies (7-day expiry)
-- No server-side session store needed
+- Stateless encrypted cookie sessions
 
 ### Invitations (guest access)
 - Admin creates invitation with quota preset
@@ -74,10 +73,8 @@ ADMIN      - Full access
 ```
 
 ### Quota System
-- JSON fields for flexibility: `quota`, `usage`
-- Absolute token allocation (not daily limits)
-- Inviter picks preset: "Short conversation (25k)", "Therapy session (50k)"
-- Deduct on AI API response
+- Inviter picks from preset token allocations
+- Tracked per invitation, deducted on AI response
 
 ## Data Models
 
@@ -137,27 +134,7 @@ coach.example.com/scenarios/:slug → Preview (SSR)
 
 ## Environment Variables
 
-```env
-# Database
-DATABASE_URL=postgresql://...
-
-# Server
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
-
-# Session
-SESSION_KEY=<64-char-hex>  # openssl rand -hex 32
-
-# Google OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
-
-# AI
-ANTHROPIC_API_KEY=sk-ant-...
-```
+See `.env.example` for full list. Key vars: `DATABASE_URL`, `GOOGLE_CLIENT_*`, `ANTHROPIC_API_KEY`.
 
 ## Future: Voice
 
