@@ -2,6 +2,10 @@
 
 Magic links with quota.
 
+## Invitation Features
+- `label` field for researcher reference ("Participant #7", "Quad test 1")
+- QR code generation in frontend (use `qrcode.react`)
+
 ## New Files
 
 ### packages/api/src/lib/tokens.ts

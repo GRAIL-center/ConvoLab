@@ -14,6 +14,7 @@ Update Prisma schema with new auth model.
 - Invitation (magic links with quota)
 - QuotaPreset (admin-configurable templates)
 - UsageLog (analytics)
+- ObservationNote (researcher notes during user testing)
 
 ### Modified Models
 - ConversationSession: make userId nullable, add invitationId

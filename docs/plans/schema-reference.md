@@ -41,6 +41,7 @@ model User {
 
   sessions           ConversationSession[]
   invitationsCreated Invitation[]          @relation("CreatedInvitations")
+  observationNotes   ObservationNote[]
 
   @@index([googleId])
 }
@@ -48,6 +49,7 @@ model User {
 model Invitation {
   id       String @id @default(cuid())
   token    String @unique
+  label    String? // Researcher reference: "Participant #7", "Quad test 1"
 
   scenarioId Int?
   scenario   Scenario? @relation(fields: [scenarioId], references: [id])
@@ -64,7 +66,8 @@ model Invitation {
   createdBy   User     @relation("CreatedInvitations", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 
-  sessions ConversationSession[]
+  sessions         ConversationSession[]
+  observationNotes ObservationNote[]
 
   @@index([token])
   @@index([expiresAt])
@@ -124,8 +127,9 @@ model ConversationSession {
   totalMessages   Int       @default(0)
   durationSeconds Int?
 
-  messages  Message[]
-  usageLogs UsageLog[]
+  messages         Message[]
+  usageLogs        UsageLog[]
+  observationNotes ObservationNote[]
 
   @@index([userId])
   @@index([invitationId])
@@ -167,6 +171,29 @@ model UsageLog {
   @@index([userId, timestamp])
   @@index([invitationId, timestamp])
   @@index([timestamp])
+}
+
+// ============================================
+// USER TESTING
+// ============================================
+
+model ObservationNote {
+  id           String   @id @default(cuid())
+
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id])
+
+  sessionId    Int?
+  session      ConversationSession? @relation(fields: [sessionId], references: [id])
+
+  researcherId String
+  researcher   User     @relation(fields: [researcherId], references: [id])
+
+  content      String   @db.Text
+  timestamp    DateTime @default(now())
+
+  @@index([invitationId])
+  @@index([researcherId])
 }
 ```
 
