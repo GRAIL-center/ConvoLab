@@ -39,6 +39,16 @@ Inviter picks from admin-defined presets like:
 
 Exact values TBD through experimentation.
 
+## Short-Term Goal: User Testing
+
+Facilitate small-scale guerrilla user testing ("quad + Starbucks gift cards" approach):
+
+- **QR codes** for invitation links - easy to share in person
+- **Researcher observation UI** - take notes while watching someone try it
+- Link observation notes to specific sessions
+
+Priority: Get something testable in front of real users quickly.
+
 ## Working Style
 
 - **No time estimates**: Don't say "this will take 2 weeks". Just describe what needs doing.
