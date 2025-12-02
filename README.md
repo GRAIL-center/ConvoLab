@@ -72,16 +72,10 @@ Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimenta
 
 ### Future
 - [ ] Conversation UI
+- [ ] User testing (QR codes, researcher observations)
 - [ ] Admin interface
 - [ ] Voice integration
 
 ## Useful Commands
 
-```bash
-task                 # Show help
-task up              # Start (foreground)
-task logs:api        # API logs
-task db:studio       # Prisma Studio
-task migrate         # Run migrations
-task down            # Stop
-```
+Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for details.
