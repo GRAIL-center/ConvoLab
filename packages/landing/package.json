@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@workspace/database": "workspace:*",
-    "astro": "^5.16.0"
+    "astro": "^5.16.5"
   },
   "devDependencies": {
     "@astrojs/tailwind": "^6.0.2",
