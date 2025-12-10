@@ -33,9 +33,6 @@ Thumbs.db
 # Testing
 coverage/
 
-# Prisma
-packages/database/prisma/migrations/
-
 # Temporary files
 *.tmp
 .cache/

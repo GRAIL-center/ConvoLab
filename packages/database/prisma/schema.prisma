@@ -8,69 +8,188 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  username     String
-  passwordHash String?   // Null for SAML users
-  isStaff      Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+// ============================================
+// ENUMS
+// ============================================
 
-  sessions     ConversationSession[]
+enum Role {
+  GUEST
+  USER
+  POWER_USER
+  ADMIN
 }
 
+// ============================================
+// USER & AUTH
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  googleId  String?  @unique
+  role      Role     @default(GUEST)
+  isStaff   Boolean  @default(false)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  sessions           ConversationSession[]
+  invitationsCreated Invitation[]          @relation("CreatedInvitations")
+  invitationsLinked  Invitation[]          @relation("LinkedInvitations")
+  observationNotes   ObservationNote[]
+
+  @@index([googleId])
+}
+
+model Invitation {
+  id       String @id @default(cuid())
+  token    String @unique
+  label    String? // Researcher reference: "Participant #7", "Quad test 1"
+
+  scenarioId Int?
+  scenario   Scenario? @relation(fields: [scenarioId], references: [id])
+
+  quota Json // { tokens: 25000, label: "Short conversation" }
+  usage Json @default("{}")
+
+  expiresAt    DateTime
+  claimedAt    DateTime?
+  linkedUserId String?
+  linkedUser   User?    @relation("LinkedInvitations", fields: [linkedUserId], references: [id])
+
+  createdById String
+  createdBy   User     @relation("CreatedInvitations", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  sessions         ConversationSession[]
+  observationNotes ObservationNote[]
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model QuotaPreset {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  label       String
+  description String?
+  quota       Json
+  isDefault   Boolean @default(false)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// SCENARIOS & CONVERSATIONS
+// ============================================
+
 model Scenario {
-  id                  Int      @id @default(autoincrement())
-  name                String
-  slug                String   @unique // For URLs
-  description         String   @db.Text
+  id          Int    @id @default(autoincrement())
+  name        String
+  description String @db.Text
+  slug        String @unique
 
-  // AI configuration
-  partnerPersona      String   // "Angry Uncle at Thanksgiving"
-  partnerSystemPrompt String   @db.Text
-  coachSystemPrompt   String   @db.Text
-  partnerModel        String   @default("claude-3-5-sonnet-20241022")
-  coachModel          String   @default("claude-3-5-sonnet-20241022")
+  partnerPersona      String
+  partnerSystemPrompt String @db.Text
+  coachSystemPrompt   String @db.Text
+  partnerModel        String @default("claude-sonnet-4-20250514")
+  coachModel          String @default("claude-sonnet-4-20250514")
 
-  // Metadata
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sessions            ConversationSession[]
+  sessions    ConversationSession[]
+  invitations Invitation[]
 }
 
 model ConversationSession {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  scenarioId      Int
-  status          String    @default("active") // active | completed | abandoned
+  id Int @id @default(autoincrement())
+
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+  invitationId String?
+  invitation   Invitation? @relation(fields: [invitationId], references: [id])
+
+  scenarioId Int
+  scenario   Scenario @relation(fields: [scenarioId], references: [id])
+
+  status          String    @default("active")
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
   totalMessages   Int       @default(0)
   durationSeconds Int?
 
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scenario        Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
-  messages        Message[]
+  messages         Message[]
+  usageLogs        UsageLog[]
+  observationNotes ObservationNote[]
 
   @@index([userId])
-  @@index([scenarioId])
+  @@index([invitationId])
   @@index([status])
 }
 
 model Message {
-  id          Int       @id @default(autoincrement())
-  sessionId   Int
-  role        String    // "user" | "partner" | "coach"
-  content     String    @db.Text
-  timestamp   DateTime  @default(now())
-  audioUrl    String?   // For future voice integration
-  metadata    Json?     // Token counts, latency, etc.
+  id        Int      @id @default(autoincrement())
+  sessionId Int
+  session   ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  session     ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String   // "user" | "partner" | "coach"
+  content   String   @db.Text
+  timestamp DateTime @default(now())
+  audioUrl  String?
+  metadata  Json?
 
   @@index([sessionId])
-  @@index([role])
+}
+
+// ============================================
+// USAGE TRACKING
+// ============================================
+
+model UsageLog {
+  id String @id @default(cuid())
+
+  userId       String?
+  invitationId String?
+  sessionId    Int?
+  session      ConversationSession? @relation(fields: [sessionId], references: [id])
+
+  model        String
+  streamType   String // "partner" | "coach"
+  inputTokens  Int
+  outputTokens Int
+  timestamp    DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([invitationId, timestamp])
+  @@index([timestamp])
+}
+
+// ============================================
+// USER TESTING
+// ============================================
+
+model ObservationNote {
+  id           String   @id @default(cuid())
+
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id])
+
+  sessionId    Int?
+  session      ConversationSession? @relation(fields: [sessionId], references: [id])
+
+  researcherId String
+  researcher   User     @relation(fields: [researcherId], references: [id])
+
+  content      String   @db.Text
+  timestamp    DateTime @default(now())
+
+  @@index([invitationId])
+  @@index([researcherId])
 }

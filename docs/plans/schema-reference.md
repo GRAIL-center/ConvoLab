@@ -41,6 +41,7 @@ model User {
 
   sessions           ConversationSession[]
   invitationsCreated Invitation[]          @relation("CreatedInvitations")
+  invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
 
   @@index([googleId])
@@ -60,7 +61,7 @@ model Invitation {
   expiresAt    DateTime
   claimedAt    DateTime?
   linkedUserId String?
-  linkedUser   User?    @relation(fields: [linkedUserId], references: [id])
+  linkedUser   User?    @relation("LinkedInvitations", fields: [linkedUserId], references: [id])
 
   createdById String
   createdBy   User     @relation("CreatedInvitations", fields: [createdById], references: [id])

@@ -1,24 +1,64 @@
-import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { PrismaClient, Role } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { randomBytes } from 'crypto';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+
+function generateToken(): string {
+  return randomBytes(32).toString('base64url');
+}
 
 async function main() {
   console.log('Seeding database...');
 
-  // Create test user
-  const passwordHash = await bcrypt.hash('password123', 10);
-  const user = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
+  // Create quota presets
+  const presets = [
+    {
+      name: 'quick-chat',
+      label: 'Quick chat',
+      description: 'Brief exploration of a scenario',
+      quota: { tokens: 10000 },
+      sortOrder: 0,
+    },
+    {
+      name: 'short-conversation',
+      label: 'Short conversation',
+      description: 'Standard conversation length',
+      quota: { tokens: 25000 },
+      isDefault: true,
+      sortOrder: 1,
+    },
+    {
+      name: 'therapy-session',
+      label: 'Therapy session',
+      description: 'Extended deep-dive conversation',
+      quota: { tokens: 50000 },
+      sortOrder: 2,
+    },
+  ];
+
+  for (const preset of presets) {
+    await prisma.quotaPreset.upsert({
+      where: { name: preset.name },
+      update: preset,
+      create: preset,
+    });
+  }
+  console.log('Created quota presets:', presets.map((p) => p.name).join(', '));
+
+  // Create test admin user
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
     update: {},
     create: {
-      email: 'test@example.com',
-      username: 'testuser',
-      passwordHash,
+      email: 'admin@example.com',
+      name: 'Test Admin',
+      role: Role.ADMIN,
       isStaff: true,
     },
   });
-  console.log('Created test user:', user.email);
+  console.log('Created admin user:', adminUser.email);
 
   // Create sample scenarios
   const scenario1 = await prisma.scenario.upsert({
@@ -73,6 +113,21 @@ Be supportive and remind them that defensive reactions are normal. Coach them th
     },
   });
   console.log('Created scenario:', scenario2.name);
+
+  // Create a test invitation
+  const testInvitation = await prisma.invitation.upsert({
+    where: { token: 'test-invitation-token' },
+    update: {},
+    create: {
+      token: 'test-invitation-token',
+      label: 'Dev test invitation',
+      scenarioId: scenario1.id,
+      quota: { tokens: 25000, label: 'Short conversation' },
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      createdById: adminUser.id,
+    },
+  });
+  console.log('Created test invitation with token:', testInvitation.token);
 
   console.log('Seeding complete!');
 }
