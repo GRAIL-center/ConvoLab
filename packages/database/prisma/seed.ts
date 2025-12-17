@@ -1,11 +1,9 @@
-import { PrismaClient, Role } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
+import { createPrismaClient, Role } from '../index.js';
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma = createPrismaClient({ log: ['error', 'warn'] });
 
-function generateToken(): string {
+function _generateToken(): string {
   return randomBytes(32).toString('base64url');
 }
 

@@ -17,9 +17,7 @@ export function App() {
           </header>
           <main>
             <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-              <p className="text-gray-700">
-                Welcome to Conversation Coach. Setup in progress...
-              </p>
+              <p className="text-gray-700">Welcome to Conversation Coach. Setup in progress...</p>
             </div>
           </main>
         </div>

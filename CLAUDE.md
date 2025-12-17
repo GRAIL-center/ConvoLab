@@ -83,6 +83,9 @@ new PrismaClient({ datasourceUrl: process.env.DATABASE_URL })
 ### Session Storage
 Stateless encrypted cookies via `@fastify/secure-session`. No Redis, no database sessions. 7-day expiry.
 
+### Linting & Formatting
+Biome for both linting and formatting. Run `pnpm check` to lint + format.
+
 ## Don't Forget
 
 - Run `pnpm -F @workspace/database generate` after schema changes

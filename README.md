@@ -13,6 +13,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 - **Landing:** Astro 5
 - **Auth:** Google OAuth + invitation links
 - **Monorepo:** pnpm workspaces
+- **Linting:** Biome
 
 ## Project Structure
 

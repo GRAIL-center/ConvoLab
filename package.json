@@ -8,9 +8,13 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "db:migrate": "pnpm -F @workspace/database migrate",
-    "db:studio": "pnpm -F @workspace/database studio"
+    "db:studio": "pnpm -F @workspace/database studio",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.8",
     "concurrently": "^9.2.1",
     "typescript": "^5.9.3"
   }

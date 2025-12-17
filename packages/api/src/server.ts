@@ -1,9 +1,23 @@
-import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import Fastify from 'fastify';
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+// Validate required environment variables in production
+if (!isDev) {
+  const required = ['FRONTEND_URL'];
+  const missing = required.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
 
 const fastify = Fastify({
-  logger: true,
+  logger: {
+    level: isDev ? 'debug' : 'info',
+  },
 });
 
 // Register plugins
@@ -19,17 +33,13 @@ fastify.get('/health', async () => {
   return { status: 'healthy', timestamp: new Date().toISOString() };
 });
 
-// TODO: Register tRPC routes
-// TODO: Register WebSocket handler
-// TODO: Register auth middleware
-
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';
 
     await fastify.listen({ port, host });
-    console.log(`🚀 API server listening on http://${host}:${port}`);
+    fastify.log.info(`API server listening on http://${host}:${port}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
