@@ -34,6 +34,11 @@ export const authRouter = router({
             primary: true,
           },
         },
+        _count: {
+          select: {
+            sessions: true,
+          },
+        },
       },
     });
 
@@ -43,6 +48,11 @@ export const authRouter = router({
       return { user: null, mergedFrom: null };
     }
 
-    return { user, mergedFrom };
+    // Flatten _count for cleaner API
+    const { _count, ...userData } = user;
+    return {
+      user: { ...userData, sessionCount: _count.sessions },
+      mergedFrom,
+    };
   }),
 });

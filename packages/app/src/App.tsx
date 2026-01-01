@@ -1,36 +1,66 @@
-import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider, useTRPC } from './api/trpc';
 import { Invite } from './pages/Invite';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60 * 1000,
-    },
-  },
-});
-
-const trpcClient = createTRPCClient<AppRouter>({
-  links: [
-    httpBatchLink({
-      url: '/trpc',
-      fetch(url, options) {
-        return fetch(url, {
-          ...options,
-          credentials: 'include',
-        });
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,
       },
-    }),
-  ],
-});
+    },
+  });
+}
+
+function makeTRPCClient() {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: '/trpc',
+        fetch(url, options) {
+          return fetch(url, {
+            ...options,
+            credentials: 'include',
+          });
+        },
+      }),
+    ],
+  });
+}
+
+// For client-only apps, we can use module-level singletons
+let browserQueryClient: QueryClient | undefined;
+let browserTRPCClient: ReturnType<typeof makeTRPCClient> | undefined;
+
+function getQueryClient() {
+  if (typeof window === 'undefined') return makeQueryClient();
+  return (browserQueryClient ??= makeQueryClient());
+}
+
+function getTRPCClient() {
+  if (typeof window === 'undefined') return makeTRPCClient();
+  return (browserTRPCClient ??= makeTRPCClient());
+}
 
 function HamburgerIcon() {
   return (
-    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg
+      className="h-6 w-6"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -96,11 +126,20 @@ function HomePage() {
 }
 
 function AdminPanel() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [scenarioId, setScenarioId] = useState<number | ''>('');
   const [presetName, setPresetName] = useState('');
   const [label, setLabel] = useState('');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const trpc = useTRPC();
   const qc = useQueryClient();
@@ -114,7 +153,7 @@ function AdminPanel() {
   const createMutation = useMutation({
     ...trpc.invitation.create.mutationOptions(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [['invitation', 'list']] });
+      qc.invalidateQueries({ queryKey: ['invitation', 'list'] });
       setLabel('');
     },
   });
@@ -135,7 +174,10 @@ function AdminPanel() {
     const url = `${window.location.origin}/invite/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+    copyTimeoutRef.current = setTimeout(() => setCopiedToken(null), 2000);
   };
 
   return (
@@ -143,19 +185,24 @@ function AdminPanel() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 flex items-center justify-between text-left"
+        aria-expanded={isOpen}
+        aria-controls="admin-panel-content"
+        className="w-full px-4 py-3 flex items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
       >
         <span className="font-medium text-amber-900">Admin: Create Invitations</span>
         <span className="text-amber-600">{isOpen ? '▼' : '▶'}</span>
       </button>
 
       {isOpen && (
-        <div className="px-4 pb-4 space-y-4">
+        <div id="admin-panel-content" className="px-4 pb-4 space-y-4">
           {/* Create form */}
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="block text-xs text-amber-700 mb-1">Scenario</label>
+              <label htmlFor="invite-scenario" className="block text-xs text-amber-700 mb-1">
+                Scenario
+              </label>
               <select
+                id="invite-scenario"
                 value={scenarioId}
                 onChange={(e) => setScenarioId(e.target.value ? Number(e.target.value) : '')}
                 className="rounded border-amber-300 text-sm px-2 py-1.5"
@@ -169,8 +216,11 @@ function AdminPanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-amber-700 mb-1">Quota</label>
+              <label htmlFor="invite-quota" className="block text-xs text-amber-700 mb-1">
+                Quota
+              </label>
               <select
+                id="invite-quota"
                 value={effectivePreset}
                 onChange={(e) => setPresetName(e.target.value)}
                 className="rounded border-amber-300 text-sm px-2 py-1.5"
@@ -183,8 +233,11 @@ function AdminPanel() {
               </select>
             </div>
             <div className="flex-1 min-w-[150px]">
-              <label className="block text-xs text-amber-700 mb-1">Label (optional)</label>
+              <label htmlFor="invite-label" className="block text-xs text-amber-700 mb-1">
+                Label (optional)
+              </label>
               <input
+                id="invite-label"
                 type="text"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -203,11 +256,7 @@ function AdminPanel() {
           </div>
 
           {createMutation.error && (
-            <p className="text-sm text-red-600">
-              {createMutation.error instanceof Error
-                ? createMutation.error.message
-                : 'Failed to create invitation'}
-            </p>
+            <p className="text-sm text-red-600">Failed to create invitation. Please try again.</p>
           )}
 
           {/* Invitations list */}
@@ -258,21 +307,35 @@ function AdminPanel() {
 
 function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const trpc = useTRPC();
 
   const { data, isLoading, refetch } = useQuery(trpc.auth.me.queryOptions());
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+  const { user, mergedFrom } = data || {};
+  const isGuest = user?.role === 'GUEST';
+  const hasUsage = (user?.sessionCount ?? 0) > 0;
+
+  const handleLogout = async (unclaim = false) => {
+    const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
+    await fetch(url, { method: 'POST' });
     setIsOpen(false);
+    setShowLogoutConfirm(false);
     refetch();
   };
 
-  const { user, mergedFrom } = data || {};
+  const handleLogoutClick = () => {
+    if (isGuest) {
+      setShowLogoutConfirm(true);
+    } else {
+      handleLogout();
+    }
+  };
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 rounded-md p-2 hover:bg-gray-100"
       >
@@ -290,7 +353,13 @@ function UserMenu() {
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop for click-outside-to-close */}
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => e.key === 'Escape' && setIsOpen(false)}
+            role="presentation"
+          />
           <div className="absolute right-0 z-20 mt-2 w-72 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
             <div className="p-4">
               {mergedFrom && (
@@ -303,32 +372,61 @@ function UserMenu() {
                 <p className="text-gray-500">Loading...</p>
               ) : user ? (
                 <div>
-                  <div className="flex items-center gap-3 border-b pb-3">
-                    {user.avatarUrl && (
-                      <img
-                        src={user.avatarUrl}
-                        alt=""
-                        className="h-10 w-10 rounded-full"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{user.name}</p>
-                      <p className="truncate text-sm text-gray-500">
-                        {user.externalIdentities?.[0]?.email}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 space-y-1 text-xs text-gray-400">
-                    <p>Role: {user.role}</p>
-                    <p>ID: {user.id}</p>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="mt-3 w-full rounded bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200"
-                  >
-                    Sign out
-                  </button>
+                  {isGuest ? (
+                    // Guest user - encourage sign-in
+                    <>
+                      <div className="border-b pb-3">
+                        <p className="font-medium text-gray-900">Guest Session</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Sign in to save your conversations
+                        </p>
+                      </div>
+                      <a
+                        href="/api/auth/google"
+                        className="mt-3 block rounded bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
+                      >
+                        Sign in with Google
+                      </a>
+                      <button
+                        type="button"
+                        onClick={handleLogoutClick}
+                        className="mt-2 w-full text-center text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        or sign out
+                      </button>
+                    </>
+                  ) : (
+                    // Authenticated user
+                    <>
+                      <div className="flex items-center gap-3 border-b pb-3">
+                        {user.avatarUrl && (
+                          <img
+                            src={user.avatarUrl}
+                            alt=""
+                            className="h-10 w-10 rounded-full"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{user.name}</p>
+                          <p className="truncate text-sm text-gray-500">
+                            {user.externalIdentities?.[0]?.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-gray-400">
+                        <p>Role: {user.role}</p>
+                        <p>ID: {user.id}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleLogout()}
+                        className="mt-3 w-full rounded bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200"
+                      >
+                        Sign out
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -345,11 +443,85 @@ function UserMenu() {
           </div>
         </>
       )}
+
+      {/* Guest logout confirmation dialog */}
+      {showLogoutConfirm && (
+        <>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop for click-outside-to-close */}
+          <div
+            className="fixed inset-0 z-30 bg-black bg-opacity-50"
+            onClick={() => setShowLogoutConfirm(false)}
+            onKeyDown={(e) => e.key === 'Escape' && setShowLogoutConfirm(false)}
+            role="presentation"
+          />
+          <div className="fixed left-1/2 top-1/2 z-40 w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl">
+            {hasUsage ? (
+              // Guest with conversations - warn about data loss
+              <>
+                <h3 className="font-semibold text-gray-900">You have conversations</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Signing out will lose your conversation history. Sign in with Google to keep it.
+                </p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <a
+                    href="/api/auth/google"
+                    className="rounded bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
+                  >
+                    Sign in with Google
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleLogout(false)}
+                    className="rounded bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                  >
+                    Sign out anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Guest with no usage - offer to unclaim invitation
+              <>
+                <h3 className="font-semibold text-gray-900">Sign out?</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  You haven't started any conversations yet. The invitation link will still work
+                  after you sign out.
+                </p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLogout(true)}
+                    className="rounded bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                  >
+                    Sign out
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 export function App() {
+  const queryClient = getQueryClient();
+  const trpcClient = getTRPCClient();
+
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>

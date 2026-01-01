@@ -1,10 +1,11 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   const {
     data: invitation,
@@ -19,6 +20,9 @@ export function Invite() {
   const claimMutation = useMutation({
     ...trpc.invitation.claim.mutationOptions(),
     onSuccess: (data) => {
+      // Invalidate auth query so UserMenu updates to show guest state
+      queryClient.invalidateQueries({ queryKey: [['auth', 'me']] });
+
       // TODO: Navigate to conversation page when it exists
       // For now, just show success state
       if (data.invitation.scenario) {
@@ -117,9 +121,7 @@ export function Invite() {
 
         {claimMutation.error && (
           <p className="mt-3 text-center text-sm text-red-600">
-            {claimMutation.error instanceof Error
-              ? claimMutation.error.message
-              : 'Failed to start conversation'}
+            Failed to start conversation. Please try again.
           </p>
         )}
 
