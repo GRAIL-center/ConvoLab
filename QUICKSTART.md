@@ -19,9 +19,8 @@ That's it! Everything else runs in containers.
 ```bash
 brew install go-task/tap/go-task  # Install Task (macOS)
 task setup                        # Create .env
-# Edit .env and add ANTHROPIC_API_KEY
-task up:bg                        # Start services
-task migrate                      # Initialize database
+# Edit .env and add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+task up:bg                        # Start services (auto-migrates)
 task status                       # Verify running
 # Open http://localhost:5173
 ```
@@ -55,21 +54,12 @@ This will:
 - Start PostgreSQL 17 database
 - Build and start the API server (Fastify 5 + tRPC 11)
 - Build and start the React 19 app (Vite 7)
+- **Auto-run database migrations** on API startup
 - Enable hot reloading (edit code and see changes live!)
 
 **First-time setup takes 3-5 minutes** to build images and install dependencies.
 
-### 3. Run Database Migrations
-
-In another terminal:
-
-```bash
-docker compose exec api sh -c "cd packages/database && pnpm migrate"
-```
-
-This creates tables and runs the seed script to add sample scenarios.
-
-### 4. Open in Browser
+### 3. Open in Browser
 
 - **React app:** http://localhost:5173
 - **API health check:** http://localhost:3000/health
@@ -198,10 +188,10 @@ See original README for details.
 
 ## What's Next?
 
-The scaffold is ready but core features need implementation:
+Auth is done. Core features still need implementation:
 
-1. **Authentication** - Google OAuth + invitations in `packages/api/src/`
-2. **tRPC routers** - CRUD endpoints in `packages/api/src/trpc/routers/`
+1. **tRPC routers** - CRUD endpoints in `packages/api/src/trpc/routers/`
+2. **Invitation system** - Magic links with quotas
 3. **WebSocket handler** - Dual AI streaming in `packages/api/src/websockets/`
 4. **React UI** - Conversation interface in `packages/app/src/`
 

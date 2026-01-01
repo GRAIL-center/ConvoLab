@@ -1,28 +1,50 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { useState } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import type { AppRouter } from './api/trpc';
+import { TRPCProvider, useTRPC } from './api/trpc';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+    },
+  },
+});
+
+const trpcClient = createTRPCClient<AppRouter>({
+  links: [
+    httpBatchLink({
+      url: '/trpc',
+      fetch(url, options) {
+        return fetch(url, {
+          ...options,
+          credentials: 'include',
+        });
+      },
+    }),
+  ],
+});
 
 function HamburgerIcon() {
   return (
     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6h16M4 12h16M4 18h16"
+      />
     </svg>
   );
 }
 
 function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const trpc = useTRPC();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: async () => {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    },
-  });
+  const { data, isLoading, refetch } = useQuery(trpc.auth.me.queryOptions());
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -39,7 +61,12 @@ function UserMenu() {
         className="flex items-center gap-2 rounded-md p-2 hover:bg-gray-100"
       >
         {user?.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
+          <img
+            src={user.avatarUrl}
+            alt=""
+            className="h-8 w-8 rounded-full"
+            referrerPolicy="no-referrer"
+          />
         ) : (
           <HamburgerIcon />
         )}
@@ -62,7 +89,12 @@ function UserMenu() {
                 <div>
                   <div className="flex items-center gap-3 border-b pb-3">
                     {user.avatarUrl && (
-                      <img src={user.avatarUrl} alt="" className="h-10 w-10 rounded-full" referrerPolicy="no-referrer" />
+                      <img
+                        src={user.avatarUrl}
+                        alt=""
+                        className="h-10 w-10 rounded-full"
+                        referrerPolicy="no-referrer"
+                      />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{user.name}</p>
@@ -104,23 +136,25 @@ function UserMenu() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="min-h-screen bg-gray-50">
-          <header className="bg-white shadow">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                Conversation Coach
-              </h1>
-              <UserMenu />
-            </div>
-          </header>
-          <main>
-            <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-              <p className="text-gray-600">Select a scenario to begin practicing.</p>
-            </div>
-          </main>
-        </div>
-      </BrowserRouter>
+      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+        <BrowserRouter>
+          <div className="min-h-screen bg-gray-50">
+            <header className="bg-white shadow">
+              <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                  Conversation Coach
+                </h1>
+                <UserMenu />
+              </div>
+            </header>
+            <main>
+              <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+                <p className="text-gray-600">Select a scenario to begin practicing.</p>
+              </div>
+            </main>
+          </div>
+        </BrowserRouter>
+      </TRPCProvider>
     </QueryClientProvider>
   );
 }

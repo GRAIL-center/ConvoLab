@@ -66,54 +66,6 @@ async function authRoutes(fastify: FastifyInstance) {
     request.session.delete();
     return { success: true };
   });
-
-  // Get current user
-  fastify.get('/api/auth/me', async (request: FastifyRequest, _reply: FastifyReply) => {
-    const userId = request.session.get('userId');
-    const mergedFrom = request.session.get('mergedFrom');
-
-    // Clear the merge notification after reading
-    if (mergedFrom) {
-      request.session.set('mergedFrom', undefined);
-    }
-
-    if (!userId) {
-      return { user: null, mergedFrom: null };
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        avatarUrl: true,
-        role: true,
-        isStaff: true,
-        externalIdentities: {
-          select: {
-            provider: true,
-            email: true,
-          },
-        },
-        contactMethods: {
-          select: {
-            type: true,
-            value: true,
-            verified: true,
-            primary: true,
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      // User was deleted, clear session
-      request.session.delete();
-      return { user: null, mergedFrom: null };
-    }
-
-    return { user, mergedFrom };
-  });
 }
 
 export default authRoutes;

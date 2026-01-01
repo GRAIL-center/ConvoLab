@@ -1,10 +1,13 @@
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import Fastify from 'fastify';
 
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
+import { createContext } from './trpc/context.js';
+import { type AppRouter, appRouter } from './trpc/router.js';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -37,6 +40,18 @@ if (process.env.SESSION_KEY) {
   await fastify.register(sessionPlugin);
   await fastify.register(oauthPlugin);
   await fastify.register(authRoutes);
+
+  // tRPC (requires session for context)
+  await fastify.register(fastifyTRPCPlugin, {
+    prefix: '/trpc',
+    trpcOptions: {
+      router: appRouter,
+      createContext,
+      onError({ path, error }) {
+        fastify.log.error({ path, error: error.message }, 'tRPC error');
+      },
+    } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
+  });
 } else if (isDev) {
   fastify.log.warn('SESSION_KEY not set - auth disabled for development');
 }
