@@ -19,7 +19,6 @@ export interface CurrentUser {
   name: string | null;
   avatarUrl: string | null;
   role: string;
-  isStaff: boolean;
   externalIdentities: Array<{
     provider: string;
     email: string | null;

@@ -54,7 +54,7 @@ describe('mergeUsers', () => {
   it('moves Invitation.linkedUserId from source to target user', async () => {
     const sourceUser = await testPrisma.user.create({ data: { role: 'GUEST' } });
     const targetUser = await testPrisma.user.create({ data: { role: 'USER' } });
-    const inviter = await testPrisma.user.create({ data: { role: 'ADMIN', isStaff: true } });
+    const inviter = await testPrisma.user.create({ data: { role: 'ADMIN' } });
 
     // Create invitation linked to source user
     const invitation = await createTestInvitation(testPrisma, inviter.id, sourceUser.id, 1);
@@ -72,7 +72,7 @@ describe('mergeUsers', () => {
 
     const sourceUser = await testPrisma.user.create({ data: { role: 'GUEST' } });
     const targetUser = await testPrisma.user.create({ data: { role: 'USER' } });
-    const inviter = await testPrisma.user.create({ data: { role: 'ADMIN', isStaff: true } });
+    const inviter = await testPrisma.user.create({ data: { role: 'ADMIN' } });
 
     // Create invitation (required for ObservationNote)
     const invitation = await createTestInvitation(testPrisma, inviter.id, undefined, 2);

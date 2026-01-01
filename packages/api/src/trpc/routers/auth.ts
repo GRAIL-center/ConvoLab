@@ -20,7 +20,6 @@ export const authRouter = router({
         name: true,
         avatarUrl: true,
         role: true,
-        isStaff: true,
         externalIdentities: {
           select: {
             provider: true,

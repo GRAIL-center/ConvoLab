@@ -56,7 +56,6 @@ async function main() {
       id: TEST_ADMIN_ID,
       name: 'Test Admin',
       role: Role.ADMIN,
-      isStaff: true,
     },
   });
 

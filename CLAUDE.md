@@ -14,8 +14,19 @@ Progressive auth with OAuth + invitations:
 - **ExternalIdentity**: Separate table. Supports multiple OAuth accounts per user (e.g., personal + work Google).
 - **ContactMethod**: Separate table for email/phone/whatsapp. One primary per type. Not used for auth, just contact info.
 - **Merge**: If anonymous user authenticates with OAuth already linked elsewhere, their data auto-merges into existing user. Frontend gets `mergedFrom` flag to show notification.
+- **Admin bootstrap**: Set `ADMIN_EMAILS=user@example.com,other@example.com` env var. Users with those emails get `role=ADMIN` on OAuth login. Idempotent; removing email does NOT revoke (avoids lockouts).
 
-Auth code: `packages/api/src/routes/auth.ts`
+Auth code: `packages/api/src/auth/handlers.ts`
+
+### Role Permissions
+| Role | Create Invitations | Observation Notes | Designate STAFF |
+|------|-------------------|-------------------|-----------------|
+| ADMIN | ✓ | ✓ | ✓ |
+| STAFF | ✓ | ✓ | ✗ |
+| USER | ✗ | ✗ | ✗ |
+| GUEST | ✗ | ✗ | ✗ |
+
+STAFF = researchers who run user testing sessions. ADMIN = full system access.
 
 ### Implementation Plans Live in `docs/plans/`
 Remaining phases:
@@ -121,4 +132,4 @@ Biome for both linting and formatting. Run `pnpm check` to lint + format.
 
 - Run `pnpm -F @workspace/database generate` after schema changes
 - The `docs/plans/schema-reference.md` has the full target Prisma schema
-- Current branch is `realtime-typesafe`, not `main`
+- Working branches are based on `realtime-typesafe`, not `main` (PRs go to GitHub for Copilot review)

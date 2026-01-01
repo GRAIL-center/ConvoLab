@@ -14,7 +14,7 @@ datasource db {
 enum Role {
   GUEST
   USER
-  POWER_USER
+  STAFF
   ADMIN
 }
 
@@ -30,7 +30,6 @@ model User {
   name      String?
   avatarUrl String?
   role      Role     @default(GUEST)
-  isStaff   Boolean  @default(false)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

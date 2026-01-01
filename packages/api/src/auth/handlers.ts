@@ -222,6 +222,21 @@ export async function handleGoogleAuth(
     }
   }
 
+  // Check if user should be promoted to ADMIN based on ADMIN_EMAILS env var.
+  // This runs on every login (idempotent) so adding an email to the env var
+  // promotes them on next login. Removing does NOT revoke (avoids lockouts).
+  const adminEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (adminEmails.includes(userInfo.email.toLowerCase()) && user.role !== 'ADMIN') {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { role: 'ADMIN' },
+    });
+  }
+
   // Upsert email as ContactMethod (verified since it comes from Google).
   // Note: OAuth providers are authoritative for email ownership. If another user
   // manually added this email (unverified), it transfers to the authenticated owner.

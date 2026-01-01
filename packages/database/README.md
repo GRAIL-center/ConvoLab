@@ -66,7 +66,7 @@ Prisma 7's new pattern:
 - `email` - Unique email address
 - `name` - Display name
 - `googleId` - Google OAuth identity
-- `role` - GUEST | USER | POWER_USER | ADMIN
+- `role` - GUEST | USER | STAFF | ADMIN
 - `sessions` - One-to-many relationship with ConversationSession
 
 **Scenario** - Conversation templates
