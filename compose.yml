@@ -33,8 +33,10 @@ services:
       HOST: 0.0.0.0
       NODE_ENV: development
       FRONTEND_URL: http://localhost:5173
-      AUTH_METHOD: email
-      SESSION_SECRET: dev-secret-change-in-production
+      SESSION_KEY: ${SESSION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     volumes:
       # Mount source for hot reloading

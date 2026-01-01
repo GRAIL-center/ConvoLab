@@ -23,11 +23,20 @@ async function oauth(fastify: FastifyInstance) {
         secret: clientSecret,
       },
     },
-    startRedirectPath: '/api/auth/google',
+    // Don't use startRedirectPath - we'll create custom route with prompt param
     callbackUri: callbackUrl,
     discovery: {
       issuer: 'https://accounts.google.com',
     },
+  });
+
+  // Custom auth start route that adds prompt=select_account
+  fastify.get('/api/auth/google', async (request, reply) => {
+    const authUrl = await fastify.googleOAuth2!.generateAuthorizationUri(request, reply);
+    // Add prompt parameter to show account picker
+    const url = new URL(authUrl);
+    url.searchParams.set('prompt', 'select_account');
+    return reply.redirect(url.toString());
   });
 }
 

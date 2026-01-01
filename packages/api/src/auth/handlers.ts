@@ -225,16 +225,31 @@ export async function handleGoogleAuth(
   // Upsert email as ContactMethod (verified since it comes from Google).
   // Note: OAuth providers are authoritative for email ownership. If another user
   // manually added this email (unverified), it transfers to the authenticated owner.
-  await prisma.contactMethod.upsert({
-    where: { type_value: { type: 'email', value: userInfo.email } },
-    update: { verified: true, primary: true, userId: user.id },
-    create: {
-      userId: user.id,
-      type: 'email',
-      value: userInfo.email,
-      verified: true,
-      primary: true,
-    },
+  // Use transaction to ensure only one email ContactMethod is marked primary.
+  await prisma.$transaction(async (tx) => {
+    // Clear primary flag from other email contact methods for this user
+    await tx.contactMethod.updateMany({
+      where: {
+        userId: user.id,
+        type: 'email',
+        primary: true,
+        NOT: { value: userInfo.email },
+      },
+      data: { primary: false },
+    });
+
+    // Upsert the Google email as verified and primary
+    await tx.contactMethod.upsert({
+      where: { type_value: { type: 'email', value: userInfo.email } },
+      update: { verified: true, primary: true, userId: user.id },
+      create: {
+        userId: user.id,
+        type: 'email',
+        value: userInfo.email,
+        verified: true,
+        primary: true,
+      },
+    });
   });
 
   return { user, mergedFrom };
