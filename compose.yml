@@ -38,6 +38,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
     volumes:
       # Mount source for hot reloading
       - ./packages/api/src:/app/packages/api/src
