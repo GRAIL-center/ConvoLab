@@ -44,12 +44,14 @@ let browserTRPCClient: ReturnType<typeof makeTRPCClient> | undefined;
 
 function getQueryClient() {
   if (typeof window === 'undefined') return makeQueryClient();
-  return (browserQueryClient ??= makeQueryClient());
+  if (!browserQueryClient) browserQueryClient = makeQueryClient();
+  return browserQueryClient;
 }
 
 function getTRPCClient() {
   if (typeof window === 'undefined') return makeTRPCClient();
-  return (browserTRPCClient ??= makeTRPCClient());
+  if (!browserTRPCClient) browserTRPCClient = makeTRPCClient();
+  return browserTRPCClient;
 }
 
 function HamburgerIcon() {

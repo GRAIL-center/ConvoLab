@@ -29,7 +29,7 @@ export function Invite() {
     ...trpc.invitation.claim.mutationOptions(),
     onSuccess: (data) => {
       // Invalidate auth query so UserMenu updates to show guest state
-      queryClient.invalidateQueries({ queryKey: [['auth', 'me']] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
 
       // TODO: Navigate to conversation page when it exists
       // For now, just show success state
@@ -60,13 +60,11 @@ export function Invite() {
   }
 
   if (error) {
-    const message =
-      error instanceof Error ? error.message : 'This invitation is invalid or has expired.';
     return (
       <div className="mx-auto max-w-lg px-4 py-12">
         <div className="rounded-lg bg-red-50 p-6 text-center">
           <h2 className="text-lg font-medium text-red-800">Invalid Invitation</h2>
-          <p className="mt-2 text-red-600">{message}</p>
+          <p className="mt-2 text-red-600">This invitation is invalid or has expired.</p>
         </div>
       </div>
     );
@@ -84,8 +82,8 @@ export function Invite() {
     const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
     await fetch(url, { method: 'POST' });
     setShowSignOutConfirm(false);
-    queryClient.invalidateQueries({ queryKey: [['auth', 'me']] });
-    queryClient.invalidateQueries({ queryKey: [['invitation', 'validate']] });
+    queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    queryClient.invalidateQueries({ queryKey: ['invitation', 'validate'] });
   };
 
   return (
@@ -156,8 +154,8 @@ export function Invite() {
                 className="hover:text-gray-600 underline"
               >
                 Sign out
-              </button>
-              {' '}to free up this invitation
+              </button>{' '}
+              to free up this invitation
             </p>
           )}
         </div>
@@ -166,6 +164,8 @@ export function Invite() {
       {/* Sign out confirmation dialog */}
       {showSignOutConfirm && (
         <>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop for click-outside-to-close */}
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: escape handled by dialog */}
           <div
             className="fixed inset-0 z-30 bg-black bg-opacity-50"
             onClick={() => setShowSignOutConfirm(false)}
