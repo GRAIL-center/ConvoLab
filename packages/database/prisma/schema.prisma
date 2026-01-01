@@ -19,16 +19,21 @@ enum Role {
   ADMIN
 }
 
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
 // ============================================
 // USER & AUTH
 // ============================================
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
+  name      String?
   avatarUrl String?
-  googleId  String?  @unique
   role      Role     @default(GUEST)
   isStaff   Boolean  @default(false)
 
@@ -36,10 +41,44 @@ model User {
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
 
+  externalIdentities ExternalIdentity[]
+  contactMethods     ContactMethod[]
   sessions           ConversationSession[]
   invitationsCreated Invitation[]          @relation("CreatedInvitations")
   invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
+}
+
+model ContactMethod {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String  // "email", "phone", "whatsapp", etc.
+  value    String
+  verified Boolean @default(false)
+  primary  Boolean @default(false) // Primary within this type
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, value])
+  @@index([userId])
+  @@index([userId, type])
+}
+
+model ExternalIdentity {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String  // "google", "github", "apple", etc.
+  externalId String  // Provider's unique ID (e.g., Google's `sub`)
+  email      String? // Email from this provider (informational)
+
+  createdAt DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@index([userId])
+  @@index([userId, provider])
 }
 
 model Invitation {
@@ -116,7 +155,7 @@ model ConversationSession {
   scenarioId Int
   scenario   Scenario @relation(fields: [scenarioId], references: [id])
 
-  status          String    @default("active") // SessionStatus: "active" | "paused" | "completed" | "abandoned"
+  status          SessionStatus @default(ACTIVE)
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
   totalMessages   Int       @default(0)

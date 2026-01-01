@@ -6,30 +6,34 @@ Dual-stream AI conversation practice app: user talks to a simulated "dialog part
 
 ## Key Context From Recent Sessions
 
-### Auth Pivot (December 2024)
-**Original plan**: Passport.js with email/password + Purdue SAML SSO.
-**New plan**: Google OAuth + invitation links with quotas.
+### Auth Model
+Progressive auth with OAuth + invitations:
 
-**Why**: Purdue IT is in a multi-year security lockdown after major incidents. SAML integration would take months of administrative hurdles. Cloud-first prototyping is faster.
+- **Anonymous users**: User record with no ExternalIdentity, role=GUEST. Created when opening invitation link.
+- **Authenticated users**: User with ExternalIdentity (Google, etc.), role>=USER
+- **ExternalIdentity**: Separate table. Supports multiple OAuth accounts per user (e.g., personal + work Google).
+- **ContactMethod**: Separate table for email/phone/whatsapp. One primary per type. Not used for auth, just contact info.
+- **Merge**: If anonymous user authenticates with OAuth already linked elsewhere, their data auto-merges into existing user. Frontend gets `mergedFrom` flag to show notification.
 
-The docs have been updated but git history still has SAML/Passport references. Ignore those.
+Auth code: `packages/api/src/routes/auth.ts`
 
 ### Implementation Plans Live in `docs/plans/`
 Not in the architecture doc. The phase files are the source of truth:
 - `00-doc-cleanup.md` - Done
-- `01-database-schema.md` - Next
-- `02-session-oauth.md`
-- `03-trpc-foundation.md`
+- `01-database-schema.md` - Done
+- `02-session-oauth.md` - Done
+- `03-trpc-foundation.md` - Next
 - `04-invitation-system.md`
 - `05-frontend-auth.md`
-- `schema-reference.md` - Full Prisma schema for copy/paste
+- `schema-reference.md` - Current Prisma schema
+- `testing-auth.md` - Auth testing strategy
 
-### Invitation Model (Not "Magic Links")
+### Invitation Model
+- Opening invitation creates anonymous User immediately (for session continuity)
 - Single-user, multi-session (one person can have multiple conversations)
 - Absolute token quota (not daily limits) - once exhausted, it's gone
-- Quota stored as JSON for flexibility: `{ tokens: 25000, label: "Short conversation" }`
-- Progressive auth: guests can use invitations without login, but get nudged to link Google account
-- Eventually can require auth for invitation to keep working
+- Quota stored as JSON: `{ tokens: 25000, label: "Short conversation" }`
+- User can link OAuth later without losing session data
 
 ### Quota Presets
 Inviter picks from admin-defined presets like:
@@ -82,6 +86,18 @@ new PrismaClient({ datasourceUrl: process.env.DATABASE_URL })
 
 ### Session Storage
 Stateless encrypted cookies via `@fastify/secure-session`. No Redis, no database sessions. 7-day expiry.
+
+### Ports & Routing
+Everything through frontend origin. Vite proxies `/api/*` and `/ws/*` to API.
+
+| Service | Dev Port | URL |
+|---------|----------|-----|
+| Frontend | 5173 | `http://localhost:5173` |
+| API | 3000 | Accessed via Vite proxy |
+
+Google OAuth configured for `http://localhost:5173` origin. Callback at `/api/auth/google/callback` (proxied).
+
+Production: same pattern - single origin, path-based routing to services.
 
 ### Linting & Formatting
 Biome for both linting and formatting. Run `pnpm check` to lint + format.
