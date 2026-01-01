@@ -18,15 +18,12 @@ Progressive auth with OAuth + invitations:
 Auth code: `packages/api/src/routes/auth.ts`
 
 ### Implementation Plans Live in `docs/plans/`
-Not in the architecture doc. The phase files are the source of truth:
-- `00-doc-cleanup.md` - Done
-- `01-database-schema.md` - Done
-- `02-session-oauth.md` - Done
+Remaining phases:
 - `03-trpc-foundation.md` - Next
 - `04-invitation-system.md`
-- `05-frontend-auth.md`
+- `05-frontend-auth.md` - Partially done (UserMenu exists)
+- `06-user-testing.md`
 - `schema-reference.md` - Current Prisma schema
-- `testing-auth.md` - Auth testing strategy
 
 ### Invitation Model
 - Opening invitation creates anonymous User immediately (for session continuity)
