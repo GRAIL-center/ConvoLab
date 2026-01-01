@@ -14,6 +14,10 @@ export default defineConfig({
         target: `http://${apiHost}`,
         changeOrigin: true,
       },
+      '/trpc': {
+        target: `http://${apiHost}`,
+        changeOrigin: true,
+      },
       '/ws': {
         target: `ws://${apiHost}`,
         ws: true,

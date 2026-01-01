@@ -35,11 +35,10 @@ brew install go-task/tap/go-task
 
 # 2. Setup
 task setup          # Creates .env
-# Edit .env: add ANTHROPIC_API_KEY
+# Edit .env: add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
 # 3. Start
-task up:bg          # Start containers
-task migrate        # Create tables + seed
+task up:bg          # Start containers (auto-migrates)
 
 # 4. Open http://localhost:5173
 ```
@@ -63,12 +62,14 @@ Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimenta
 
 ### Done
 - [x] Project structure + Docker setup
-- [x] Prisma schema (basic)
+- [x] Prisma schema (auth + conversations)
 - [x] Taskfile automation
+- [x] Google OAuth + sessions
+- [x] Auto-migrate on Docker startup
+- [x] tRPC foundation (auth, scenario routers)
 
 ### In Progress
-- [ ] Auth (Google OAuth + invitations)
-- [ ] tRPC routers
+- [ ] Invitation system (magic links with quotas)
 - [ ] WebSocket handler (dual AI streaming)
 
 ### Future

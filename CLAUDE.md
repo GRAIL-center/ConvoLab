@@ -19,8 +19,7 @@ Auth code: `packages/api/src/routes/auth.ts`
 
 ### Implementation Plans Live in `docs/plans/`
 Remaining phases:
-- `03-trpc-foundation.md` - Next
-- `04-invitation-system.md`
+- `04-invitation-system.md` - Next
 - `05-frontend-auth.md` - Partially done (UserMenu exists)
 - `06-user-testing.md`
 - `schema-reference.md` - Current Prisma schema
@@ -64,7 +63,14 @@ Priority: Get something testable in front of real users quickly.
 origin  → github.itap.purdue.edu (Purdue internal)
 github  → github.com/GRAIL-center (public)
 ```
-Push to both: `git push origin <branch> && git push github <branch>`
+
+**PR workflow**: Create PRs on `github` first to get Copilot review, then push to `origin` after merge.
+```bash
+git push github <branch>
+gh pr create --repo GRAIL-center/ai-dialogues
+# After merge:
+git push origin <branch> && git push github <branch>
+```
 
 ### Monorepo Structure
 ```
@@ -95,6 +101,18 @@ Everything through frontend origin. Vite proxies `/api/*` and `/ws/*` to API.
 Google OAuth configured for `http://localhost:5173` origin. Callback at `/api/auth/google/callback` (proxied).
 
 Production: same pattern - single origin, path-based routing to services.
+
+### tRPC Pattern
+Uses the new TanStack React Query integration (`@trpc/tanstack-react-query`) with
+`useTRPC()` + `queryOptions()` pattern, not the classic `@trpc/react-query`.
+
+```typescript
+// Frontend usage
+const trpc = useTRPC();
+const { data } = useQuery(trpc.auth.me.queryOptions());
+```
+
+tRPC endpoint: `/trpc`. Procedures: `publicProcedure`, `protectedProcedure`, `adminProcedure`.
 
 ### Linting & Formatting
 Biome for both linting and formatting. Run `pnpm check` to lint + format.
