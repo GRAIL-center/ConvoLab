@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
@@ -6,6 +7,13 @@ export function Invite() {
   const { token } = useParams<{ token: string }>();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+
+  // Get current user to show appropriate sign-out messaging
+  const { data: authData } = useQuery(trpc.auth.me.queryOptions());
+  const user = authData?.user;
+  const isGuest = user?.role === 'GUEST';
+  const hasUsage = (user?.sessionCount ?? 0) > 0;
 
   const {
     data: invitation,
@@ -72,6 +80,14 @@ export function Invite() {
     claimMutation.mutate({ token });
   };
 
+  const handleSignOut = async (unclaim = false) => {
+    const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
+    await fetch(url, { method: 'POST' });
+    setShowSignOutConfirm(false);
+    queryClient.invalidateQueries({ queryKey: [['auth', 'me']] });
+    queryClient.invalidateQueries({ queryKey: [['invitation', 'validate']] });
+  };
+
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
       <div className="rounded-lg bg-white p-6 shadow-lg">
@@ -125,15 +141,92 @@ export function Invite() {
           </p>
         )}
 
-        <div className="mt-6 border-t pt-4">
+        <div className="mt-6 border-t pt-4 space-y-2">
           <p className="text-center text-sm text-gray-500">
             Want to save your progress?{' '}
             <a href="/api/auth/google" className="text-blue-600 hover:underline">
               Sign in with Google
             </a>
           </p>
+          {isGuest && (
+            <p className="text-center text-xs text-gray-400">
+              <button
+                type="button"
+                onClick={() => setShowSignOutConfirm(true)}
+                className="hover:text-gray-600 underline"
+              >
+                Sign out
+              </button>
+              {' '}to free up this invitation
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Sign out confirmation dialog */}
+      {showSignOutConfirm && (
+        <>
+          <div
+            className="fixed inset-0 z-30 bg-black bg-opacity-50"
+            onClick={() => setShowSignOutConfirm(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 z-40 w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl">
+            {hasUsage ? (
+              <>
+                <h3 className="font-semibold text-gray-900">You have conversations</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Signing out will lose your conversation history. Sign in with Google to keep it.
+                </p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <a
+                    href="/api/auth/google"
+                    className="rounded bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
+                  >
+                    Sign in with Google
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleSignOut(false)}
+                    className="rounded bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                  >
+                    Sign out anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignOutConfirm(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-gray-900">Sign out?</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  The invitation link will still work after you sign out.
+                </p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSignOut(true)}
+                    className="rounded bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                  >
+                    Sign out
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignOutConfirm(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
