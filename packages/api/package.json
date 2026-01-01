@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:docker": "pnpm -F @workspace/database migrate:deploy && pnpm dev",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest",

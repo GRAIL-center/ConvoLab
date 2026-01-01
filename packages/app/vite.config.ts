@@ -1,6 +1,9 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+// API host: 'localhost:3000' for local dev, 'api:3000' when running in Docker
+const apiHost = process.env.API_HOST ?? 'localhost:3000';
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -8,11 +11,11 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://api:3000',
+        target: `http://${apiHost}`,
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://api:3000',
+        target: `ws://${apiHost}`,
         ws: true,
       },
     },

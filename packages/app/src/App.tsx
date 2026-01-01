@@ -39,7 +39,7 @@ function UserMenu() {
         className="flex items-center gap-2 rounded-md p-2 hover:bg-gray-100"
       >
         {user?.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full" />
+          <img src={user.avatarUrl} alt="" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
         ) : (
           <HamburgerIcon />
         )}
@@ -62,7 +62,7 @@ function UserMenu() {
                 <div>
                   <div className="flex items-center gap-3 border-b pb-3">
                     {user.avatarUrl && (
-                      <img src={user.avatarUrl} alt="" className="h-10 w-10 rounded-full" />
+                      <img src={user.avatarUrl} alt="" className="h-10 w-10 rounded-full" referrerPolicy="no-referrer" />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{user.name}</p>

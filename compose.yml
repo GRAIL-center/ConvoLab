@@ -60,6 +60,7 @@ services:
     ports:
       - "5173:5173"
     environment:
+      API_HOST: api:3000
       VITE_API_URL: http://localhost:3000
     volumes:
       # Mount source for hot reloading
