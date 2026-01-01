@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { publicProcedure, router } from '../procedures.js';
 
@@ -28,6 +29,9 @@ export const scenarioRouter = router({
         partnerPersona: true,
       },
     });
+    if (!scenario) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Scenario not found' });
+    }
     return scenario;
   }),
 });

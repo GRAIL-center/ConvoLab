@@ -66,9 +66,10 @@ Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimenta
 - [x] Taskfile automation
 - [x] Google OAuth + sessions
 - [x] Auto-migrate on Docker startup
+- [x] tRPC foundation (auth, scenario routers)
 
 ### In Progress
-- [ ] tRPC routers
+- [ ] Invitation system (magic links with quotas)
 - [ ] WebSocket handler (dual AI streaming)
 
 ### Future
