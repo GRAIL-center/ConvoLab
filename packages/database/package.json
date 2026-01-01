@@ -2,6 +2,7 @@
   "name": "@workspace/database",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./index.ts",
   "types": "./index.ts",
   "scripts": {
@@ -15,12 +16,12 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.1.0",
-    "@prisma/client": "^7.1.0",
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
-    "prisma": "^7.1.0",
+    "prisma": "^7.2.0",
     "tsx": "^4.21.0"
   }
 }

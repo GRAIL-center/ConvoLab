@@ -1,6 +1,6 @@
 # Schema Reference
 
-Full Prisma schema for Phase 1. Copy/paste ready.
+Current Prisma schema. Source of truth is `packages/database/prisma/schema.prisma`.
 
 ```prisma
 generator client {
@@ -11,10 +11,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================================
-// ENUMS
-// ============================================
-
 enum Role {
   GUEST
   USER
@@ -22,16 +18,17 @@ enum Role {
   ADMIN
 }
 
-// ============================================
-// USER & AUTH
-// ============================================
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
+  name      String?
   avatarUrl String?
-  googleId  String?  @unique
   role      Role     @default(GUEST)
   isStaff   Boolean  @default(false)
 
@@ -39,18 +36,50 @@ model User {
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
 
+  externalIdentities ExternalIdentity[]
+  contactMethods     ContactMethod[]
   sessions           ConversationSession[]
   invitationsCreated Invitation[]          @relation("CreatedInvitations")
   invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
+}
 
-  @@index([googleId])
+model ContactMethod {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String  // "email", "phone", "whatsapp", etc.
+  value    String
+  verified Boolean @default(false)
+  primary  Boolean @default(false) // Primary within this type
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, value])
+  @@index([userId])
+  @@index([userId, type])
+}
+
+model ExternalIdentity {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String  // "google", "github", "apple", etc.
+  externalId String  // Provider's unique ID (e.g., Google's `sub`)
+  email      String? // Email from this provider (informational)
+
+  createdAt DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@index([userId])
+  @@index([userId, provider])
 }
 
 model Invitation {
   id       String @id @default(cuid())
   token    String @unique
-  label    String? // Researcher reference: "Participant #7", "Quad test 1"
+  label    String?
 
   scenarioId Int?
   scenario   Scenario? @relation(fields: [scenarioId], references: [id])
@@ -70,7 +99,6 @@ model Invitation {
   sessions         ConversationSession[]
   observationNotes ObservationNote[]
 
-  @@index([token])
   @@index([expiresAt])
 }
 
@@ -86,10 +114,6 @@ model QuotaPreset {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-// ============================================
-// SCENARIOS & CONVERSATIONS
-// ============================================
 
 model Scenario {
   id          Int    @id @default(autoincrement())
@@ -122,7 +146,7 @@ model ConversationSession {
   scenarioId Int
   scenario   Scenario @relation(fields: [scenarioId], references: [id])
 
-  status          String    @default("active")
+  status          SessionStatus @default(ACTIVE)
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
   totalMessages   Int       @default(0)
@@ -151,10 +175,6 @@ model Message {
   @@index([sessionId])
 }
 
-// ============================================
-// USAGE TRACKING
-// ============================================
-
 model UsageLog {
   id String @id @default(cuid())
 
@@ -173,10 +193,6 @@ model UsageLog {
   @@index([invitationId, timestamp])
   @@index([timestamp])
 }
-
-// ============================================
-// USER TESTING
-// ============================================
 
 model ObservationNote {
   id           String   @id @default(cuid())
@@ -198,21 +214,11 @@ model ObservationNote {
 }
 ```
 
-## Env for Prisma 7
+## Auth Model
 
-```typescript
-// packages/database/index.ts
-import { PrismaClient } from '@prisma/client';
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL,
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-export * from '@prisma/client';
-```
+- **Anonymous users**: User record with no ExternalIdentity, role=GUEST
+- **Authenticated users**: User record with ExternalIdentity, role>=USER
+- **External identities**: Separate table, supports multiple Google accounts per user, easy to add GitHub/Apple/etc.
+- **Contact methods**: Separate table, supports email/phone/whatsapp/etc., one primary per type
+- **Progressive auth**: Anonymous user can link OAuth later, existing User record gets updated
+- **Merge on conflict**: If anonymous user authenticates with OAuth that's already linked to another user, anonymous user's data is merged into existing user

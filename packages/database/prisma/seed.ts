@@ -7,6 +7,9 @@ function _generateToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
+// Fixed ID for test admin so we can upsert
+const TEST_ADMIN_ID = 'test-admin-user';
+
 async function main() {
   console.log('Seeding database...');
 
@@ -47,16 +50,29 @@ async function main() {
 
   // Create test admin user
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
+    where: { id: TEST_ADMIN_ID },
     update: {},
     create: {
-      email: 'admin@example.com',
+      id: TEST_ADMIN_ID,
       name: 'Test Admin',
       role: Role.ADMIN,
       isStaff: true,
     },
   });
-  console.log('Created admin user:', adminUser.email);
+
+  // Add email contact method for admin
+  await prisma.contactMethod.upsert({
+    where: { type_value: { type: 'email', value: 'admin@example.com' } },
+    update: { userId: adminUser.id },
+    create: {
+      userId: adminUser.id,
+      type: 'email',
+      value: 'admin@example.com',
+      verified: true,
+      primary: true,
+    },
+  });
+  console.log('Created admin user with email: admin@example.com');
 
   // Create sample scenarios
   const scenario1 = await prisma.scenario.upsert({

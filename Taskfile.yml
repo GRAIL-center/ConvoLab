@@ -6,9 +6,9 @@ version: '3'
 # List all tasks: task --list
 
 vars:
-  API_CONTAINER: conversation-coach-api
-  APP_CONTAINER: conversation-coach-app
-  DB_CONTAINER: conversation-coach-db
+  API_SERVICE: api
+  APP_SERVICE: app
+  DB_SERVICE: db
 
 tasks:
   # === Quick Start ===
@@ -33,9 +33,9 @@ tasks:
     desc: "Start all services in background"
     cmds:
       - docker compose up -d --build
-      - echo "✓ Services starting in background"
-      - echo "  API: http://localhost:3000"
-      - echo "  App: http://localhost:5173"
+      - 'echo "✓ Services starting in background"'
+      - 'echo "  API: http://localhost:3000"'
+      - 'echo "  App: http://localhost:5173"'
       - echo ""
       - echo "Run 'task migrate' to set up the database"
 
@@ -54,31 +54,32 @@ tasks:
   migrate:
     desc: "Run database migrations (creates tables + seeds data)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate"
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
 
   migrate:deploy:
     desc: "Run migrations in production mode (no prompts)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate:deploy"
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate:deploy"
 
   db:seed:
     desc: "Re-run database seed (adds sample scenarios)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm seed"
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
 
   db:studio:
     desc: "Open Prisma Studio (visual database browser)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm studio"
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm studio"
 
   db:reset:
     desc: "Reset database (WARNING: deletes all data)"
     prompt: "This will delete ALL data. Continue?"
     cmds:
       - docker compose down -v
-      - docker compose up -d db
-      - sleep 3
-      - docker compose exec {{.API_CONTAINER}} sh -c "cd packages/database && pnpm migrate"
+      - docker compose up -d db api
+      - echo "Waiting for services to be ready..."
+      - sleep 5
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
 
   # === Logs ===
 
@@ -107,24 +108,24 @@ tasks:
   shell:api:
     desc: "Open shell in API container"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} sh
+      - docker compose exec {{.API_SERVICE}} sh
 
   shell:app:
     desc: "Open shell in app container"
     cmds:
-      - docker compose exec {{.APP_CONTAINER}} sh
+      - docker compose exec {{.APP_SERVICE}} sh
 
   install:api:
     desc: "Install package in API (usage: task install:api -- <package>)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} pnpm -F @workspace/api add {{.CLI_ARGS}}
-      - echo "✓ Package installed. Restart API: task restart:api"
+      - docker compose exec {{.API_SERVICE}} pnpm -F @workspace/api add {{.CLI_ARGS}}
+      - 'echo "✓ Package installed. Restart API: task restart:api"'
 
   install:app:
     desc: "Install package in app (usage: task install:app -- <package>)"
     cmds:
-      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app add {{.CLI_ARGS}}
-      - echo "✓ Package installed. Restart app: task restart:app"
+      - docker compose exec {{.APP_SERVICE}} pnpm -F @workspace/app add {{.CLI_ARGS}}
+      - 'echo "✓ Package installed. Restart app: task restart:app"'
 
   restart:api:
     desc: "Restart API server"
@@ -141,21 +142,30 @@ tasks:
   # === Testing & Quality ===
 
   test:
-    desc: "Run tests (when implemented)"
+    desc: "Run all tests once"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} pnpm test
-      - docker compose exec {{.APP_CONTAINER}} pnpm test
+      - docker compose exec {{.API_SERVICE}} pnpm -F @workspace/api test:run
+
+  test:watch:
+    desc: "Run tests in watch mode"
+    cmds:
+      - docker compose exec {{.API_SERVICE}} pnpm -F @workspace/api test
+
+  test:coverage:
+    desc: "Run tests with coverage report"
+    cmds:
+      - docker compose exec {{.API_SERVICE}} pnpm -F @workspace/api test:coverage
 
   typecheck:
-    desc: "Run TypeScript type checking"
+    desc: "Run TypeScript type checking (runs locally, not in Docker)"
     cmds:
-      - docker compose exec {{.API_CONTAINER}} pnpm -F @workspace/api type-check
-      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app type-check
+      - pnpm -F @workspace/api type-check
+      - pnpm -F @workspace/app type-check
 
   lint:
-    desc: "Run linting"
+    desc: "Run linting and formatting (runs locally, not in Docker)"
     cmds:
-      - docker compose exec {{.APP_CONTAINER}} pnpm -F @workspace/app lint
+      - pnpm check
 
   # === Cleanup ===
 
@@ -181,10 +191,10 @@ tasks:
     cmds:
       - docker compose ps
       - echo ""
-      - echo "URLs:"
-      - echo "  App:  http://localhost:5173"
-      - echo "  API:  http://localhost:3000/health"
-      - echo "  DB:   localhost:5432"
+      - 'echo "URLs:"'
+      - 'echo "  App:  http://localhost:5173"'
+      - 'echo "  API:  http://localhost:3000/health"'
+      - 'echo "  DB:   localhost:5432"'
 
   # === Local Development (without Docker) ===
 
@@ -202,7 +212,7 @@ tasks:
     desc: "Start only database (for local development)"
     cmds:
       - docker compose up -d db
-      - echo "✓ Database running on localhost:5432"
+      - 'echo "✓ Database running on localhost:5432"'
 
   local:migrate:
     desc: "Run migrations locally"
@@ -213,6 +223,7 @@ tasks:
 
   help:
     desc: "Show common workflows"
+    silent: true
     cmds:
       - |
         echo "🚀 Conversation Coach - Common Workflows"
@@ -233,6 +244,17 @@ tasks:
         echo "  task migrate      # Run migrations"
         echo "  task db:seed      # Add sample data"
         echo "  task db:reset     # Fresh database (deletes data!)"
+        echo ""
+        echo "🧪 Testing & quality:"
+        echo "  task test          # Run tests once"
+        echo "  task test:watch    # Run tests in watch mode"
+        echo "  task typecheck     # TypeScript type checking"
+        echo "  task lint          # Run linting"
+        echo ""
+        echo "🐚 Debugging:"
+        echo "  task shell:api     # Shell into API container"
+        echo "  task shell:app     # Shell into app container"
+        echo "  task logs          # All service logs"
         echo ""
         echo "📦 Install packages:"
         echo "  task install:api -- fastify-plugin"

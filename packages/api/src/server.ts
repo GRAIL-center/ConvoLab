@@ -2,11 +2,15 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
+import oauthPlugin from './plugins/oauth.js';
+import sessionPlugin from './plugins/session.js';
+import authRoutes from './routes/auth.js';
+
 const isDev = process.env.NODE_ENV !== 'production';
 
 // Validate required environment variables in production
 if (!isDev) {
-  const required = ['FRONTEND_URL'];
+  const required = ['FRONTEND_URL', 'SESSION_KEY'];
   const missing = required.filter((key) => !process.env[key]);
   if (missing.length > 0) {
     console.error(`Missing required environment variables: ${missing.join(', ')}`);
@@ -27,6 +31,15 @@ await fastify.register(cors, {
 });
 
 await fastify.register(websocket);
+
+// Session and OAuth (must be registered before routes that need auth)
+if (process.env.SESSION_KEY) {
+  await fastify.register(sessionPlugin);
+  await fastify.register(oauthPlugin);
+  await fastify.register(authRoutes);
+} else if (isDev) {
+  fastify.log.warn('SESSION_KEY not set - auth disabled for development');
+}
 
 // Health check
 fastify.get('/health', async () => {

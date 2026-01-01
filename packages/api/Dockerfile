@@ -1,6 +1,9 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
+
+# Install system dependencies (OpenSSL for Prisma)
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -24,4 +27,4 @@ RUN pnpm -F @workspace/database generate
 EXPOSE 3000
 
 # Start development server
-CMD ["pnpm", "-F", "@workspace/api", "dev"]
+CMD ["pnpm", "-F", "@workspace/api", "dev:docker"]

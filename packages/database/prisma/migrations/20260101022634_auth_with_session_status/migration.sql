@@ -1,13 +1,14 @@
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('GUEST', 'USER', 'POWER_USER', 'ADMIN');
 
+-- CreateEnum
+CREATE TYPE "SessionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'ABANDONED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "name" TEXT,
     "avatarUrl" TEXT,
-    "googleId" TEXT,
     "role" "Role" NOT NULL DEFAULT 'GUEST',
     "isStaff" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -15,6 +16,32 @@ CREATE TABLE "User" (
     "lastLoginAt" TIMESTAMP(3),
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ContactMethod" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "verified" BOOLEAN NOT NULL DEFAULT false,
+    "primary" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ContactMethod_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ExternalIdentity" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "externalId" TEXT NOT NULL,
+    "email" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ExternalIdentity_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -73,7 +100,7 @@ CREATE TABLE "ConversationSession" (
     "userId" TEXT,
     "invitationId" TEXT,
     "scenarioId" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'active',
+    "status" "SessionStatus" NOT NULL DEFAULT 'ACTIVE',
     "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "endedAt" TIMESTAMP(3),
     "totalMessages" INTEGER NOT NULL DEFAULT 0,
@@ -123,10 +150,22 @@ CREATE TABLE "ObservationNote" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE INDEX "ContactMethod_userId_idx" ON "ContactMethod"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+CREATE INDEX "ContactMethod_userId_type_idx" ON "ContactMethod"("userId", "type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ContactMethod_type_value_key" ON "ContactMethod"("type", "value");
+
+-- CreateIndex
+CREATE INDEX "ExternalIdentity_userId_idx" ON "ExternalIdentity"("userId");
+
+-- CreateIndex
+CREATE INDEX "ExternalIdentity_userId_provider_idx" ON "ExternalIdentity"("userId", "provider");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ExternalIdentity_provider_externalId_key" ON "ExternalIdentity"("provider", "externalId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Invitation_token_key" ON "Invitation"("token");
@@ -166,6 +205,12 @@ CREATE INDEX "ObservationNote_invitationId_idx" ON "ObservationNote"("invitation
 
 -- CreateIndex
 CREATE INDEX "ObservationNote_researcherId_idx" ON "ObservationNote"("researcherId");
+
+-- AddForeignKey
+ALTER TABLE "ContactMethod" ADD CONSTRAINT "ContactMethod_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExternalIdentity" ADD CONSTRAINT "ExternalIdentity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_scenarioId_fkey" FOREIGN KEY ("scenarioId") REFERENCES "Scenario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
