@@ -62,10 +62,46 @@ async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Logout
-  fastify.post('/api/auth/logout', async (request: FastifyRequest, _reply: FastifyReply) => {
-    request.session.delete();
-    return { success: true };
-  });
+  // For guests with unused invitations, we can "unclaim" the invitation so the link works again
+  fastify.post<{
+    Querystring: { unclaim?: string };
+  }>(
+    '/api/auth/logout',
+    async (
+      request: FastifyRequest<{ Querystring: { unclaim?: string } }>,
+      _reply: FastifyReply
+    ) => {
+      const userId = request.session.get('userId');
+      const shouldUnclaim = request.query.unclaim === 'true';
+
+      if (userId && shouldUnclaim) {
+        // Check if user is a guest with no sessions
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            role: true,
+            _count: { select: { sessions: true } },
+          },
+        });
+
+        if (user?.role === 'GUEST' && user._count.sessions === 0) {
+          // Find and unclaim their invitation
+          await prisma.invitation.updateMany({
+            where: { linkedUserId: userId },
+            data: { linkedUserId: null, claimedAt: null },
+          });
+
+          // Delete the orphaned guest user
+          await prisma.user.delete({ where: { id: userId } });
+
+          fastify.log.info({ userId }, 'Guest logged out and invitation unclaimed');
+        }
+      }
+
+      request.session.delete();
+      return { success: true };
+    }
+  );
 }
 
 export default authRoutes;
