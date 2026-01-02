@@ -27,10 +27,11 @@ export function AdminPanel() {
     trpc.invitation.list.queryOptions()
   );
 
+  const invitationListQueryKey = trpc.invitation.list.queryOptions().queryKey;
   const createMutation = useMutation({
     ...trpc.invitation.create.mutationOptions(),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['invitation', 'list'] });
+      qc.invalidateQueries({ queryKey: invitationListQueryKey });
       setLabel('');
     },
   });
@@ -47,14 +48,18 @@ export function AdminPanel() {
     });
   };
 
-  const copyLink = (token: string) => {
+  const copyLink = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
-    navigator.clipboard.writeText(url);
-    setCopiedToken(token);
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedToken(token);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => setCopiedToken(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy invitation link:', error);
     }
-    copyTimeoutRef.current = setTimeout(() => setCopiedToken(null), 2000);
   };
 
   return (
