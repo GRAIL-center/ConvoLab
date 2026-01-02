@@ -1,8 +1,11 @@
+import fastifyStatic from '@fastify/static';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { prisma, seedIfEmpty } from '@workspace/database';
 import Fastify from 'fastify';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
@@ -11,6 +14,7 @@ import { createContext } from './trpc/context.js';
 import { type AppRouter, appRouter } from './trpc/router.js';
 import { registerWebSocketHandler } from './ws/handler.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV !== 'production';
 
 // Validate required environment variables in production
@@ -65,6 +69,20 @@ if (process.env.SESSION_KEY) {
 fastify.get('/health', async () => {
   return { status: 'healthy', timestamp: new Date().toISOString() };
 });
+
+// Serve static files in production (SPA with fallback to index.html)
+if (!isDev) {
+  const publicDir = path.join(__dirname, 'public');
+  await fastify.register(fastifyStatic, {
+    root: publicDir,
+    prefix: '/',
+  });
+
+  // SPA fallback: serve index.html for non-API routes
+  fastify.setNotFoundHandler(async (_request, reply) => {
+    return reply.sendFile('index.html');
+  });
+}
 
 const start = async () => {
   try {
