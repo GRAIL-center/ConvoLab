@@ -56,6 +56,11 @@ export function send(ws: { send: (data: string) => void }, message: ServerMessag
 
 /**
  * Parse incoming client message.
+ *
+ * @returns The parsed message, or null if:
+ *   - The data is not valid JSON
+ *   - The parsed value is not an object
+ *   - The object lacks a 'type' field
  */
 export function parseClientMessage(data: string): ClientMessage | null {
   try {

@@ -54,8 +54,8 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         return;
       }
 
-      // Auth check: session must belong to user or be accessible via invitation
-      if (session.userId && session.userId !== userId) {
+      // Auth check: must have valid session cookie and session must belong to that user
+      if (!userId || session.userId !== userId) {
         send(socket, {
           type: 'error',
           code: 'AUTH_FAILED',
@@ -67,7 +67,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       }
 
       // Create conversation manager
-      const manager = new ConversationManager(socket, prisma, session);
+      const manager = new ConversationManager(socket, prisma, session, fastify.log);
 
       // Initialize (send connected + history)
       await manager.initialize();
@@ -93,7 +93,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
           send(socket, {
             type: 'error',
             code: 'INTERNAL_ERROR',
-            message: 'Invalid message format',
+            message: "Invalid message format: expected JSON with 'type' field",
             recoverable: true,
           });
           return;
@@ -102,7 +102,18 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         switch (message.type) {
           case 'message':
             if (typeof message.content === 'string' && message.content.trim()) {
-              await manager.handleUserMessage(message.content.trim());
+              const content = message.content.trim();
+              const MAX_MESSAGE_LENGTH = 10000;
+              if (content.length > MAX_MESSAGE_LENGTH) {
+                send(socket, {
+                  type: 'error',
+                  code: 'RATE_LIMITED',
+                  message: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`,
+                  recoverable: true,
+                });
+                return;
+              }
+              await manager.handleUserMessage(content);
             }
             break;
 

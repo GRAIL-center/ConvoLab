@@ -6,6 +6,7 @@ import type {
   PrismaClient,
   Scenario,
 } from '@workspace/database';
+import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { streamCompletion } from '../llm/registry.js';
@@ -25,12 +26,19 @@ export class ConversationManager {
   private ws: WebSocket;
   private prisma: PrismaClient;
   private session: SessionWithScenario;
+  private logger: FastifyBaseLogger;
   private isProcessing = false;
 
-  constructor(ws: WebSocket, prisma: PrismaClient, session: SessionWithScenario) {
+  constructor(
+    ws: WebSocket,
+    prisma: PrismaClient,
+    session: SessionWithScenario,
+    logger: FastifyBaseLogger
+  ) {
     this.ws = ws;
     this.prisma = prisma;
     this.session = session;
+    this.logger = logger;
   }
 
   /**
@@ -72,18 +80,19 @@ export class ConversationManager {
       return;
     }
 
-    // Check quota before making LLM calls
-    if (this.session.invitationId) {
-      const hasQuota = await this.checkQuotaAllowed();
-      if (!hasQuota) {
-        send(this.ws, { type: 'quota:exhausted' });
-        return;
-      }
-    }
-
+    // Set flag immediately to prevent race conditions with concurrent messages
     this.isProcessing = true;
 
     try {
+      // Check quota before making LLM calls
+      if (this.session.invitationId) {
+        const hasQuota = await this.checkQuotaAllowed();
+        if (!hasQuota) {
+          send(this.ws, { type: 'quota:exhausted' });
+          return;
+        }
+      }
+
       // 1. Persist user message
       const userMsg = await this.persistMessage('user', content);
       this.session.messages.push(userMsg);
@@ -114,7 +123,7 @@ export class ConversationManager {
         data: { totalMessages: { increment: 3 } }, // user + partner + coach
       });
     } catch (error) {
-      console.error('Error handling user message:', error);
+      this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
       send(this.ws, {
         type: 'error',
         code: 'INTERNAL_ERROR',
@@ -210,7 +219,7 @@ export class ConversationManager {
           continue;
         }
 
-        console.error(`Error streaming ${role} response:`, error);
+        this.logger.error({ sessionId: this.session.id, role, error }, 'Error streaming response');
 
         // Save partial message if we have content
         if (fullContent.length > 0) {
@@ -344,6 +353,8 @@ export class ConversationManager {
     if (!invitation) return;
 
     const quota = invitation.quota as unknown as Quota;
+    if (!quota?.tokens) return;
+
     const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
 
     if (!status.allowed) {
