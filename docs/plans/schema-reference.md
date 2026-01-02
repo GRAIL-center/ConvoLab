@@ -41,6 +41,7 @@ model User {
   invitationsCreated Invitation[]          @relation("CreatedInvitations")
   invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
+  telemetryEvents    TelemetryEvent[]
 }
 
 model ContactMethod {
@@ -210,6 +211,28 @@ model ObservationNote {
 
   @@index([invitationId])
   @@index([researcherId])
+}
+
+// ============================================
+// TELEMETRY
+// ============================================
+
+model TelemetryEvent {
+  id         String   @id @default(cuid())
+  name       String   // e.g., "conversation_started", "message_sent"
+  properties Json     @default("{}")
+
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  sessionId  Int?     // ConversationSession ID, if applicable
+
+  createdAt  DateTime @default(now())
+
+  @@index([name])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([name, createdAt])
 }
 ```
 

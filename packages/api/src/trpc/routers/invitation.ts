@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { getInvitationQuotaStatus, type Quota } from '../../lib/quota.js';
+import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
 import { adminProcedure, publicProcedure, router } from '../procedures.js';
 
@@ -115,6 +116,18 @@ export const invitationRouter = router({
             claimedAt: new Date(),
           },
         });
+
+        // Track invitation claimed event
+        await track(
+          ctx.prisma,
+          TelemetryEvents.INVITATION_CLAIMED,
+          {
+            invitationId: invitation.id,
+            scenarioId: invitation.scenario?.id,
+            scenarioSlug: invitation.scenario?.slug,
+          },
+          { userId }
+        );
       }
 
       // Get user info
@@ -189,6 +202,18 @@ export const invitationRouter = router({
           },
         },
       });
+
+      // Track invitation created event
+      await track(
+        ctx.prisma,
+        TelemetryEvents.INVITATION_CREATED,
+        {
+          invitationId: invitation.id,
+          presetName: input.presetName,
+          scenarioId: input.scenarioId,
+        },
+        { userId: ctx.user.id }
+      );
 
       return {
         id: invitation.id,

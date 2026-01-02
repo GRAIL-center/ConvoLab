@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+
 /**
  * LLM Provider Smoke Test
  *
@@ -8,8 +9,8 @@
  * Usage: pnpm -F @workspace/api test:llm
  */
 
-import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { config } from 'dotenv';
 
 // Load .env from repo root
 config({ path: resolve(import.meta.dirname, '../../../../.env') });

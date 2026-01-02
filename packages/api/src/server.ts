@@ -1,6 +1,7 @@
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
+import { prisma, seedIfEmpty } from '@workspace/database';
 import Fastify from 'fastify';
 
 import oauthPlugin from './plugins/oauth.js';
@@ -67,6 +68,23 @@ fastify.get('/health', async () => {
 
 const start = async () => {
   try {
+    // Auto-seed empty database in development
+    if (isDev) {
+      try {
+        const seeded = await seedIfEmpty(prisma, {
+          log: (msg) => fastify.log.info(msg),
+        });
+        if (seeded) {
+          fastify.log.info('Auto-seeded empty database with initial data');
+        }
+      } catch (seedErr) {
+        fastify.log.error(
+          { err: seedErr },
+          'Database seeding failed; continuing without seed data'
+        );
+      }
+    }
+
     const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';
 

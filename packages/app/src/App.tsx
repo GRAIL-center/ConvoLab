@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
 import { UserMenu } from './components/UserMenu';
+import { Telemetry } from './pages/admin/Telemetry';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
 
@@ -70,6 +71,7 @@ export function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/invite/:token" element={<Invite />} />
+                <Route path="/admin/telemetry" element={<Telemetry />} />
               </Routes>
             </main>
           </div>
