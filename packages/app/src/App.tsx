@@ -63,7 +63,7 @@ export function App() {
           <div className="min-h-screen bg-gray-50">
             {siteBanner && (
               <div
-                className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-900"
+                className="bg-amber-300 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-700"
                 dangerouslySetInnerHTML={{ __html: siteBanner }}
               />
             )}

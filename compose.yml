@@ -65,6 +65,7 @@ services:
     environment:
       API_HOST: api:3000
       VITE_API_URL: http://localhost:3000
+      VITE_SITE_BANNER: ${VITE_SITE_BANNER:-}
     volumes:
       # Mount source for hot reloading
       - ./packages/app/src:/app/packages/app/src
