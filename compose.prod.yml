@@ -1,0 +1,57 @@
+# Production compose - run with: docker compose -f compose.prod.yml up -d
+# Host Caddy proxies to the API container on port 3000
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: ai-dialogues-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: conversation_coach
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-dialogues
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile.prod
+      args:
+        VITE_SITE_BANNER: ${VITE_SITE_BANNER:-}
+    container_name: ai-dialogues-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"  # Only localhost, host Caddy proxies in
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/conversation_coach?schema=public
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env.prod}
+      SESSION_KEY: ${SESSION_KEY:?Set SESSION_KEY in .env.prod}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ai-dialogues
+
+networks:
+  ai-dialogues:
+    driver: bridge
+
+volumes:
+  postgres_data_prod:

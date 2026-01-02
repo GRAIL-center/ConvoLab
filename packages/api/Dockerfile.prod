@@ -1,0 +1,69 @@
+# Production build for API + static frontend
+FROM node:22-slim AS builder
+
+WORKDIR /app
+
+# Install system dependencies (OpenSSL for Prisma)
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/database/package.json ./packages/database/
+COPY packages/api/package.json ./packages/api/
+COPY packages/app/package.json ./packages/app/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/database ./packages/database
+COPY packages/api ./packages/api
+COPY packages/app ./packages/app
+
+# Generate Prisma Client
+RUN pnpm -F @workspace/database generate
+
+# Build database package (compile TypeScript for production)
+RUN pnpm -F @workspace/database build
+
+# Build args for Vite (baked into static build)
+ARG VITE_SITE_BANNER
+ENV VITE_SITE_BANNER=$VITE_SITE_BANNER
+
+# Build API and App
+RUN pnpm -F @workspace/api build
+RUN pnpm -F @workspace/app build
+
+# Copy frontend build into API's public directory
+RUN cp -r packages/app/dist packages/api/dist/public
+
+# Production image
+FROM node:22-slim
+
+WORKDIR /app
+
+# Install system dependencies (OpenSSL for Prisma runtime)
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm for running the app
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/database/package.json ./packages/database/
+COPY packages/api/package.json ./packages/api/
+
+# Copy built artifacts and node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/database ./packages/database
+COPY --from=builder /app/packages/api/dist ./packages/api/dist
+COPY --from=builder /app/packages/api/node_modules ./packages/api/node_modules
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# Run migrations then start server
+CMD ["sh", "-c", "pnpm -F @workspace/database exec prisma migrate deploy && node packages/api/dist/server.js"]

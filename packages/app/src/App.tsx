@@ -50,6 +50,8 @@ function getTRPCClient() {
   return browserTRPCClient;
 }
 
+const siteBanner = import.meta.env.VITE_SITE_BANNER as string | undefined;
+
 export function App() {
   const queryClient = getQueryClient();
   const trpcClient = getTRPCClient();
@@ -59,6 +61,12 @@ export function App() {
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <BrowserRouter>
           <div className="min-h-screen bg-gray-50">
+            {siteBanner && (
+              <div
+                className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-900"
+                dangerouslySetInnerHTML={{ __html: siteBanner }}
+              />
+            )}
             <header className="bg-white shadow">
               <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
                 <h1 className="text-2xl font-bold tracking-tight text-gray-900">

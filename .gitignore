@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.prod
 
 # Build outputs
 dist/
@@ -16,6 +17,7 @@ build/
 # Logs
 logs/
 *.log
+deploy.log
 npm-debug.log*
 pnpm-debug.log*
 

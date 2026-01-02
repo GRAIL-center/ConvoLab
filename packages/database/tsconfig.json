@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["index.ts", "types.ts", "seed/**/*.ts"],
+  "exclude": ["node_modules", "dist", "prisma", "prisma.config.ts"]
+}

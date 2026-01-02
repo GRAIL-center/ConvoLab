@@ -1,0 +1,6 @@
+# Add this to your host Caddyfile
+# Caddy auto-provisions HTTPS via Let's Encrypt
+
+coach.beechersoftware.com {
+    reverse_proxy localhost:3000
+}

@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('GUEST', 'USER', 'POWER_USER', 'ADMIN');
+CREATE TYPE "Role" AS ENUM ('GUEST', 'USER', 'STAFF', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "SessionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'ABANDONED');
@@ -10,7 +10,6 @@ CREATE TABLE "User" (
     "name" TEXT,
     "avatarUrl" TEXT,
     "role" "Role" NOT NULL DEFAULT 'GUEST',
-    "isStaff" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastLoginAt" TIMESTAMP(3),
@@ -149,6 +148,18 @@ CREATE TABLE "ObservationNote" (
     CONSTRAINT "ObservationNote_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "TelemetryEvent" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "properties" JSONB NOT NULL DEFAULT '{}',
+    "userId" TEXT,
+    "sessionId" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TelemetryEvent_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE INDEX "ContactMethod_userId_idx" ON "ContactMethod"("userId");
 
@@ -206,6 +217,18 @@ CREATE INDEX "ObservationNote_invitationId_idx" ON "ObservationNote"("invitation
 -- CreateIndex
 CREATE INDEX "ObservationNote_researcherId_idx" ON "ObservationNote"("researcherId");
 
+-- CreateIndex
+CREATE INDEX "TelemetryEvent_name_idx" ON "TelemetryEvent"("name");
+
+-- CreateIndex
+CREATE INDEX "TelemetryEvent_createdAt_idx" ON "TelemetryEvent"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "TelemetryEvent_userId_idx" ON "TelemetryEvent"("userId");
+
+-- CreateIndex
+CREATE INDEX "TelemetryEvent_name_createdAt_idx" ON "TelemetryEvent"("name", "createdAt");
+
 -- AddForeignKey
 ALTER TABLE "ContactMethod" ADD CONSTRAINT "ContactMethod_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -244,3 +267,6 @@ ALTER TABLE "ObservationNote" ADD CONSTRAINT "ObservationNote_sessionId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "ObservationNote" ADD CONSTRAINT "ObservationNote_researcherId_fkey" FOREIGN KEY ("researcherId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TelemetryEvent" ADD CONSTRAINT "TelemetryEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
