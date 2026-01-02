@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+
 /**
  * LLM Compare Tool
  *
@@ -9,8 +10,8 @@
  *   task llm:compare -- "What is the capital of France?"
  */
 
-import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { config } from 'dotenv';
 
 // Load .env from repo root
 config({ path: resolve(import.meta.dirname, '../../../../.env') });
@@ -54,10 +55,7 @@ interface Result {
   error?: string;
 }
 
-async function queryProvider(
-  config: ProviderConfig,
-  prompt: string
-): Promise<Result> {
+async function queryProvider(config: ProviderConfig, prompt: string): Promise<Result> {
   const start = Date.now();
 
   try {
@@ -99,9 +97,7 @@ async function queryProvider(
 
 function formatResponse(result: Result): string {
   const header = `┌─ ${result.provider} (${result.model}) ─ ${result.durationMs}ms`;
-  const tokenInfo = result.error
-    ? ''
-    : ` ─ ${result.tokens.input}/${result.tokens.output} tokens`;
+  const tokenInfo = result.error ? '' : ` ─ ${result.tokens.input}/${result.tokens.output} tokens`;
 
   const lines: string[] = [];
   lines.push(header + tokenInfo);
@@ -157,9 +153,7 @@ async function main() {
   console.log(`\n🔄 Querying ${availableProviders.length} provider(s)...\n`);
 
   // Query all providers in parallel
-  const results = await Promise.all(
-    availableProviders.map((p) => queryProvider(p, prompt))
-  );
+  const results = await Promise.all(availableProviders.map((p) => queryProvider(p, prompt)));
 
   // Display results
   for (const result of results) {
@@ -169,10 +163,7 @@ async function main() {
 
   // Summary
   const successful = results.filter((r) => !r.error);
-  const totalTokens = successful.reduce(
-    (acc, r) => acc + r.tokens.input + r.tokens.output,
-    0
-  );
+  const totalTokens = successful.reduce((acc, r) => acc + r.tokens.input + r.tokens.output, 0);
   const avgTime = Math.round(
     successful.reduce((acc, r) => acc + r.durationMs, 0) / successful.length
   );
