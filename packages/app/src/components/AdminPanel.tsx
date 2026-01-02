@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTRPC } from '../api/trpc';
 
 export function AdminPanel() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [scenarioId, setScenarioId] = useState<number | ''>('');
   const [presetName, setPresetName] = useState('');
   const [label, setLabel] = useState('');
