@@ -1,5 +1,5 @@
 # Production compose - run with: docker compose -f compose.prod.yml up -d
-# Host Caddy proxies to the API container on port 3000
+# Host Caddy proxies to the API container on port 3004
 services:
   db:
     image: postgres:17-alpine
@@ -28,7 +28,7 @@ services:
     container_name: ai-dialogues-api
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"  # Only localhost, host Caddy proxies in
+      - "127.0.0.1:3004:3000"  # Only localhost, host Caddy proxies in
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/conversation_coach?schema=public
       PORT: 3000
