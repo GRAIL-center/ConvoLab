@@ -48,42 +48,33 @@ export const telemetryRouter = router({
     .query(async ({ ctx, input }) => {
       const { startDate, endDate } = input;
 
-      // Total events
-      const totalEvents = await ctx.prisma.telemetryEvent.count({
-        where: {
-          createdAt: { gte: startDate, lte: endDate },
-        },
-      });
+      // Run all queries in parallel
+      const [totalEvents, conversationsStarted, conversationsCompleted, durationEvents, tokenEvents] =
+        await Promise.all([
+          ctx.prisma.telemetryEvent.count({
+            where: { createdAt: { gte: startDate, lte: endDate } },
+          }),
+          ctx.prisma.telemetryEvent.count({
+            where: { name: 'conversation_started', createdAt: { gte: startDate, lte: endDate } },
+          }),
+          ctx.prisma.telemetryEvent.count({
+            where: {
+              name: 'conversation_ended',
+              createdAt: { gte: startDate, lte: endDate },
+              properties: { path: ['reason'], equals: 'completed' },
+            },
+          }),
+          ctx.prisma.telemetryEvent.findMany({
+            where: { name: 'conversation_ended', createdAt: { gte: startDate, lte: endDate } },
+            select: { properties: true },
+          }),
+          ctx.prisma.telemetryEvent.findMany({
+            where: { name: 'stream_completed', createdAt: { gte: startDate, lte: endDate } },
+            select: { properties: true },
+          }),
+        ]);
 
-      // Conversations started
-      const conversationsStarted = await ctx.prisma.telemetryEvent.count({
-        where: {
-          name: 'conversation_started',
-          createdAt: { gte: startDate, lte: endDate },
-        },
-      });
-
-      // Conversations completed
-      const conversationsCompleted = await ctx.prisma.telemetryEvent.count({
-        where: {
-          name: 'conversation_ended',
-          createdAt: { gte: startDate, lte: endDate },
-          properties: {
-            path: ['reason'],
-            equals: 'completed',
-          },
-        },
-      });
-
-      // Average session duration (from conversation_ended events)
-      const durationEvents = await ctx.prisma.telemetryEvent.findMany({
-        where: {
-          name: 'conversation_ended',
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        select: { properties: true },
-      });
-
+      // Calculate average duration
       let avgDurationMs = 0;
       const durationsMs = durationEvents
         .map((e) => {
@@ -91,20 +82,11 @@ export const telemetryRouter = router({
           return typeof props.durationMs === 'number' ? props.durationMs : null;
         })
         .filter((d): d is number => d !== null);
-
       if (durationsMs.length > 0) {
         avgDurationMs = durationsMs.reduce((a, b) => a + b, 0) / durationsMs.length;
       }
 
-      // Total tokens used (from stream_completed events)
-      const tokenEvents = await ctx.prisma.telemetryEvent.findMany({
-        where: {
-          name: 'stream_completed',
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        select: { properties: true },
-      });
-
+      // Calculate total tokens
       let totalTokens = 0;
       for (const e of tokenEvents) {
         const props = e.properties as Record<string, unknown>;
@@ -117,8 +99,7 @@ export const telemetryRouter = router({
         totalEvents,
         conversationsStarted,
         conversationsCompleted,
-        completionRate:
-          conversationsStarted > 0 ? conversationsCompleted / conversationsStarted : 0,
+        completionRate: conversationsStarted > 0 ? conversationsCompleted / conversationsStarted : 0,
         avgDurationMs,
         totalTokens,
       };

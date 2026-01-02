@@ -123,24 +123,25 @@ export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = 
   for (const scenario of SCENARIOS) {
     const created = await prisma.scenario.upsert({
       where: { slug: scenario.slug },
-      update: {},
+      update: scenario,
       create: scenario,
     });
     if (firstScenarioId === null) firstScenarioId = created.id;
     log(`Created scenario: ${scenario.name}`);
   }
 
-  // Create a test invitation
+  // Create a test invitation (refresh expiration on re-seed)
   if (firstScenarioId !== null) {
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     await prisma.invitation.upsert({
       where: { token: 'test-invitation-token' },
-      update: {},
+      update: { expiresAt },
       create: {
         token: 'test-invitation-token',
         label: 'Dev test invitation',
         scenarioId: firstScenarioId,
         quota: { tokens: 25000, label: 'Short conversation' },
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        expiresAt,
         createdById: adminUser.id,
       },
     });
