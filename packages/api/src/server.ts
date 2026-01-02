@@ -70,11 +70,15 @@ const start = async () => {
   try {
     // Auto-seed empty database in development
     if (isDev) {
-      const seeded = await seedIfEmpty(prisma, {
-        log: (msg) => fastify.log.info(msg),
-      });
-      if (seeded) {
-        fastify.log.info('Auto-seeded empty database with initial data');
+      try {
+        const seeded = await seedIfEmpty(prisma, {
+          log: (msg) => fastify.log.info(msg),
+        });
+        if (seeded) {
+          fastify.log.info('Auto-seeded empty database with initial data');
+        }
+      } catch (seedErr) {
+        fastify.log.error({ err: seedErr }, 'Database seeding failed; continuing without seed data');
       }
     }
 

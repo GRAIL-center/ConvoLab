@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
 export function AdminPanel() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [scenarioId, setScenarioId] = useState<number | ''>('');
   const [presetName, setPresetName] = useState('');
   const [label, setLabel] = useState('');

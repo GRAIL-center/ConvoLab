@@ -44,6 +44,6 @@ if (process.env.NODE_ENV !== 'production') {
 // Re-export Prisma types for use in other packages
 export * from '@prisma/client';
 // Re-export seed utilities for auto-seeding in dev
-export { isDatabaseEmpty, seedIfEmpty } from './seed/seedDatabase.js';
+export { isDatabaseEmpty, seedDatabase, seedIfEmpty } from './seed/seedDatabase.js';
 // Re-export application-level type definitions
 export * from './types.js';

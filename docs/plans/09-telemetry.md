@@ -145,7 +145,7 @@ export const telemetryRouter = router({
 
 ```sql
 -- Events per day
-SELECT DATE(created_at) as day, name, COUNT(*)
+SELECT DATE("createdAt") as day, name, COUNT(*)
 FROM "TelemetryEvent"
 GROUP BY day, name
 ORDER BY day DESC;
@@ -156,13 +156,13 @@ SELECT
   COUNT(*) FILTER (WHERE name = 'conversation_ended'
     AND properties->>'reason' = 'completed') as completed
 FROM "TelemetryEvent"
-WHERE created_at > NOW() - INTERVAL '7 days';
+WHERE "createdAt" > NOW() - INTERVAL '7 days';
 
 -- Average session duration
 SELECT AVG((properties->>'durationMs')::int) / 1000 as avg_seconds
 FROM "TelemetryEvent"
 WHERE name = 'conversation_ended'
-  AND created_at > NOW() - INTERVAL '7 days';
+  AND "createdAt" > NOW() - INTERVAL '7 days';
 
 -- Token usage by scenario
 SELECT
