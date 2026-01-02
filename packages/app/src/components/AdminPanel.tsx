@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
 export function AdminPanel() {
@@ -64,16 +65,24 @@ export function AdminPanel() {
 
   return (
     <div className="mb-8 rounded-lg bg-amber-50 border border-amber-200">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-expanded={isOpen}
-        aria-controls="admin-panel-content"
-        className="w-full px-4 py-3 flex items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-      >
-        <span className="font-medium text-amber-900">Admin: Create Invitations</span>
-        <span className="text-amber-600">{isOpen ? '▼' : '▶'}</span>
-      </button>
+      <div className="px-4 py-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          aria-controls="admin-panel-content"
+          className="flex items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        >
+          <span className="font-medium text-amber-900">Admin: Create Invitations</span>
+          <span className="text-amber-600">{isOpen ? '▼' : '▶'}</span>
+        </button>
+        <Link
+          to="/admin/telemetry"
+          className="text-xs text-amber-700 hover:text-amber-900 underline"
+        >
+          View Telemetry
+        </Link>
+      </div>
 
       {isOpen && (
         <div id="admin-panel-content" className="px-4 pb-4 space-y-4">

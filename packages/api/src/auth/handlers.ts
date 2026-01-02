@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@workspace/database';
+import { TelemetryEvents, track } from '../lib/telemetry.js';
 import type { AuthResult, GoogleUserInfo } from './types.js';
 
 /**
@@ -70,6 +71,17 @@ export async function mergeUsers(
     // Delete the source user (cascades remaining ContactMethods and ExternalIdentities)
     await tx.user.delete({ where: { id: sourceUserId } });
   });
+
+  // Track the merge event
+  await track(
+    prisma,
+    TelemetryEvents.USER_MERGED,
+    {
+      fromUserId: sourceUserId,
+      toUserId: targetUserId,
+    },
+    { userId: targetUserId }
+  );
 }
 
 /**
@@ -266,6 +278,18 @@ export async function handleGoogleAuth(
       },
     });
   });
+
+  // Track authentication event
+  await track(
+    prisma,
+    TelemetryEvents.USER_AUTHENTICATED,
+    {
+      provider: 'google',
+      isNewUser: !existingIdentity,
+      mergedFrom: mergedFrom ?? undefined,
+    },
+    { userId: user.id }
+  );
 
   return { user, mergedFrom };
 }

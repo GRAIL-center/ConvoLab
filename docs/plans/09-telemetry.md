@@ -183,6 +183,81 @@ FROM "TelemetryEvent"
 WHERE created_at > NOW() - INTERVAL '30 days';
 ```
 
+## Admin Dashboard
+
+Route: `/admin/telemetry` (admin-only)
+
+### Features
+
+**Filters**
+- Date range: Last 7d, 30d, 90d, custom
+- Event type dropdown (conversation, auth, quota, etc.)
+- User filter (search by ID or email)
+
+**Metric Cards**
+- Total events (in period)
+- Conversations started / completed / completion rate
+- Average session duration
+- Total tokens used
+
+**Events Table**
+- Columns: Time, Event, User, Properties (expandable JSON)
+- Pagination (50 per page)
+- Click row to expand full properties
+
+**Charts** (Recharts, keep simple)
+- Events over time (line chart, grouped by day)
+- Top scenarios by conversation count (bar chart)
+- Token usage over time (area chart)
+
+### tRPC Procedures
+
+```typescript
+// packages/api/src/trpc/routers/telemetry.ts
+telemetryRouter = router({
+  // Frontend tracking (public)
+  track: publicProcedure.input(...).mutation(...),
+
+  // Admin queries
+  summary: adminProcedure
+    .input(z.object({
+      startDate: z.date(),
+      endDate: z.date(),
+    }))
+    .query(...), // Returns metric cards data
+
+  list: adminProcedure
+    .input(z.object({
+      startDate: z.date(),
+      endDate: z.date(),
+      eventType: z.string().optional(),
+      userId: z.string().optional(),
+      cursor: z.string().optional(),
+      limit: z.number().default(50),
+    }))
+    .query(...), // Paginated events list
+
+  timeSeries: adminProcedure
+    .input(z.object({
+      startDate: z.date(),
+      endDate: z.date(),
+      eventNames: z.array(z.string()).optional(),
+    }))
+    .query(...), // Daily counts for charts
+});
+```
+
+### Frontend
+
+```
+packages/app/src/pages/admin/Telemetry.tsx   → Main dashboard
+packages/app/src/components/telemetry/
+  ├── MetricCards.tsx      → Summary cards
+  ├── EventsTable.tsx      → Paginated events list
+  ├── TimeSeriesChart.tsx  → Line/area chart
+  └── DateRangeFilter.tsx  → Date picker + presets
+```
+
 ## Migration Path
 
 If we outgrow DIY:
