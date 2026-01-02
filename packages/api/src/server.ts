@@ -79,7 +79,13 @@ if (!isDev) {
   });
 
   // SPA fallback: serve index.html for non-API routes
-  fastify.setNotFoundHandler(async (_request, reply) => {
+  fastify.setNotFoundHandler(async (request, reply) => {
+    const url = request.url;
+    // Return JSON 404 for API routes, not index.html
+    if (url.startsWith('/api') || url.startsWith('/trpc') || url.startsWith('/ws')) {
+      reply.code(404);
+      return { error: 'Not Found' };
+    }
     return reply.sendFile('index.html');
   });
 }

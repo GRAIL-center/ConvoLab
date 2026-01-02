@@ -26,6 +26,9 @@ COPY packages/app ./packages/app
 # Generate Prisma Client
 RUN pnpm -F @workspace/database generate
 
+# Build database package (compile TypeScript for production)
+RUN pnpm -F @workspace/database build
+
 # Build args for Vite (baked into static build)
 ARG VITE_SITE_BANNER
 ENV VITE_SITE_BANNER=$VITE_SITE_BANNER
@@ -63,4 +66,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Run migrations then start server
-CMD ["sh", "-c", "pnpm -F @workspace/database exec prisma migrate deploy && node packages/api/dist/index.js"]
+CMD ["sh", "-c", "pnpm -F @workspace/database exec prisma migrate deploy && node packages/api/dist/server.js"]

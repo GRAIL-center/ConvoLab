@@ -33,9 +33,10 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 log "Changes detected: $LOCAL -> $REMOTE"
-log "Pulling latest..."
+log "Resetting to match origin/$BRANCH..."
 
-git pull origin "$BRANCH"
+# Use reset --hard to avoid merge conflicts (this is a deploy target, not dev)
+git reset --hard "origin/$BRANCH"
 
 log "Building and deploying..."
 
