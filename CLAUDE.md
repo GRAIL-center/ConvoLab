@@ -30,9 +30,11 @@ STAFF = researchers who run user testing sessions. ADMIN = full system access.
 
 ### Implementation Plans Live in `docs/plans/`
 Remaining phases:
-- `04-invitation-system.md` - Next
-- `05-frontend-auth.md` - Partially done (UserMenu exists)
-- `06-user-testing.md`
+- `03b-realtime-streaming.md` - LLM providers + WebSocket (the core AI conversation)
+- `06-user-testing.md` - QR codes, observation notes
+- `07-consolidate-landing.md` - Merge Astro landing into React app
+- `08-model-discovery.md` - Runtime model adoption, tier abstraction (future)
+- `04b-invitation-tests.md` - Deferred test coverage
 - `schema-reference.md` - Current Prisma schema
 
 ### Invitation Model
