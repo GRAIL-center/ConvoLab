@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTRPC } from '../../api/trpc';
 
 type DateRange = '7d' | '30d' | '90d' | 'custom';
@@ -25,6 +25,10 @@ function getDateRange(range: DateRange): { startDate: Date; endDate: Date } {
   return { startDate, endDate };
 }
 
+function useDateRange(range: DateRange) {
+  return useMemo(() => getDateRange(range), [range]);
+}
+
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -45,7 +49,7 @@ export function Telemetry() {
   const [eventType, setEventType] = useState<string>('');
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
-  const { startDate, endDate } = getDateRange(dateRange);
+  const { startDate, endDate } = useDateRange(dateRange);
   const trpc = useTRPC();
 
   const { data: eventTypes } = useQuery(trpc.telemetry.eventTypes.queryOptions());
