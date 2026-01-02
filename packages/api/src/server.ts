@@ -78,7 +78,10 @@ const start = async () => {
           fastify.log.info('Auto-seeded empty database with initial data');
         }
       } catch (seedErr) {
-        fastify.log.error({ err: seedErr }, 'Database seeding failed; continuing without seed data');
+        fastify.log.error(
+          { err: seedErr },
+          'Database seeding failed; continuing without seed data'
+        );
       }
     }
 
