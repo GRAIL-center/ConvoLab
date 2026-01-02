@@ -167,6 +167,18 @@ tasks:
     cmds:
       - pnpm check
 
+  # === LLM Tools ===
+
+  llm:test:
+    desc: "Smoke test all configured LLM providers"
+    cmds:
+      - pnpm -F @workspace/api test:llm
+
+  llm:compare:
+    desc: "Compare responses from all providers (usage: task llm:compare -- \"your prompt\")"
+    cmds:
+      - pnpm -F @workspace/api llm:compare {{.CLI_ARGS}}
+
   # === Cleanup ===
 
   clean:
@@ -250,6 +262,10 @@ tasks:
         echo "  task test:watch    # Run tests in watch mode"
         echo "  task typecheck     # TypeScript type checking"
         echo "  task lint          # Run linting"
+        echo ""
+        echo "🤖 LLM tools:"
+        echo "  task llm:test      # Smoke test all configured providers"
+        echo "  task llm:compare -- \"prompt\"  # Compare provider responses"
         echo ""
         echo "🐚 Debugging:"
         echo "  task shell:api     # Shell into API container"

@@ -8,6 +8,7 @@ import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
 import { createContext } from './trpc/context.js';
 import { type AppRouter, appRouter } from './trpc/router.js';
+import { registerWebSocketHandler } from './ws/handler.js';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -34,6 +35,9 @@ await fastify.register(cors, {
 });
 
 await fastify.register(websocket);
+
+// WebSocket routes for real-time streaming
+await registerWebSocketHandler(fastify);
 
 // Session and OAuth (must be registered before routes that need auth)
 if (process.env.SESSION_KEY) {
