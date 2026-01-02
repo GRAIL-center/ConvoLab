@@ -16,10 +16,17 @@ export function UserMenu() {
 
   const handleLogout = async (unclaim = false) => {
     const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
-    await fetch(url, { method: 'POST' });
-    setIsOpen(false);
-    setShowLogoutConfirm(false);
-    refetch();
+    try {
+      const response = await fetch(url, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`Logout failed with status ${response.status}`);
+      }
+      setIsOpen(false);
+      setShowLogoutConfirm(false);
+      refetch();
+    } catch (error) {
+      console.error('Failed to log out:', error);
+    }
   };
 
   const handleLogoutClick = () => {
@@ -35,6 +42,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-label="User menu"
         className="flex items-center gap-2 rounded-md p-2 hover:bg-gray-100"
       >
         {user?.avatarUrl ? (

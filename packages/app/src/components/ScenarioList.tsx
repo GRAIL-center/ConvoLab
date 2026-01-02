@@ -3,10 +3,14 @@ import { useTRPC } from '../api/trpc';
 
 export function ScenarioList() {
   const trpc = useTRPC();
-  const { data: scenarios, isLoading } = useQuery(trpc.scenario.list.queryOptions());
+  const { data: scenarios, isLoading, isError } = useQuery(trpc.scenario.list.queryOptions());
 
   if (isLoading) {
     return <p className="text-gray-500">Loading scenarios...</p>;
+  }
+
+  if (isError) {
+    return <p className="text-red-500">Error loading scenarios. Please try again later.</p>;
   }
 
   if (!scenarios?.length) {
