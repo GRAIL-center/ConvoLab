@@ -1,11 +1,11 @@
-import fastifyStatic from '@fastify/static';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { prisma, seedIfEmpty } from '@workspace/database';
 import Fastify from 'fastify';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';

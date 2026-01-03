@@ -49,30 +49,35 @@ export const telemetryRouter = router({
       const { startDate, endDate } = input;
 
       // Run all queries in parallel
-      const [totalEvents, conversationsStarted, conversationsCompleted, durationEvents, tokenEvents] =
-        await Promise.all([
-          ctx.prisma.telemetryEvent.count({
-            where: { createdAt: { gte: startDate, lte: endDate } },
-          }),
-          ctx.prisma.telemetryEvent.count({
-            where: { name: 'conversation_started', createdAt: { gte: startDate, lte: endDate } },
-          }),
-          ctx.prisma.telemetryEvent.count({
-            where: {
-              name: 'conversation_ended',
-              createdAt: { gte: startDate, lte: endDate },
-              properties: { path: ['reason'], equals: 'completed' },
-            },
-          }),
-          ctx.prisma.telemetryEvent.findMany({
-            where: { name: 'conversation_ended', createdAt: { gte: startDate, lte: endDate } },
-            select: { properties: true },
-          }),
-          ctx.prisma.telemetryEvent.findMany({
-            where: { name: 'stream_completed', createdAt: { gte: startDate, lte: endDate } },
-            select: { properties: true },
-          }),
-        ]);
+      const [
+        totalEvents,
+        conversationsStarted,
+        conversationsCompleted,
+        durationEvents,
+        tokenEvents,
+      ] = await Promise.all([
+        ctx.prisma.telemetryEvent.count({
+          where: { createdAt: { gte: startDate, lte: endDate } },
+        }),
+        ctx.prisma.telemetryEvent.count({
+          where: { name: 'conversation_started', createdAt: { gte: startDate, lte: endDate } },
+        }),
+        ctx.prisma.telemetryEvent.count({
+          where: {
+            name: 'conversation_ended',
+            createdAt: { gte: startDate, lte: endDate },
+            properties: { path: ['reason'], equals: 'completed' },
+          },
+        }),
+        ctx.prisma.telemetryEvent.findMany({
+          where: { name: 'conversation_ended', createdAt: { gte: startDate, lte: endDate } },
+          select: { properties: true },
+        }),
+        ctx.prisma.telemetryEvent.findMany({
+          where: { name: 'stream_completed', createdAt: { gte: startDate, lte: endDate } },
+          select: { properties: true },
+        }),
+      ]);
 
       // Calculate average duration
       let avgDurationMs = 0;
@@ -99,7 +104,8 @@ export const telemetryRouter = router({
         totalEvents,
         conversationsStarted,
         conversationsCompleted,
-        completionRate: conversationsStarted > 0 ? conversationsCompleted / conversationsStarted : 0,
+        completionRate:
+          conversationsStarted > 0 ? conversationsCompleted / conversationsStarted : 0,
         avgDurationMs,
         totalTokens,
       };

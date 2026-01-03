@@ -130,6 +130,54 @@ export const invitationRouter = router({
         );
       }
 
+      // Get or create conversation session
+      let sessionId: number;
+
+      if (alreadyClaimed) {
+        // Find most recent session for this user+invitation
+        const existingSession = await ctx.prisma.conversationSession.findFirst({
+          where: {
+            userId,
+            invitationId: invitation.id,
+          },
+          orderBy: { startedAt: 'desc' },
+          select: { id: true },
+        });
+
+        if (existingSession) {
+          sessionId = existingSession.id;
+        } else {
+          // Edge case: claimed but no session exists (shouldn't happen, but handle it)
+          const newSession = await ctx.prisma.conversationSession.create({
+            data: {
+              scenarioId: invitation.scenarioId!,
+              userId,
+              invitationId: invitation.id,
+              status: 'ACTIVE',
+            },
+          });
+          sessionId = newSession.id;
+        }
+      } else {
+        // Create new session for first-time claim
+        if (!invitation.scenarioId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Invitation has no scenario assigned',
+          });
+        }
+
+        const newSession = await ctx.prisma.conversationSession.create({
+          data: {
+            scenarioId: invitation.scenarioId,
+            userId,
+            invitationId: invitation.id,
+            status: 'ACTIVE',
+          },
+        });
+        sessionId = newSession.id;
+      }
+
       // Get user info
       const user = await ctx.prisma.user.findUnique({
         where: { id: userId },
@@ -156,6 +204,7 @@ export const invitationRouter = router({
         },
         user,
         alreadyClaimed,
+        sessionId,
       };
     }),
 
@@ -166,7 +215,7 @@ export const invitationRouter = router({
     .input(
       z.object({
         label: z.string().optional(),
-        scenarioId: z.number().optional(),
+        scenarioId: z.number(), // Required - conversations need a scenario
         presetName: z.string(),
         expiresInDays: z.number().min(1).max(365).default(30),
       })

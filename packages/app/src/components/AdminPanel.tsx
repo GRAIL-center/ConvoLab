@@ -41,10 +41,10 @@ export function AdminPanel() {
   const effectivePreset = presetName || defaultPreset;
 
   const handleCreate = () => {
-    if (!effectivePreset) return;
+    if (!effectivePreset || !scenarioId) return;
     createMutation.mutate({
       presetName: effectivePreset,
-      scenarioId: scenarioId || undefined,
+      scenarioId,
       label: label || undefined,
     });
   };
@@ -98,7 +98,7 @@ export function AdminPanel() {
                 onChange={(e) => setScenarioId(e.target.value ? Number(e.target.value) : '')}
                 className="rounded border-amber-300 text-sm px-2 py-1.5"
               >
-                <option value="">Any scenario</option>
+                <option value="">Select scenario...</option>
                 {scenarios?.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -139,7 +139,7 @@ export function AdminPanel() {
             <button
               type="button"
               onClick={handleCreate}
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || !scenarioId}
               className="rounded bg-amber-600 px-4 py-1.5 text-sm text-white hover:bg-amber-700 disabled:bg-amber-400"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Invitation'}
