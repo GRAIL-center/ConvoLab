@@ -139,6 +139,13 @@ tasks:
       - docker compose restart app
       - echo "✓ React app restarted"
 
+  rebuild:
+    desc: "Rebuild with fresh node_modules (use after adding packages locally)"
+    cmds:
+      - docker compose up --build -V
+    vars:
+      _HELP: "The -V flag recreates anonymous volumes (node_modules) but preserves named volumes (database)"
+
   # === Testing & Quality ===
 
   test:
@@ -275,6 +282,7 @@ tasks:
         echo "📦 Install packages:"
         echo "  task install:api -- fastify-plugin"
         echo "  task install:app -- zustand"
+        echo "  task rebuild      # After local pnpm add (refreshes node_modules)"
         echo ""
         echo "🧹 Cleanup:"
         echo "  task clean        # Remove containers & data"

@@ -5,6 +5,18 @@ export interface Quota {
   label?: string;
 }
 
+/**
+ * Safely parse a quota from Prisma JSON field.
+ * Returns a typed Quota object.
+ */
+export function parseQuota(json: unknown): Quota {
+  const obj = json as Record<string, unknown>;
+  return {
+    tokens: typeof obj.tokens === 'number' ? obj.tokens : 0,
+    label: typeof obj.label === 'string' ? obj.label : undefined,
+  };
+}
+
 export interface QuotaStatus {
   allowed: boolean;
   remaining: number;

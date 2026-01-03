@@ -1,7 +1,31 @@
+import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MessageInput } from '../components/conversation/MessageInput';
 import { MessageList } from '../components/conversation/MessageList';
 import { useConversationSocket } from '../hooks/useConversationSocket';
+
+/** Full-screen centered message with optional title, message, and action button */
+function FullScreenMessage({
+  title,
+  titleColor = 'text-gray-900',
+  message,
+  action,
+}: {
+  title?: string;
+  titleColor?: string;
+  message?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-center">
+        {title && <h1 className={`text-2xl font-bold ${titleColor}`}>{title}</h1>}
+        {message && <div className="mt-2 text-gray-600">{message}</div>}
+        {action && <div className="mt-4">{action}</div>}
+      </div>
+    </div>
+  );
+}
 
 export function Conversation() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -11,19 +35,20 @@ export function Conversation() {
 
   if (Number.isNaN(parsedSessionId)) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600">Invalid Session</h1>
-          <p className="mt-2 text-gray-600">The session ID is not valid.</p>
+      <FullScreenMessage
+        title="Invalid Session"
+        titleColor="text-red-600"
+        message="The session ID is not valid."
+        action={
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="mt-4 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             Go Home
           </button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
@@ -42,32 +67,35 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   // Loading state
   if (status === 'connecting' && !scenario) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center" role="status" aria-live="polite">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-          <span className="sr-only">Loading</span>
-          <p className="mt-4 text-gray-600">Connecting...</p>
-        </div>
-      </div>
+      <FullScreenMessage
+        message={
+          <div role="status" aria-live="polite">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            <span className="sr-only">Loading</span>
+            <p className="mt-4">Connecting...</p>
+          </div>
+        }
+      />
     );
   }
 
   // Error state
   if (status === 'error' && error && !error.recoverable) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600">Connection Error</h1>
-          <p className="mt-2 text-gray-600">{error.message}</p>
+      <FullScreenMessage
+        title="Connection Error"
+        titleColor="text-red-600"
+        message={error.message}
+        action={
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-4 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             Refresh Page
           </button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 

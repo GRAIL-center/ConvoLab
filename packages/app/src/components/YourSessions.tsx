@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
+/** Format a date as a relative time string (e.g., "5m ago", "2d ago") */
+function formatRelativeTime(date: string | Date): string {
+  const d = new Date(date);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString();
+}
+
 export function YourSessions() {
   const trpc = useTRPC();
   const navigate = useNavigate();
@@ -12,25 +28,6 @@ export function YourSessions() {
   if (isLoading || !sessions?.length) {
     return null;
   }
-
-  const formatDate = (date: string | Date) => {
-    const d = new Date(date);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-
-    // Handle future dates gracefully (e.g., server time skew)
-    if (diffMs < 0) return d.toLocaleDateString();
-
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return d.toLocaleDateString();
-  };
 
   return (
     <div className="mb-8">
@@ -53,7 +50,7 @@ export function YourSessions() {
             )}
             <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
               <span>{session.messageCount} messages</span>
-              <span>{formatDate(session.startedAt)}</span>
+              <span>{formatRelativeTime(session.startedAt)}</span>
             </div>
           </button>
         ))}
