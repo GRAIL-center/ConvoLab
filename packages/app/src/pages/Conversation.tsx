@@ -17,7 +17,7 @@ function FullScreenMessage({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex h-dvh items-center justify-center">
       <div className="text-center">
         {title && <h1 className={`text-2xl font-bold ${titleColor}`}>{title}</h1>}
         {message && <div className="mt-2 text-gray-600">{message}</div>}
@@ -114,7 +114,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   const statusText = getStatusIndicator();
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       {/* Header */}
       <header className="border-b bg-white px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">

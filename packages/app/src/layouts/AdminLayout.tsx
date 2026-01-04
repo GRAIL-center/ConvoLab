@@ -14,7 +14,7 @@ export function AdminLayout() {
   // Show loading state while checking auth
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-dvh items-center justify-center bg-gray-100">
         <div className="text-gray-500">Loading...</div>
       </div>
     );
@@ -26,7 +26,7 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-100">
+    <div className="flex h-dvh flex-col bg-gray-100">
       {/* Site banner */}
       {siteBanner && (
         <div
