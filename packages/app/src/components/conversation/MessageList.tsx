@@ -12,6 +12,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive or during streaming
+  // biome-ignore lint/correctness/useExhaustiveDependencies: we need to scroll when messages array changes
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });

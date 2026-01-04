@@ -112,9 +112,9 @@ function formatResponse(result: Result): string {
     for (const word of words) {
       if (currentLine.length + word.length > 75) {
         lines.push(currentLine);
-        currentLine = '│ ' + word + ' ';
+        currentLine = `│ ${word} `;
       } else {
-        currentLine += word + ' ';
+        currentLine += `${word} `;
       }
     }
     if (currentLine.trim() !== '│') {
@@ -122,7 +122,7 @@ function formatResponse(result: Result): string {
     }
   }
 
-  lines.push('└' + '─'.repeat(70));
+  lines.push(`└${'─'.repeat(70)}`);
   return lines.join('\n');
 }
 

@@ -1,13 +1,44 @@
 import { TRPCError } from '@trpc/server';
+import type { PrismaClient } from '@workspace/database';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
-import { getInvitationQuotaStatus, type Quota } from '../../lib/quota.js';
+import { getInvitationQuotaStatus, parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
 import { adminProcedure, publicProcedure, router } from '../procedures.js';
 
 // Base64url token format (32 bytes = 43 chars, no padding)
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Invalid token format');
+
+// Scenario fields included in invitation queries
+const scenarioSelect = {
+  id: true,
+  name: true,
+  description: true,
+  slug: true,
+  partnerPersona: true,
+} as const;
+
+/**
+ * Fetch an invitation by token and validate it's usable.
+ * Throws TRPCError if not found or expired.
+ */
+async function getValidInvitation(prisma: PrismaClient, token: string) {
+  const invitation = await prisma.invitation.findUnique({
+    where: { token },
+    include: { scenario: { select: scenarioSelect } },
+  });
+
+  if (!invitation) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
+  }
+
+  if (invitation.expiresAt < new Date()) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invitation has expired' });
+  }
+
+  return invitation;
+}
 
 export const invitationRouter = router({
   /**
@@ -17,30 +48,8 @@ export const invitationRouter = router({
   validate: publicProcedure
     .input(z.object({ token: tokenSchema }))
     .query(async ({ ctx, input }) => {
-      const invitation = await ctx.prisma.invitation.findUnique({
-        where: { token: input.token },
-        include: {
-          scenario: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              slug: true,
-              partnerPersona: true,
-            },
-          },
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
-      }
-
-      if (invitation.expiresAt < new Date()) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invitation has expired' });
-      }
-
-      const quota = invitation.quota as unknown as Quota;
+      const invitation = await getValidInvitation(ctx.prisma, input.token);
+      const quota = parseQuota(invitation.quota);
       const quotaStatus = await getInvitationQuotaStatus(ctx.prisma, invitation.id, quota);
 
       return {
@@ -62,26 +71,7 @@ export const invitationRouter = router({
   claim: publicProcedure
     .input(z.object({ token: tokenSchema }))
     .mutation(async ({ ctx, input }) => {
-      const invitation = await ctx.prisma.invitation.findUnique({
-        where: { token: input.token },
-        include: {
-          scenario: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      });
-
-      if (!invitation) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
-      }
-
-      if (invitation.expiresAt < new Date()) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invitation has expired' });
-      }
+      const invitation = await getValidInvitation(ctx.prisma, input.token);
 
       // Check if already claimed by a different user
       if (invitation.linkedUserId && invitation.linkedUserId !== ctx.userId) {
@@ -150,8 +140,8 @@ export const invitationRouter = router({
           // Edge case: claimed but no session exists (shouldn't happen, but handle it)
           if (!invitation.scenarioId) {
             throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: 'Invitation is missing a scenario for session creation',
+              code: 'BAD_REQUEST',
+              message: 'Invitation has no scenario assigned',
             });
           }
           const newSession = await ctx.prisma.conversationSession.create({
@@ -195,7 +185,7 @@ export const invitationRouter = router({
         },
       });
 
-      const quota = invitation.quota as unknown as Quota;
+      const quota = parseQuota(invitation.quota);
       const quotaStatus = await getInvitationQuotaStatus(ctx.prisma, invitation.id, quota);
 
       return {
@@ -236,7 +226,7 @@ export const invitationRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Quota preset not found' });
       }
 
-      const quota = preset.quota as unknown as Quota;
+      const quota = parseQuota(preset.quota);
 
       const invitation = await ctx.prisma.invitation.create({
         data: {
@@ -314,7 +304,7 @@ export const invitationRouter = router({
       token: inv.token,
       label: inv.label,
       scenario: inv.scenario,
-      quota: inv.quota as unknown as Quota,
+      quota: parseQuota(inv.quota),
       claimedAt: inv.claimedAt,
       linkedUser: inv.linkedUser,
       sessionCount: inv._count.sessions,
@@ -335,7 +325,7 @@ export const invitationRouter = router({
       name: p.name,
       label: p.label,
       description: p.description,
-      quota: p.quota as unknown as Quota,
+      quota: parseQuota(p.quota),
       isDefault: p.isDefault,
     }));
   }),
