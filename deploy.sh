@@ -49,4 +49,4 @@ docker image prune -f
 log "Deploy complete!"
 
 # Show running containers
-docker compose -f "$COMPOSE_FILE" ps
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
