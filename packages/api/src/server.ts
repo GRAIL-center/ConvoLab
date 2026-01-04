@@ -4,7 +4,7 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { prisma, seedIfEmpty } from '@workspace/database';
+import { isDatabaseEmpty, prisma, seedReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 
 import oauthPlugin from './plugins/oauth.js';
@@ -92,21 +92,18 @@ if (!isDev) {
 
 const start = async () => {
   try {
-    // Auto-seed empty database in development
-    if (isDev) {
-      try {
-        const seeded = await seedIfEmpty(prisma, {
-          log: (msg) => fastify.log.info(msg),
-        });
-        if (seeded) {
-          fastify.log.info('Auto-seeded empty database with initial data');
+    // Auto-seed reference data (quota presets, scenarios) in all environments
+    try {
+      if (await isDatabaseEmpty(prisma)) {
+        const logOpts = { log: (msg: string) => fastify.log.info(msg) };
+        await seedReferenceData(prisma, logOpts);
+        // Only seed test data (test admin, test invitation) in development
+        if (isDev) {
+          await seedTestData(prisma, logOpts);
         }
-      } catch (seedErr) {
-        fastify.log.error(
-          { err: seedErr },
-          'Database seeding failed; continuing without seed data'
-        );
       }
+    } catch (seedErr) {
+      fastify.log.error({ err: seedErr }, 'Database seeding failed; continuing without seed data');
     }
 
     const port = parseInt(process.env.PORT || '3000', 10);

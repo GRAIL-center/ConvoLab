@@ -84,10 +84,11 @@ export interface SeedOptions {
 }
 
 /**
- * Seeds the database with initial data (quota presets, scenarios, test admin).
+ * Seeds reference data needed in ALL environments (including production).
+ * Includes quota presets and scenarios.
  * Safe to call multiple times - uses upserts.
  */
-export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = {}) {
+export async function seedReferenceData(prisma: PrismaClient, options: SeedOptions = {}) {
   const log = options.log ?? console.log;
 
   // Create quota presets
@@ -98,7 +99,26 @@ export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = 
       create: preset,
     });
   }
-  log(`Created quota presets: ${QUOTA_PRESETS.map((p) => p.name).join(', ')}`);
+  log(`Seeded quota presets: ${QUOTA_PRESETS.map((p) => p.name).join(', ')}`);
+
+  // Create scenarios
+  for (const scenario of SCENARIOS) {
+    await prisma.scenario.upsert({
+      where: { slug: scenario.slug },
+      update: scenario,
+      create: scenario,
+    });
+  }
+  log(`Seeded scenarios: ${SCENARIOS.map((s) => s.slug).join(', ')}`);
+}
+
+/**
+ * Seeds test/development data (NOT for production).
+ * Includes test admin user and test invitation.
+ * Safe to call multiple times - uses upserts.
+ */
+export async function seedTestData(prisma: PrismaClient, options: SeedOptions = {}) {
+  const log = options.log ?? console.log;
 
   // Create test admin user
   const adminUser = await prisma.user.upsert({
@@ -123,22 +143,11 @@ export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = 
       primary: true,
     },
   });
-  log('Created admin user with email: admin@example.com');
-
-  // Create scenarios
-  let firstScenarioId: number | null = null;
-  for (const scenario of SCENARIOS) {
-    const created = await prisma.scenario.upsert({
-      where: { slug: scenario.slug },
-      update: scenario,
-      create: scenario,
-    });
-    if (firstScenarioId === null) firstScenarioId = created.id;
-    log(`Created scenario: ${scenario.name}`);
-  }
+  log('Seeded test admin user: admin@example.com');
 
   // Create a test invitation (refresh expiration on re-seed)
-  if (firstScenarioId !== null) {
+  const firstScenario = await prisma.scenario.findFirst({ orderBy: { id: 'asc' } });
+  if (firstScenario) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     await prisma.invitation.upsert({
       where: { token: 'test-invitation-token' },
@@ -146,14 +155,24 @@ export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = 
       create: {
         token: 'test-invitation-token',
         label: 'Dev test invitation',
-        scenarioId: firstScenarioId,
+        scenarioId: firstScenario.id,
         quota: { tokens: 25000, label: 'Short conversation' },
         expiresAt,
         createdById: adminUser.id,
       },
     });
-    log('Created test invitation with token: test-invitation-token');
+    log('Seeded test invitation: test-invitation-token');
   }
+}
+
+/**
+ * Seeds the database with all data (reference + test).
+ * For development use only.
+ * Safe to call multiple times - uses upserts.
+ */
+export async function seedDatabase(prisma: PrismaClient, options: SeedOptions = {}) {
+  await seedReferenceData(prisma, options);
+  await seedTestData(prisma, options);
 }
 
 /**
