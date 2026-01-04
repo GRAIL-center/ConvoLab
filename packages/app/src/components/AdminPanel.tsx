@@ -31,9 +31,11 @@ export function AdminPanel() {
   const invitationListQueryKey = trpc.invitation.list.queryOptions().queryKey;
   const createMutation = useMutation({
     ...trpc.invitation.create.mutationOptions(),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: invitationListQueryKey });
       setLabel('');
+      // Auto-copy the new invitation link
+      copyLink(data.token);
     },
   });
 
