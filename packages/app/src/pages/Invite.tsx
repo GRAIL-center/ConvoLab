@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -31,12 +32,8 @@ export function Invite() {
       // Invalidate auth query so UserMenu updates to show guest state
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
 
-      // TODO: Navigate to conversation page when it exists
-      // For now, just show success state
-      if (data.invitation.scenario) {
-        // Would navigate to: /conversation/new?scenario=${data.invitation.scenario.id}
-        alert(`Claimed! Scenario: ${data.invitation.scenario.name}`);
-      }
+      // Navigate to conversation
+      navigate(`/conversation/${data.sessionId}`);
     },
   });
 
