@@ -27,7 +27,12 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto p-4 space-y-3"
+      role="log"
+      aria-label="Conversation messages"
+    >
       {messages.map((message, index) => (
         <MessageBubble
           key={message.id !== -1 ? message.id : `streaming-${index}`}

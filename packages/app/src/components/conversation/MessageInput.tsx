@@ -38,6 +38,7 @@ export function MessageInput({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          aria-label="Message input"
           className="flex-1 resize-none rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
         />
         <button

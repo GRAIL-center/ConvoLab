@@ -43,8 +43,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   if (status === 'connecting' && !scenario) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
+        <div className="text-center" role="status" aria-live="polite">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <span className="sr-only">Loading</span>
           <p className="mt-4 text-gray-600">Connecting...</p>
         </div>
       </div>
@@ -72,7 +73,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
   const getStatusIndicator = () => {
     if (isStreaming) {
-      return streamingRole === 'partner' ? 'Partner is typing...' : 'Coach is thinking...';
+      if (streamingRole === 'partner') return 'Partner is typing...';
+      if (streamingRole === 'coach') return 'Coach is thinking...';
+      return 'Processing...'; // Fallback for transient state
     }
     if (status === 'connecting') {
       return 'Reconnecting...';

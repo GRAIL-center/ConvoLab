@@ -79,6 +79,13 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
   const lastMessageIdRef = useRef<number | null>(null);
   const streamingContentRef = useRef<string>('');
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isStreamingRef = useRef(false);
+
+  // Keep ref in sync with state for use in callbacks
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   const send = useCallback((msg: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -88,11 +95,12 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
 
   const sendMessage = useCallback(
     (content: string) => {
-      if (!content.trim() || isStreaming) return;
+      // Use ref to avoid recreating callback on every isStreaming change
+      if (!content.trim() || isStreamingRef.current) return;
 
       // Optimistically add user message
       const userMessage: Message = {
-        id: Date.now(), // Temporary ID, will be replaced
+        id: Date.now(),
         role: 'user',
         content: content.trim(),
         timestamp: new Date().toISOString(),
@@ -101,184 +109,202 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
 
       send({ type: 'message', content: content.trim() });
     },
-    [send, isStreaming]
+    [send]
   );
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/conversation/${sessionId}`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setStatus('connected');
-      setError(null);
-      reconnectAttemptsRef.current = 0;
-
-      // If reconnecting, request messages since last known
-      if (lastMessageIdRef.current !== null) {
-        send({ type: 'resume', afterMessageId: lastMessageIdRef.current });
-      }
-
-      // Start ping interval
-      pingIntervalRef.current = setInterval(() => {
-        send({ type: 'ping' });
-      }, PING_INTERVAL_MS);
-    };
-
-    ws.onclose = (event) => {
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-
-      if (event.code !== 1000) {
-        // Not a clean close, attempt reconnect
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
-          reconnectAttemptsRef.current++;
-          setStatus('connecting');
-          setTimeout(connect, delay);
-        } else {
-          setStatus('error');
-          setError({
-            code: 'CONNECTION_LOST',
-            message: 'Connection lost. Please refresh the page.',
-            recoverable: false,
-          });
-        }
-      } else {
-        setStatus('disconnected');
-      }
-    };
-
-    ws.onerror = () => {
-      // Error handling is done in onclose
-    };
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data) as ServerMessage;
-
-      switch (msg.type) {
-        case 'connected':
-          setScenario(msg.scenario);
-          break;
-
-        case 'history':
-          setMessages(msg.messages);
-          if (msg.messages.length > 0) {
-            lastMessageIdRef.current = msg.messages[msg.messages.length - 1].id;
-          }
-          break;
-
-        case 'partner:delta':
-          setIsStreaming(true);
-          setStreamingRole('partner');
-          streamingContentRef.current += msg.content;
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'partner' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
-            }
-            return [
-              ...prev,
-              {
-                id: -1, // Temporary
-                role: 'partner',
-                content: streamingContentRef.current,
-                timestamp: new Date().toISOString(),
-                isStreaming: true,
-              },
-            ];
-          });
-          break;
-
-        case 'partner:done':
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'partner' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
-            }
-            return prev;
-          });
-          lastMessageIdRef.current = msg.messageId;
-          streamingContentRef.current = '';
-          setStreamingRole(null);
-          // Don't set isStreaming false yet - coach will follow
-          break;
-
-        case 'coach:delta':
-          setIsStreaming(true);
-          setStreamingRole('coach');
-          streamingContentRef.current += msg.content;
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'coach' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
-            }
-            return [
-              ...prev,
-              {
-                id: -1,
-                role: 'coach',
-                content: streamingContentRef.current,
-                timestamp: new Date().toISOString(),
-                isStreaming: true,
-              },
-            ];
-          });
-          break;
-
-        case 'coach:done':
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'coach' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
-            }
-            return prev;
-          });
-          lastMessageIdRef.current = msg.messageId;
-          streamingContentRef.current = '';
-          setIsStreaming(false);
-          setStreamingRole(null);
-          break;
-
-        case 'error':
-          setError({ code: msg.code, message: msg.message, recoverable: msg.recoverable });
-          if (!msg.recoverable) {
-            setStatus('error');
-          }
-          setIsStreaming(false);
-          setStreamingRole(null);
-          break;
-
-        case 'quota:warning':
-          setQuota({ remaining: msg.remaining, total: msg.total, exhausted: false });
-          break;
-
-        case 'quota:exhausted':
-          setQuota((prev) =>
-            prev ? { ...prev, exhausted: true } : { remaining: 0, total: 0, exhausted: true }
-          );
-          break;
-      }
-    };
-  }, [sessionId, send]);
-
   useEffect(() => {
+    function connect() {
+      // Check for CONNECTING or OPEN state to avoid orphan sockets
+      if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/conversation/${sessionId}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setStatus('connected');
+        setError(null);
+        reconnectAttemptsRef.current = 0;
+
+        // If reconnecting, request messages since last known
+        if (lastMessageIdRef.current !== null) {
+          send({ type: 'resume', afterMessageId: lastMessageIdRef.current });
+        }
+
+        // Start ping interval
+        pingIntervalRef.current = setInterval(() => {
+          send({ type: 'ping' });
+        }, PING_INTERVAL_MS);
+      };
+
+      ws.onclose = (event) => {
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+
+        if (event.code !== 1000) {
+          // Not a clean close, attempt reconnect
+          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
+            reconnectAttemptsRef.current++;
+            setStatus('connecting');
+            // Store timeout ref for cleanup
+            reconnectTimeoutRef.current = setTimeout(connect, delay);
+          } else {
+            setStatus('error');
+            setError({
+              code: 'CONNECTION_LOST',
+              message: 'Connection lost. Please refresh the page.',
+              recoverable: false,
+            });
+          }
+        } else {
+          setStatus('disconnected');
+        }
+      };
+
+      ws.onerror = () => {
+        // Error handling is done in onclose
+      };
+
+      ws.onmessage = (event) => {
+        let msg: ServerMessage;
+        try {
+          msg = JSON.parse(event.data) as ServerMessage;
+        } catch {
+          setError({
+            code: 'INVALID_MESSAGE',
+            message: 'Received an invalid message from the server.',
+            recoverable: true,
+          });
+          return;
+        }
+
+        switch (msg.type) {
+          case 'connected':
+            setScenario(msg.scenario);
+            break;
+
+          case 'history':
+            setMessages(msg.messages);
+            if (msg.messages.length > 0) {
+              lastMessageIdRef.current = msg.messages[msg.messages.length - 1].id;
+            }
+            break;
+
+          case 'partner:delta':
+            setIsStreaming(true);
+            setStreamingRole('partner');
+            streamingContentRef.current += msg.content;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'partner' && last.isStreaming) {
+                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+              }
+              return [
+                ...prev,
+                {
+                  id: -1, // Temporary
+                  role: 'partner',
+                  content: streamingContentRef.current,
+                  timestamp: new Date().toISOString(),
+                  isStreaming: true,
+                },
+              ];
+            });
+            break;
+
+          case 'partner:done':
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'partner' && last.isStreaming) {
+                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+              }
+              return prev;
+            });
+            lastMessageIdRef.current = msg.messageId;
+            streamingContentRef.current = '';
+            setStreamingRole(null);
+            // Don't set isStreaming false yet - coach will follow
+            break;
+
+          case 'coach:delta':
+            setIsStreaming(true);
+            setStreamingRole('coach');
+            streamingContentRef.current += msg.content;
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'coach' && last.isStreaming) {
+                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+              }
+              return [
+                ...prev,
+                {
+                  id: -1,
+                  role: 'coach',
+                  content: streamingContentRef.current,
+                  timestamp: new Date().toISOString(),
+                  isStreaming: true,
+                },
+              ];
+            });
+            break;
+
+          case 'coach:done':
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'coach' && last.isStreaming) {
+                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+              }
+              return prev;
+            });
+            lastMessageIdRef.current = msg.messageId;
+            streamingContentRef.current = '';
+            setIsStreaming(false);
+            setStreamingRole(null);
+            break;
+
+          case 'error':
+            setError({ code: msg.code, message: msg.message, recoverable: msg.recoverable });
+            if (!msg.recoverable) {
+              setStatus('error');
+            }
+            setIsStreaming(false);
+            setStreamingRole(null);
+            break;
+
+          case 'quota:warning':
+            setQuota({ remaining: msg.remaining, total: msg.total, exhausted: false });
+            break;
+
+          case 'quota:exhausted':
+            setQuota((prev) =>
+              prev ? { ...prev, exhausted: true } : { remaining: 0, total: 0, exhausted: true }
+            );
+            break;
+        }
+      };
+    }
+
     connect();
 
     return () => {
+      // Clean up reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
       }
       if (wsRef.current) {
         wsRef.current.close(1000, 'Component unmounting');
         wsRef.current = null;
       }
     };
-  }, [connect]);
+  }, [sessionId, send]);
 
   return {
     status,

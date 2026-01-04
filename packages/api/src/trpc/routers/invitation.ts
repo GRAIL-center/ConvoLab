@@ -148,9 +148,15 @@ export const invitationRouter = router({
           sessionId = existingSession.id;
         } else {
           // Edge case: claimed but no session exists (shouldn't happen, but handle it)
+          if (!invitation.scenarioId) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Invitation is missing a scenario for session creation',
+            });
+          }
           const newSession = await ctx.prisma.conversationSession.create({
             data: {
-              scenarioId: invitation.scenarioId!,
+              scenarioId: invitation.scenarioId,
               userId,
               invitationId: invitation.id,
               status: 'ACTIVE',

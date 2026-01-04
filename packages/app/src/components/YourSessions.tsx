@@ -17,6 +17,10 @@ export function YourSessions() {
     const d = new Date(date);
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
+
+    // Handle future dates gracefully (e.g., server time skew)
+    if (diffMs < 0) return d.toLocaleDateString();
+
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
