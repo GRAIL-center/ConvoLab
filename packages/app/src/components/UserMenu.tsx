@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 import { HamburgerIcon } from './HamburgerIcon';
 
@@ -120,10 +121,31 @@ export function UserMenu() {
                           </p>
                         </div>
                       </div>
-                      <div className="mt-3 space-y-1 text-xs text-gray-400">
-                        <p>Role: {user.role}</p>
-                        <p>ID: {user.id}</p>
-                      </div>
+
+                      {/* Admin section - ADMIN only */}
+                      {user.role === 'ADMIN' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsOpen(false)}
+                          className="mt-3 block rounded-md border border-gray-200 p-3 hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-gray-900">Admin</div>
+                          <div className="text-xs text-gray-500">users, telemetry</div>
+                        </Link>
+                      )}
+
+                      {/* Research section - STAFF+ */}
+                      {(user.role === 'ADMIN' || user.role === 'STAFF') && (
+                        <Link
+                          to="/research"
+                          onClick={() => setIsOpen(false)}
+                          className="mt-2 block rounded-md border border-gray-200 p-3 hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-gray-900">Research</div>
+                          <div className="text-xs text-gray-500">invitations, sessions</div>
+                        </Link>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleLogout()}

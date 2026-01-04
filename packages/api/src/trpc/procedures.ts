@@ -23,3 +23,10 @@ export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   }
   return next();
 });
+
+export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (ctx.user.role !== 'ADMIN' && ctx.user.role !== 'STAFF') {
+    throw new TRPCError({ code: 'FORBIDDEN' });
+  }
+  return next();
+});

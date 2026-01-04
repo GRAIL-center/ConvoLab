@@ -1,13 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
 import { UserMenu } from './components/UserMenu';
+import { AdminLayout } from './layouts/AdminLayout';
+import { ResearchLayout } from './layouts/ResearchLayout';
 import { Telemetry } from './pages/admin/Telemetry';
+import { UserDetail } from './pages/admin/UserDetail';
+import { UserList } from './pages/admin/UserList';
 import { Conversation } from './pages/Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
+import { InvitationList } from './pages/research/InvitationList';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -65,6 +70,20 @@ export function App() {
             {/* Full-screen conversation page (no main header) */}
             <Route path="/conversation/:sessionId" element={<Conversation />} />
 
+            {/* Admin area with sidebar layout */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="users" replace />} />
+              <Route path="users" element={<UserList />} />
+              <Route path="users/:id" element={<UserDetail />} />
+              <Route path="telemetry" element={<Telemetry />} />
+            </Route>
+
+            {/* Research area with sidebar layout */}
+            <Route path="/research" element={<ResearchLayout />}>
+              <Route index element={<Navigate to="invitations" replace />} />
+              <Route path="invitations" element={<InvitationList />} />
+            </Route>
+
             {/* Standard layout with header */}
             <Route
               path="*"
@@ -89,7 +108,6 @@ export function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/invite/:token" element={<Invite />} />
-                      <Route path="/admin/telemetry" element={<Telemetry />} />
                     </Routes>
                   </main>
                 </div>
