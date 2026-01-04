@@ -5,6 +5,13 @@ const TEST_ADMIN_ID = 'test-admin-user';
 
 const QUOTA_PRESETS = [
   {
+    name: 'test-quota',
+    label: 'Test (tiny)',
+    description: 'For testing quota exhaustion - runs out after ~1 exchange',
+    quota: { tokens: 500 },
+    sortOrder: -1,
+  },
+  {
     name: 'quick-chat',
     label: 'Quick chat',
     description: 'Brief exploration of a scenario',
