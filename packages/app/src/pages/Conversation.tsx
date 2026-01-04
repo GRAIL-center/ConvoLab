@@ -69,11 +69,11 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     return (
       <FullScreenMessage
         message={
-          <div role="status" aria-live="polite">
+          <output aria-live="polite">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
             <span className="sr-only">Loading</span>
             <p className="mt-4">Connecting...</p>
-          </div>
+          </output>
         }
       />
     );

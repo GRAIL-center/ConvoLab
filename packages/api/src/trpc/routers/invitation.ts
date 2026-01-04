@@ -23,14 +23,10 @@ const scenarioSelect = {
  * Fetch an invitation by token and validate it's usable.
  * Throws TRPCError if not found or expired.
  */
-async function getValidInvitation<T extends { scenario?: { select: typeof scenarioSelect } }>(
-  prisma: PrismaClient,
-  token: string,
-  include?: T
-) {
+async function getValidInvitation(prisma: PrismaClient, token: string) {
   const invitation = await prisma.invitation.findUnique({
     where: { token },
-    include: include ?? { scenario: { select: scenarioSelect } },
+    include: { scenario: { select: scenarioSelect } },
   });
 
   if (!invitation) {
@@ -144,8 +140,8 @@ export const invitationRouter = router({
           // Edge case: claimed but no session exists (shouldn't happen, but handle it)
           if (!invitation.scenarioId) {
             throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: 'Invitation is missing a scenario for session creation',
+              code: 'BAD_REQUEST',
+              message: 'Invitation has no scenario assigned',
             });
           }
           const newSession = await ctx.prisma.conversationSession.create({
