@@ -28,7 +28,7 @@ async function sessionPlugin(fastify: FastifyInstance) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+      maxAge: 365 * 24 * 60 * 60, // 1 year for guests (shortened on OAuth login)
     },
   });
 }

@@ -49,6 +49,9 @@ async function authRoutes(fastify: FastifyInstance) {
         request.session.set('mergedFrom', result.mergedFrom);
       }
 
+      // Shorten session duration for authenticated users (90 days vs 1 year for guests)
+      request.session.options({ maxAge: 90 * 24 * 60 * 60 });
+
       fastify.log.info(
         { userId: result.user.id, merged: !!result.mergedFrom },
         'User logged in via Google'

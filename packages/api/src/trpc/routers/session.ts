@@ -1,12 +1,15 @@
-import { protectedProcedure, router } from '../procedures.js';
+import { publicProcedure, router } from '../procedures.js';
 
 export const sessionRouter = router({
   /**
    * List all conversation sessions for the current user.
+   * Returns empty array if not authenticated.
    */
-  listMine: protectedProcedure.query(async ({ ctx }) => {
+  listMine: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.userId) return [];
+
     const sessions = await ctx.prisma.conversationSession.findMany({
-      where: { userId: ctx.user.id },
+      where: { userId: ctx.userId },
       include: {
         scenario: {
           select: {
