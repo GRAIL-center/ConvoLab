@@ -122,17 +122,15 @@ export function UserMenu() {
                         </div>
                       </div>
 
-                      {/* Admin section - ADMIN only */}
-                      {user.role === 'ADMIN' && (
-                        <Link
-                          to="/admin"
-                          onClick={() => setIsOpen(false)}
-                          className="mt-3 block rounded-md border border-gray-200 p-3 hover:bg-gray-50"
-                        >
-                          <div className="font-medium text-gray-900">Admin</div>
-                          <div className="text-xs text-gray-500">users, telemetry</div>
-                        </Link>
-                      )}
+                      {/* Home link */}
+                      <Link
+                        to="/"
+                        onClick={() => setIsOpen(false)}
+                        className="mt-3 block rounded-md border border-gray-200 p-3 hover:bg-gray-50"
+                      >
+                        <div className="font-medium text-gray-900">Home</div>
+                        <div className="text-xs text-gray-500">conversations</div>
+                      </Link>
 
                       {/* Research section - STAFF+ */}
                       {(user.role === 'ADMIN' || user.role === 'STAFF') && (
@@ -143,6 +141,18 @@ export function UserMenu() {
                         >
                           <div className="font-medium text-gray-900">Research</div>
                           <div className="text-xs text-gray-500">invitations, sessions</div>
+                        </Link>
+                      )}
+
+                      {/* Admin section - ADMIN only */}
+                      {user.role === 'ADMIN' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsOpen(false)}
+                          className="mt-2 block rounded-md border border-gray-200 p-3 hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-gray-900">Admin</div>
+                          <div className="text-xs text-gray-500">users, telemetry</div>
                         </Link>
                       )}
 
