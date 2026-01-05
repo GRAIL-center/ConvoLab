@@ -69,13 +69,22 @@ export const invitationRouter = router({
 
   /**
    * Claim an invitation. Creates anonymous user if needed, links invitation.
-   * For custom scenario invitations, also elaborates the user's description.
+   * For custom scenario invitations, elaborates the user's description
+   * (or uses pre-elaborated prompts if provided from preview flow).
    */
   claim: publicProcedure
     .input(
       z.object({
         token: tokenSchema,
         customDescription: z.string().min(10).max(2000).optional(),
+        // Pre-elaborated prompts from preview flow (skip re-elaboration if provided)
+        elaborated: z
+          .object({
+            persona: z.string(),
+            partnerPrompt: z.string(),
+            coachPrompt: z.string(),
+          })
+          .optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -102,28 +111,34 @@ export const invitationRouter = router({
         }
       }
 
-      // Elaborate custom description if provided (for new claims)
+      // Get elaboration result - either pre-provided or generate new
       let elaborationResult: {
         persona: string;
         partnerPrompt: string;
         coachPrompt: string;
       } | null = null;
 
-      if (input.customDescription && !alreadyClaimed) {
-        const result = await elaborateDescription(input.customDescription);
+      if (!alreadyClaimed && input.customDescription) {
+        if (input.elaborated) {
+          // Use pre-elaborated prompts from preview flow
+          elaborationResult = input.elaborated;
+        } else {
+          // Elaborate now (legacy flow without preview)
+          const result = await elaborateDescription(input.customDescription);
 
-        if (!result.success) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: result.refusalReason,
-          });
+          if (!result.success) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: result.refusalReason,
+            });
+          }
+
+          elaborationResult = {
+            persona: result.persona,
+            partnerPrompt: result.partnerPrompt,
+            coachPrompt: result.coachPrompt,
+          };
         }
-
-        elaborationResult = {
-          persona: result.persona,
-          partnerPrompt: result.partnerPrompt,
-          coachPrompt: result.coachPrompt,
-        };
       }
 
       let userId = ctx.userId;
@@ -166,8 +181,13 @@ export const invitationRouter = router({
       // Get or create conversation session
       let sessionId: number;
 
-      if (alreadyClaimed) {
-        // Find most recent session for this user+invitation
+      // Create new session if:
+      // - First time claiming, OR
+      // - New custom scenario (user went through preview flow with different description)
+      const shouldCreateNewSession = !alreadyClaimed || !!elaborationResult;
+
+      if (alreadyClaimed && !shouldCreateNewSession) {
+        // Return existing session (predefined scenario, already claimed)
         const existingSession = await ctx.prisma.conversationSession.findFirst({
           where: {
             userId,

@@ -70,6 +70,9 @@ export const TelemetryEvents = {
   USER_AUTHENTICATED: 'user_authenticated',
   USER_MERGED: 'user_merged',
 
+  // AI Safety
+  AI_REFUSAL: 'ai_refusal',
+
   // Landing
   PAGE_VIEWED: 'page_viewed',
   CTA_CLICKED: 'cta_clicked',
