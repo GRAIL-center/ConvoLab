@@ -30,6 +30,7 @@ export interface ScenarioInfo {
   name: string;
   description: string;
   partnerPersona: string;
+  isCustom?: boolean;
 }
 
 export interface HistoryMessage {

@@ -6,6 +6,7 @@ export function InvitationList() {
   const [scenarioId, setScenarioId] = useState<number | ''>('');
   const [presetName, setPresetName] = useState('');
   const [label, setLabel] = useState('');
+  const [allowCustomScenario, setAllowCustomScenario] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,11 +42,17 @@ export function InvitationList() {
   const defaultPreset = presets?.find((p) => p.isDefault)?.name || presets?.[0]?.name || '';
   const effectivePreset = presetName || defaultPreset;
 
+  // Can create if we have a preset AND (a scenario OR custom mode)
+  const canCreate = !!effectivePreset && (!!scenarioId || allowCustomScenario);
+
   const handleCreate = () => {
-    if (!effectivePreset || !scenarioId) return;
+    if (!effectivePreset) return;
+    if (!scenarioId && !allowCustomScenario) return;
+
     createMutation.mutate({
       presetName: effectivePreset,
-      scenarioId,
+      scenarioId: scenarioId || undefined,
+      allowCustomScenario,
       label: label || undefined,
     });
   };
@@ -91,17 +98,38 @@ export function InvitationList() {
             </label>
             <select
               id="invite-scenario"
-              value={scenarioId}
+              value={allowCustomScenario ? '' : scenarioId}
               onChange={(e) => setScenarioId(e.target.value ? Number(e.target.value) : '')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              disabled={allowCustomScenario}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
             >
-              <option value="">Select scenario...</option>
+              <option value="">
+                {allowCustomScenario ? 'User will describe...' : 'Select scenario...'}
+              </option>
               {scenarios?.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center gap-2 pb-2">
+            <input
+              id="allow-custom"
+              type="checkbox"
+              checked={allowCustomScenario}
+              onChange={(e) => {
+                setAllowCustomScenario(e.target.checked);
+                if (e.target.checked) {
+                  setScenarioId(''); // Clear scenario when enabling custom
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label htmlFor="allow-custom" className="text-sm font-medium text-gray-700">
+              Custom scenario
+            </label>
           </div>
 
           <div className="min-w-[180px]">
@@ -139,7 +167,7 @@ export function InvitationList() {
           <button
             type="button"
             onClick={handleCreate}
-            disabled={createMutation.isPending || !scenarioId || !effectivePreset}
+            disabled={createMutation.isPending || !canCreate}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Invitation'}
@@ -187,9 +215,18 @@ export function InvitationList() {
                         Claimed
                       </span>
                     )}
+                    {inv.allowCustomScenario && !inv.scenario && (
+                      <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                        Custom
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                    {inv.scenario && <span>{inv.scenario.name}</span>}
+                    {inv.scenario ? (
+                      <span>{inv.scenario.name}</span>
+                    ) : inv.allowCustomScenario ? (
+                      <span className="italic">User describes their own partner</span>
+                    ) : null}
                     <span>
                       {inv.sessionCount} session{inv.sessionCount !== 1 ? 's' : ''}
                     </span>

@@ -10,6 +10,7 @@ export function Invite() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [customDescription, setCustomDescription] = useState('');
 
   // Get current user to show appropriate sign-out messaging
   const { data: authData } = useQuery(trpc.auth.me.queryOptions());
@@ -72,8 +73,18 @@ export function Invite() {
     return null;
   }
 
+  // Determine if this is a custom scenario invitation
+  const isCustomScenario = invitation?.allowCustomScenario && !invitation?.scenario;
+  const canStartConversation =
+    !isCustomScenario ||
+    (customDescription.trim().length >= 10 && customDescription.length <= 2000);
+
   const handleStartConversation = () => {
-    claimMutation.mutate({ token });
+    if (isCustomScenario) {
+      claimMutation.mutate({ token, customDescription: customDescription.trim() });
+    } else {
+      claimMutation.mutate({ token });
+    }
   };
 
   const handleSignOut = async (unclaim = false) => {
@@ -101,6 +112,37 @@ export function Invite() {
               <p className="mt-1 text-gray-600">{invitation.scenario.partnerPersona}</p>
             </div>
           </>
+        ) : isCustomScenario ? (
+          <>
+            <h1 className="text-2xl font-bold text-gray-900">Describe Your Conversation Partner</h1>
+            <p className="mt-2 text-gray-600">
+              Tell us about the person you want to practice talking to. Be specific about their
+              personality, your relationship, and the situation.
+            </p>
+
+            <div className="mt-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Who do you want to practice with?
+              </label>
+              <textarea
+                id="description"
+                value={customDescription}
+                onChange={(e) => setCustomDescription(e.target.value)}
+                placeholder="Example: My manager who micromanages everything and doesn't trust me to do my job. They constantly check in and question my decisions."
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px] p-3"
+                maxLength={2000}
+                disabled={claimMutation.isPending}
+              />
+              <div className="mt-1 flex justify-between text-xs text-gray-500">
+                <span>
+                  {customDescription.length < 10 && customDescription.length > 0
+                    ? `${10 - customDescription.length} more characters needed`
+                    : 'At least 10 characters'}
+                </span>
+                <span>{customDescription.length}/2000</span>
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <h1 className="text-2xl font-bold text-gray-900">Conversation Practice</h1>
@@ -125,20 +167,26 @@ export function Invite() {
         <button
           type="button"
           onClick={handleStartConversation}
-          disabled={claimMutation.isPending || invitation.quota.remaining === 0}
+          disabled={
+            claimMutation.isPending || invitation.quota.remaining === 0 || !canStartConversation
+          }
           className="mt-6 w-full rounded-md bg-blue-600 px-4 py-3 text-white font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           {claimMutation.isPending
-            ? 'Starting...'
+            ? isCustomScenario
+              ? 'Creating your scenario...'
+              : 'Starting...'
             : invitation.quota.remaining === 0
               ? 'No quota remaining'
               : 'Start Conversation'}
         </button>
 
         {claimMutation.error && (
-          <p className="mt-3 text-center text-sm text-red-600">
-            Failed to start conversation. Please try again.
-          </p>
+          <div className="mt-3 rounded-md bg-red-50 p-3">
+            <p className="text-center text-sm text-red-600">
+              {claimMutation.error.message || 'Failed to start conversation. Please try again.'}
+            </p>
+          </div>
         )}
 
         <div className="mt-6 border-t pt-4 space-y-2">

@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { elaborateDescription } from '../../lib/elaborate.js';
 import { publicProcedure, router } from '../procedures.js';
 
 export const scenarioRouter = router({
@@ -34,4 +35,29 @@ export const scenarioRouter = router({
     }
     return scenario;
   }),
+
+  /**
+   * Elaborate a user's description into full system prompts.
+   * Used when claiming an invitation with allowCustomScenario=true.
+   */
+  elaborate: publicProcedure
+    .input(
+      z.object({
+        description: z
+          .string()
+          .min(10, 'Description must be at least 10 characters')
+          .max(2000, 'Description must be at most 2000 characters'),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        return await elaborateDescription(input.description);
+      } catch (error) {
+        const err = error as Error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to elaborate scenario: ${err.message}`,
+        });
+      }
+    }),
 });
