@@ -7,6 +7,7 @@ export function InvitationList() {
   const [presetName, setPresetName] = useState('');
   const [label, setLabel] = useState('');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -29,9 +30,11 @@ export function InvitationList() {
   const invitationListQueryKey = trpc.invitation.list.queryOptions().queryKey;
   const createMutation = useMutation({
     ...trpc.invitation.create.mutationOptions(),
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: invitationListQueryKey });
       setLabel('');
+      // Auto-copy the new invitation link
+      copyLink(data.token);
     },
   });
 
@@ -52,12 +55,18 @@ export function InvitationList() {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedToken(token);
+      setCopyError(null);
       if (copyTimeoutRef.current) {
         clearTimeout(copyTimeoutRef.current);
       }
       copyTimeoutRef.current = setTimeout(() => setCopiedToken(null), 2000);
     } catch (error) {
       console.error('Failed to copy invitation link:', error);
+      setCopyError(`Failed to copy link for ${token.slice(0, 8)}...`);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => setCopyError(null), 3000);
     }
   };
 
@@ -130,7 +139,7 @@ export function InvitationList() {
           <button
             type="button"
             onClick={handleCreate}
-            disabled={createMutation.isPending || !scenarioId}
+            disabled={createMutation.isPending || !scenarioId || !effectivePreset}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Invitation'}
@@ -143,6 +152,11 @@ export function InvitationList() {
           </p>
         )}
       </div>
+
+      {/* Copy error toast */}
+      {copyError && (
+        <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{copyError}</div>
+      )}
 
       {/* Invitations list */}
       <div className="rounded-lg border border-gray-200 bg-white shadow">
