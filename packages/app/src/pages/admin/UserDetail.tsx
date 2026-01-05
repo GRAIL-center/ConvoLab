@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 import { RoleBadge } from '../../components/RoleBadge';
@@ -40,15 +40,41 @@ export function UserDetail() {
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: user, isLoading, isError } = useQuery(trpc.user.get.queryOptions({ id: id! }));
+  const {
+    data: user,
+    isLoading,
+    isError,
+  } = useQuery({
+    ...trpc.user.get.queryOptions({ id: id ?? '' }),
+    enabled: !!id,
+  });
 
   const { data: me } = useQuery(trpc.auth.me.queryOptions());
+
+  const cancelModal = useCallback(() => {
+    setShowRoleConfirm(false);
+    setPendingRole(null);
+  }, []);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showRoleConfirm) {
+        cancelModal();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showRoleConfirm, cancelModal]);
 
   const updateRoleMutation = useMutation({
     ...trpc.user.updateRole.mutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trpc.user.get.queryKey({ id: id! }) });
-      queryClient.invalidateQueries({ queryKey: trpc.user.list.queryKey() });
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: trpc.user.get.queryKey({ id }) });
+      }
+      // Invalidate all user list queries regardless of parameters
+      queryClient.invalidateQueries({ queryKey: ['user', 'list'] });
       setShowRoleConfirm(false);
       setPendingRole(null);
       setError(null);
@@ -267,7 +293,7 @@ export function UserDetail() {
                   <div className="text-sm text-gray-500">{inv.scenario?.name || 'No scenario'}</div>
                 </div>
                 <div className="text-sm text-gray-500">
-                  Claimed {formatRelativeTime(inv.claimedAt!)}
+                  {inv.claimedAt ? `Claimed ${formatRelativeTime(inv.claimedAt)}` : 'Not claimed'}
                 </div>
               </li>
             ))}
@@ -277,9 +303,24 @@ export function UserDetail() {
 
       {/* Role change confirmation modal */}
       {showRoleConfirm && pendingRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Confirm Role Change</h3>
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click-to-close is intentional UX
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={cancelModal}
+          onKeyDown={(e) => e.key === 'Escape' && cancelModal()}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="role-change-title"
+          >
+            <h3 id="role-change-title" className="text-lg font-semibold text-gray-900">
+              Confirm Role Change
+            </h3>
             <p className="mt-2 text-sm text-gray-600">
               Are you sure you want to change this user's role from{' '}
               <span className="font-semibold">{user.role}</span> to{' '}

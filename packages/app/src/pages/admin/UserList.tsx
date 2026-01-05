@@ -16,19 +16,35 @@ export function UserList() {
   const [roleFilter, setRoleFilter] = useState<Role | ''>('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const trpc = useTRPC();
 
-  const { data, isLoading, isError } = useQuery(
+  const { data, isLoading, isError, isFetching, refetch } = useQuery(
     trpc.user.list.queryOptions({
       roleFilter: roleFilter || undefined,
       search: search || undefined,
+      cursor,
       limit: 50,
     })
   );
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearch(searchInput);
+    setSearch(searchInput.trim());
+    setCursor(undefined); // Reset pagination on new search
+  };
+
+  const handleLoadMore = () => {
+    if (data?.nextCursor) {
+      setCursor(data.nextCursor);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setRoleFilter('');
+    setSearch('');
+    setSearchInput('');
+    setCursor(undefined);
   };
 
   return (
@@ -74,11 +90,7 @@ export function UserList() {
         {(roleFilter || search) && (
           <button
             type="button"
-            onClick={() => {
-              setRoleFilter('');
-              setSearch('');
-              setSearchInput('');
-            }}
+            onClick={handleClearFilters}
             className="text-sm text-gray-500 hover:text-gray-700"
           >
             Clear filters
@@ -90,7 +102,18 @@ export function UserList() {
       {isLoading && <div className="py-12 text-center text-gray-500">Loading users...</div>}
 
       {/* Error state */}
-      {isError && <div className="py-12 text-center text-red-600">Failed to load users</div>}
+      {isError && (
+        <div className="py-12 text-center">
+          <p className="text-red-600">Failed to load users</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-2 text-sm font-medium text-amber-600 hover:text-amber-800"
+          >
+            Try again
+          </button>
+        </div>
+      )}
 
       {/* User table */}
       {data && (
@@ -181,9 +204,11 @@ export function UserList() {
             <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 text-center">
               <button
                 type="button"
-                className="text-sm font-medium text-amber-600 hover:text-amber-800"
+                onClick={handleLoadMore}
+                disabled={isFetching}
+                className="text-sm font-medium text-amber-600 hover:text-amber-800 disabled:opacity-50"
               >
-                Load more...
+                {isFetching ? 'Loading...' : 'Load more...'}
               </button>
             </div>
           )}
