@@ -66,8 +66,25 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         return;
       }
 
+      // Scenario is required for conversations (custom scenarios not yet supported)
+      if (!session.scenario) {
+        send(socket, {
+          type: 'error',
+          code: 'NO_SCENARIO',
+          message: 'Session has no scenario configured',
+          recoverable: false,
+        });
+        socket.close(1008, 'No scenario');
+        return;
+      }
+
       // Create conversation manager
-      const manager = new ConversationManager(socket, prisma, session, fastify.log);
+      const manager = new ConversationManager(
+        socket,
+        prisma,
+        { ...session, scenario: session.scenario },
+        fastify.log
+      );
 
       // Initialize (send connected + history)
       await manager.initialize();
