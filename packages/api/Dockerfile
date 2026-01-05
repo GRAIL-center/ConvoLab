@@ -8,20 +8,17 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy workspace files
+# Copy workspace config and all package sources (needed for proper workspace linking)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY packages/database/package.json ./packages/database/
-COPY packages/api/package.json ./packages/api/
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Copy source code
 COPY packages/database ./packages/database
 COPY packages/api ./packages/api
 
-# Generate Prisma Client
+# Install dependencies (workspace packages will be properly linked)
+RUN pnpm install --frozen-lockfile
+
+# Generate Prisma Client and build database package
 RUN pnpm -F @workspace/database generate
+RUN pnpm -F @workspace/database build
 
 # Expose port
 EXPOSE 3000
