@@ -43,6 +43,7 @@ export interface HistoryMessage {
 export type ErrorCode =
   | 'AUTH_FAILED'
   | 'SESSION_NOT_FOUND'
+  | 'NO_SCENARIO'
   | 'QUOTA_EXHAUSTED'
   | 'RATE_LIMITED'
   | 'PROVIDER_ERROR'

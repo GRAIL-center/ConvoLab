@@ -266,7 +266,7 @@ export function UserDetail() {
               <li key={session.id} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <div className="font-medium text-gray-900">
-                    {session.scenario?.name ?? 'Custom Scenario'}
+                    {session.scenario?.name ?? 'Custom scenario'}
                   </div>
                   <div className="text-sm text-gray-500">
                     {session.totalMessages} messages &middot; {session.status.toLowerCase()}
