@@ -13,8 +13,11 @@ import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
+// Default model for custom scenarios
+const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+
 interface SessionWithScenario extends ConversationSession {
-  scenario: Scenario;
+  scenario: Scenario | null;
   invitation: Invitation | null;
   messages: Message[];
 }
@@ -47,12 +50,27 @@ export class ConversationManager {
   async initialize(): Promise<void> {
     const scenario = this.session.scenario;
 
-    const scenarioInfo: ScenarioInfo = {
-      id: scenario.id,
-      name: scenario.name,
-      description: scenario.description,
-      partnerPersona: scenario.partnerPersona,
-    };
+    // Build scenario info - either from predefined scenario or custom fields
+    let scenarioInfo: ScenarioInfo;
+    if (scenario) {
+      scenarioInfo = {
+        id: scenario.id,
+        name: scenario.name,
+        description: scenario.description,
+        partnerPersona: scenario.partnerPersona,
+      };
+    } else if (this.session.customPartnerPersona) {
+      // Custom scenario
+      scenarioInfo = {
+        id: 0, // Custom scenarios don't have DB ID
+        name: 'Custom Scenario',
+        description: this.session.customDescription ?? 'User-defined conversation partner',
+        partnerPersona: this.session.customPartnerPersona,
+        isCustom: true,
+      };
+    } else {
+      throw new Error('Session has neither scenario nor custom prompts');
+    }
 
     send(this.ws, { type: 'connected', sessionId: this.session.id, scenario: scenarioInfo });
 
@@ -165,9 +183,22 @@ export class ConversationManager {
     role: 'partner' | 'coach'
   ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
     const scenario = this.session.scenario;
-    const modelString = role === 'partner' ? scenario.partnerModel : scenario.coachModel;
-    const systemPrompt =
-      role === 'partner' ? scenario.partnerSystemPrompt : scenario.coachSystemPrompt;
+
+    // Get model and system prompt - from scenario or custom fields
+    let modelString: string;
+    let systemPrompt: string;
+
+    if (scenario) {
+      modelString = role === 'partner' ? scenario.partnerModel : scenario.coachModel;
+      systemPrompt = role === 'partner' ? scenario.partnerSystemPrompt : scenario.coachSystemPrompt;
+    } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
+      // Custom scenario - use default model
+      modelString = DEFAULT_MODEL;
+      systemPrompt =
+        role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
+    } else {
+      throw new Error('Session has neither scenario nor custom prompts');
+    }
 
     // Build context based on role
     const context = this.buildContext(role);
@@ -297,6 +328,8 @@ export class ConversationManager {
    */
   private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage): Promise<void> {
     const scenario = this.session.scenario;
+    const partnerModel = scenario?.partnerModel ?? DEFAULT_MODEL;
+    const coachModel = scenario?.coachModel ?? DEFAULT_MODEL;
 
     await this.prisma.usageLog.createMany({
       data: [
@@ -304,7 +337,7 @@ export class ConversationManager {
           sessionId: this.session.id,
           userId: this.session.userId,
           invitationId: this.session.invitationId,
-          model: scenario.partnerModel,
+          model: partnerModel,
           streamType: 'partner',
           inputTokens: partnerUsage.inputTokens,
           outputTokens: partnerUsage.outputTokens,
@@ -313,7 +346,7 @@ export class ConversationManager {
           sessionId: this.session.id,
           userId: this.session.userId,
           invitationId: this.session.invitationId,
-          model: scenario.coachModel,
+          model: coachModel,
           streamType: 'coach',
           inputTokens: coachUsage.inputTokens,
           outputTokens: coachUsage.outputTokens,

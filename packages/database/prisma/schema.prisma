@@ -86,8 +86,9 @@ model Invitation {
   token    String @unique
   label    String? // Researcher reference: "Participant #7", "Quad test 1"
 
-  scenarioId Int?
-  scenario   Scenario? @relation(fields: [scenarioId], references: [id])
+  scenarioId          Int?
+  scenario            Scenario? @relation(fields: [scenarioId], references: [id])
+  allowCustomScenario Boolean   @default(false) // When true, user describes their own partner
 
   quota Json // { tokens: 25000, label: "Short conversation" }
   usage Json @default("{}")
@@ -152,8 +153,14 @@ model ConversationSession {
   invitationId String?
   invitation   Invitation? @relation(fields: [invitationId], references: [id])
 
-  scenarioId Int
-  scenario   Scenario @relation(fields: [scenarioId], references: [id])
+  scenarioId Int?
+  scenario   Scenario? @relation(fields: [scenarioId], references: [id])
+
+  // Custom scenario fields (used when allowCustomScenario invitation)
+  customDescription    String? @db.Text // User's raw input
+  customPartnerPersona String?          // Generated persona name
+  customPartnerPrompt  String? @db.Text // Generated system prompt
+  customCoachPrompt    String? @db.Text // Generated coach prompt
 
   status          SessionStatus @default(ACTIVE)
   startedAt       DateTime  @default(now())
