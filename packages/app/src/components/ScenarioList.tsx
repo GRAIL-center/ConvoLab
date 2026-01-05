@@ -74,6 +74,7 @@ function PresetModal({ scenario, onClose }: PresetModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      tabIndex={-1}
     >
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
         <h3 id="modal-title" className="text-lg font-semibold text-gray-900 mb-2">
@@ -86,11 +87,13 @@ function PresetModal({ scenario, onClose }: PresetModalProps) {
         {presetsLoading ? (
           <p className="text-gray-500 text-sm">Loading presets...</p>
         ) : (
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2 mb-4" role="radiogroup" aria-label="Quota presets">
             {presets?.map((preset) => (
               <button
                 key={preset.name}
                 type="button"
+                role="radio"
+                aria-checked={selectedPreset === preset.name}
                 onClick={() => setSelectedPreset(preset.name)}
                 className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                   selectedPreset === preset.name

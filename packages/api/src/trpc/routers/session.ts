@@ -38,28 +38,29 @@ export const sessionRouter = router({
 
       const quota = parseQuota(preset.quota);
 
-      // Create invitation (auto-assigned to current user)
-      const invitation = await ctx.prisma.invitation.create({
-        data: {
-          token: generateToken(),
-          label: `Staff quick-start: ${scenario.name}`,
-          scenarioId: scenario.id,
-          quota: { tokens: quota.tokens, label: preset.label },
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-          createdById: ctx.user.id,
-          linkedUserId: ctx.user.id,
-          claimedAt: new Date(),
-        },
-      });
+      // Create invitation and session atomically
+      const session = await ctx.prisma.$transaction(async (tx) => {
+        const invitation = await tx.invitation.create({
+          data: {
+            token: generateToken(),
+            label: `Staff quick-start: ${scenario.name}`,
+            scenarioId: scenario.id,
+            quota: { tokens: quota.tokens, label: preset.label },
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+            createdById: ctx.user.id,
+            linkedUserId: ctx.user.id,
+            claimedAt: new Date(),
+          },
+        });
 
-      // Create session
-      const session = await ctx.prisma.conversationSession.create({
-        data: {
-          scenarioId: scenario.id,
-          userId: ctx.user.id,
-          invitationId: invitation.id,
-          status: 'ACTIVE',
-        },
+        return tx.conversationSession.create({
+          data: {
+            scenarioId: scenario.id,
+            userId: ctx.user.id,
+            invitationId: invitation.id,
+            status: 'ACTIVE',
+          },
+        });
       });
 
       return { sessionId: session.id };
