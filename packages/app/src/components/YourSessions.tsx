@@ -27,7 +27,9 @@ export function YourSessions() {
   const navigate = useNavigate();
 
   const { data: authData, isLoading: userLoading } = useQuery(trpc.auth.me.queryOptions());
-  const { data: sessions, isLoading: sessionsLoading } = useQuery(trpc.session.listMine.queryOptions());
+  const { data: sessions, isLoading: sessionsLoading } = useQuery(
+    trpc.session.listMine.queryOptions()
+  );
 
   const isLoading = userLoading || sessionsLoading;
 

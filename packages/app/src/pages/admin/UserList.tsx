@@ -76,7 +76,10 @@ export function UserList() {
         {/* Role filter */}
         <select
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as Role | '')}
+          onChange={(e) => {
+            setRoleFilter(e.target.value as Role | '');
+            setCursor(undefined);
+          }}
           className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         >
           <option value="">All Roles</option>

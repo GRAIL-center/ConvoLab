@@ -89,6 +89,7 @@ export const userRouter = router({
           take: 10,
         },
         invitationsLinked: {
+          where: { claimedAt: { not: null } },
           select: {
             id: true,
             token: true,

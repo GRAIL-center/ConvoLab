@@ -307,13 +307,12 @@ export function UserDetail() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={cancelModal}
-          onKeyDown={(e) => e.key === 'Escape' && cancelModal()}
           role="presentation"
         >
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled via document listener */}
           <div
             className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="role-change-title"
