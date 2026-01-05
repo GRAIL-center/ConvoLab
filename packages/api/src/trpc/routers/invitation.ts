@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getInvitationQuotaStatus, parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
-import { adminProcedure, publicProcedure, router } from '../procedures.js';
+import { publicProcedure, router, staffProcedure } from '../procedures.js';
 
 // Base64url token format (32 bytes = 43 chars, no padding)
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Invalid token format');
@@ -205,9 +205,9 @@ export const invitationRouter = router({
     }),
 
   /**
-   * Create a new invitation (admin only).
+   * Create a new invitation (staff+).
    */
-  create: adminProcedure
+  create: staffProcedure
     .input(
       z.object({
         label: z.string().optional(),
@@ -271,9 +271,9 @@ export const invitationRouter = router({
     }),
 
   /**
-   * List invitations created by the current user (admin only).
+   * List invitations created by the current user (staff+).
    */
-  list: adminProcedure.query(async ({ ctx }) => {
+  list: staffProcedure.query(async ({ ctx }) => {
     const invitations = await ctx.prisma.invitation.findMany({
       where: { createdById: ctx.user.id },
       include: {
@@ -314,9 +314,9 @@ export const invitationRouter = router({
   }),
 
   /**
-   * Get available quota presets (admin only).
+   * Get available quota presets (staff+).
    */
-  getPresets: adminProcedure.query(async ({ ctx }) => {
+  getPresets: staffProcedure.query(async ({ ctx }) => {
     const presets = await ctx.prisma.quotaPreset.findMany({
       orderBy: { sortOrder: 'asc' },
     });
