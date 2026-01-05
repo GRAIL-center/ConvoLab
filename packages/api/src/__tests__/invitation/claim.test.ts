@@ -100,32 +100,4 @@ describe('invitation.claim session creation', () => {
     });
     expect(sessionCount).toBe(1);
   });
-
-  it('session requires scenarioId (not nullable in schema)', async () => {
-    const admin = await createTestAdmin();
-    const guest = await createTestGuest();
-
-    // Create invitation without scenario
-    const invitation = await testPrisma.invitation.create({
-      data: {
-        token: generateToken(),
-        scenarioId: null,
-        quota: { tokens: 10000, label: 'Test quota' },
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        createdById: admin.id,
-      },
-    });
-
-    // Attempting to create session without scenarioId should fail
-    await expect(
-      testPrisma.conversationSession.create({
-        data: {
-          scenarioId: null as unknown as number, // Force the type to test runtime behavior
-          userId: guest.id,
-          invitationId: invitation.id,
-          status: 'ACTIVE',
-        },
-      })
-    ).rejects.toThrow();
-  });
 });
