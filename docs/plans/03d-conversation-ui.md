@@ -102,3 +102,7 @@ WebSocket handler already does this per 03b spec.
 - Header shows both scenario name and partner persona
 - Coach messages persisted to DB (not ephemeral)
 - Coach displayed inline in message thread (not sidebar)
+
+## To Do
+
+- [ ] Show hamburger/avatar menu button in conversation header (currently no way to access UserMenu from conversation page)

@@ -1,3 +1,10 @@
+/**
+ * ScenarioList - displays available conversation scenarios.
+ *
+ * NOT CURRENTLY USED. The current flow is invitation-based only.
+ * Self-service session creation (users picking scenarios directly) is a future feature.
+ * See: docs/plans/ for roadmap items.
+ */
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '../api/trpc';
 

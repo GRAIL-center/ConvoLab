@@ -26,9 +26,26 @@ export function YourSessions() {
   const trpc = useTRPC();
   const navigate = useNavigate();
 
-  const { data: sessions, isLoading } = useQuery(trpc.session.listMine.queryOptions());
+  const { data: authData, isLoading: userLoading } = useQuery(trpc.auth.me.queryOptions());
+  const { data: sessions, isLoading: sessionsLoading } = useQuery(
+    trpc.session.listMine.queryOptions()
+  );
 
-  // Don't render anything if no sessions
+  const isLoading = userLoading || sessionsLoading;
+
+  // Show welcome message for unauthenticated users
+  if (!isLoading && !authData?.user) {
+    return (
+      <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-2">Welcome</h2>
+        <p className="text-gray-600">
+          Sign in or use an invitation link to start practicing conversations.
+        </p>
+      </div>
+    );
+  }
+
+  // Don't render anything if loading or no sessions
   if (isLoading || !sessions?.length) {
     return null;
   }
