@@ -80,20 +80,17 @@ function PresetModal({ scenario, onClose }: PresetModalProps) {
         <h3 id="modal-title" className="text-lg font-semibold text-gray-900 mb-2">
           {scenario.name}
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Choose a token quota for this conversation:
-        </p>
+        <p className="text-sm text-gray-600 mb-4">Choose a token quota for this conversation:</p>
 
         {presetsLoading ? (
           <p className="text-gray-500 text-sm">Loading presets...</p>
         ) : (
-          <div className="space-y-2 mb-4" role="radiogroup" aria-label="Quota presets">
+          <div className="space-y-2 mb-4">
             {presets?.map((preset) => (
               <button
                 key={preset.name}
                 type="button"
-                role="radio"
-                aria-checked={selectedPreset === preset.name}
+                aria-pressed={selectedPreset === preset.name}
                 onClick={() => setSelectedPreset(preset.name)}
                 className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                   selectedPreset === preset.name
@@ -111,9 +108,7 @@ function PresetModal({ scenario, onClose }: PresetModalProps) {
           </div>
         )}
 
-        {error && (
-          <p className="text-red-600 text-sm mb-4">{error}</p>
-        )}
+        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
         <div className="flex gap-3 justify-end">
           <button
@@ -141,9 +136,7 @@ export function ScenarioList() {
   const trpc = useTRPC();
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
 
-  const { data: scenarios, isLoading, isError } = useQuery(
-    trpc.scenario.list.queryOptions()
-  );
+  const { data: scenarios, isLoading, isError } = useQuery(trpc.scenario.list.queryOptions());
 
   if (isLoading) {
     return <p className="text-gray-500">Loading scenarios...</p>;
@@ -178,10 +171,7 @@ export function ScenarioList() {
       </div>
 
       {selectedScenario && (
-        <PresetModal
-          scenario={selectedScenario}
-          onClose={() => setSelectedScenario(null)}
-        />
+        <PresetModal scenario={selectedScenario} onClose={() => setSelectedScenario(null)} />
       )}
     </>
   );

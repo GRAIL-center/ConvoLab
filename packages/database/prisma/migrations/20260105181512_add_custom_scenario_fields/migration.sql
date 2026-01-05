@@ -4,7 +4,7 @@ ALTER TABLE "ConversationSession" DROP CONSTRAINT "ConversationSession_scenarioI
 -- AlterTable
 ALTER TABLE "ConversationSession" ADD COLUMN     "customCoachPrompt" TEXT,
 ADD COLUMN     "customDescription" TEXT,
-ADD COLUMN     "customPartnerPersona" TEXT,
+ADD COLUMN     "customPartnerPersona" VARCHAR,
 ADD COLUMN     "customPartnerPrompt" TEXT,
 ALTER COLUMN "scenarioId" DROP NOT NULL;
 

@@ -84,7 +84,13 @@ export async function elaborateDescription(description: string): Promise<Elabora
   let result: ElaborationResult;
   try {
     result = JSON.parse(textBlock.text) as ElaborationResult;
-  } catch {
+  } catch (err) {
+    const preview = textBlock.text.slice(0, 500);
+    console.error('Failed to parse elaboration AI response as JSON.', {
+      error: err,
+      responsePreview: preview,
+      responseLength: textBlock.text.length,
+    });
     throw new Error('Failed to parse elaboration AI response as JSON');
   }
 

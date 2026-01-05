@@ -181,10 +181,9 @@ export const invitationRouter = router({
       // Get or create conversation session
       let sessionId: number;
 
-      // Create new session if:
-      // - First time claiming, OR
-      // - New custom scenario (user went through preview flow with different description)
-      const shouldCreateNewSession = !alreadyClaimed || !!elaborationResult;
+      // Create new session if first time claiming
+      // Note: elaborationResult is only set when !alreadyClaimed, so no need to check it separately
+      const shouldCreateNewSession = !alreadyClaimed;
 
       if (alreadyClaimed && !shouldCreateNewSession) {
         // Return existing session (predefined scenario, already claimed)
