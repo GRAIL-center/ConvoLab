@@ -12,7 +12,9 @@ import { UserList } from './pages/admin/UserList';
 import { Conversation } from './pages/Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
+import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
+import { ObserveSession } from './pages/research/ObserveSession';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -82,6 +84,8 @@ export function App() {
             <Route path="/research" element={<ResearchLayout />}>
               <Route index element={<Navigate to="invitations" replace />} />
               <Route path="invitations" element={<InvitationList />} />
+              <Route path="invitations/:invitationId" element={<InvitationDetail />} />
+              <Route path="invitations/:invitationId/observe" element={<ObserveSession />} />
             </Route>
 
             {/* Standard layout with header */}

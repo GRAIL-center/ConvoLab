@@ -17,6 +17,7 @@
     "@trpc/tanstack-react-query": "^11.8.1",
     "@workspace/api": "workspace:*",
     "@workspace/database": "workspace:*",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",

@@ -2,6 +2,7 @@ import { prisma } from '@workspace/database';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { ConversationManager } from './conversation.js';
+import { ObserverManager, verifyObserverAccess } from './observer.js';
 import { parseClientMessage, send } from './protocol.js';
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
@@ -66,8 +67,8 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         return;
       }
 
-      // Scenario is required for conversations (custom scenarios not yet supported)
-      if (!session.scenario) {
+      // Session must have either a scenario OR custom prompts
+      if (!session.scenario && !session.customPartnerPrompt) {
         send(socket, {
           type: 'error',
           code: 'NO_SCENARIO',
@@ -163,6 +164,84 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       });
 
       fastify.log.info({ sessionId, userId }, 'WebSocket connected');
+    }
+  );
+
+  // WebSocket route for observers (read-only, STAFF+ only)
+  fastify.get(
+    '/ws/observe/:sessionId',
+    { websocket: true },
+    async (socket: WebSocket, request: FastifyRequest<{ Params: { sessionId: string } }>) => {
+      const sessionId = parseInt(request.params.sessionId, 10);
+
+      if (Number.isNaN(sessionId)) {
+        send(socket, {
+          type: 'error',
+          code: 'SESSION_NOT_FOUND',
+          message: 'Invalid session ID',
+          recoverable: false,
+        });
+        socket.close(1008, 'Invalid session ID');
+        return;
+      }
+
+      // Verify STAFF+ role
+      const userId = (request.session as { userId?: string } | undefined)?.userId;
+      const access = await verifyObserverAccess(prisma, userId);
+
+      if (!access.allowed) {
+        send(socket, {
+          type: 'error',
+          code: 'AUTH_FAILED',
+          message: access.reason ?? 'Not authorized to observe sessions',
+          recoverable: false,
+        });
+        socket.close(1008, 'Unauthorized');
+        return;
+      }
+
+      // Create observer manager
+      const observer = new ObserverManager(socket, prisma, sessionId, fastify.log);
+
+      // Initialize (loads session, sends history, subscribes to broadcasts)
+      await observer.initialize();
+
+      // Set up idle timeout
+      let idleTimer = setTimeout(() => {
+        socket.close(1000, 'Idle timeout');
+      }, IDLE_TIMEOUT_MS);
+
+      const resetIdleTimer = () => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          socket.close(1000, 'Idle timeout');
+        }, IDLE_TIMEOUT_MS);
+      };
+
+      // Handle incoming messages (only ping supported)
+      socket.on('message', (data: Buffer) => {
+        resetIdleTimer();
+
+        const message = parseClientMessage(data.toString());
+        if (message?.type === 'ping') {
+          // Just reset idle timer, already done above
+        }
+        // Observers can't send other message types
+      });
+
+      socket.on('close', () => {
+        clearTimeout(idleTimer);
+        observer.cleanup();
+        fastify.log.info({ sessionId, userId }, 'Observer WebSocket closed');
+      });
+
+      socket.on('error', (error) => {
+        fastify.log.error({ sessionId, error }, 'Observer WebSocket error');
+        clearTimeout(idleTimer);
+        observer.cleanup();
+      });
+
+      fastify.log.info({ sessionId, userId }, 'Observer WebSocket connected');
     }
   );
 }

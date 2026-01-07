@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 
 export function InvitationList() {
@@ -205,9 +206,9 @@ export function InvitationList() {
                 key={inv.id}
                 className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
               >
-                <div className="min-w-0 flex-1">
+                <Link to={`/research/invitations/${inv.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-gray-900 hover:text-indigo-600">
                       {inv.label || `${inv.token.slice(0, 8)}...`}
                     </span>
                     {inv.claimedAt && (
@@ -231,7 +232,7 @@ export function InvitationList() {
                       {inv.sessionCount} session{inv.sessionCount !== 1 ? 's' : ''}
                     </span>
                   </div>
-                </div>
+                </Link>
 
                 <button
                   type="button"
