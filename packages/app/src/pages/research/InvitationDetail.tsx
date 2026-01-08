@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 import { MessageBubble } from '../../components/conversation/MessageBubble';
@@ -9,6 +9,18 @@ export function InvitationDetail() {
   const { invitationId } = useParams<{ invitationId: string }>();
   const [showQR, setShowQR] = useState(true);
   const [noteContent, setNoteContent] = useState('');
+  const [notesDrawerOpen, setNotesDrawerOpen] = useState(false);
+
+  // Close drawer on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNotesDrawerOpen(false);
+    };
+    if (notesDrawerOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [notesDrawerOpen]);
 
   const trpc = useTRPC();
   const qc = useQueryClient();
@@ -130,14 +142,19 @@ export function InvitationDetail() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Main content area */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex min-h-0 flex-1 flex-col p-4 lg:p-6">
           {/* QR Code section */}
           {!isClaimed || showQR ? (
-            <div className="mb-6 flex flex-col items-center rounded-lg border border-gray-200 bg-white p-6">
-              <div className="mb-4 rounded-lg bg-white p-4 shadow-sm">
-                <QRCodeSVG value={inviteUrl} size={200} level="M" />
+            <div className="mb-6 flex flex-shrink-0 flex-col items-center rounded-lg border border-gray-200 bg-white p-4 lg:p-6">
+              <div className="mb-4 rounded-lg bg-white p-2 shadow-sm lg:p-4">
+                <QRCodeSVG
+                  value={inviteUrl}
+                  size={180}
+                  level="M"
+                  className="lg:h-[200px] lg:w-[200px]"
+                />
               </div>
               {!isClaimed ? (
                 <p className="text-center text-sm text-gray-500">
@@ -164,7 +181,7 @@ export function InvitationDetail() {
             <button
               type="button"
               onClick={() => setShowQR(true)}
-              className="mb-6 text-sm text-indigo-600 hover:underline"
+              className="mb-6 flex-shrink-0 text-sm text-indigo-600 hover:underline"
             >
               Show QR code
             </button>
@@ -172,8 +189,8 @@ export function InvitationDetail() {
 
           {/* Status section */}
           {isClaimed && (
-            <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
-              <div className="flex items-center justify-between">
+            <div className="mb-6 flex-shrink-0 rounded-lg border border-gray-200 bg-white p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-gray-900">
                     {hasActiveSession ? (
@@ -191,7 +208,7 @@ export function InvitationDetail() {
                     {totalMessages !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <div className="text-right text-sm text-gray-500">
+                <div className="text-sm text-gray-500 sm:text-right">
                   <div>
                     Quota: {invitation.quota.remaining.toLocaleString()} /{' '}
                     {invitation.quota.total.toLocaleString()} tokens
@@ -203,11 +220,11 @@ export function InvitationDetail() {
 
           {/* Conversation timeline */}
           {timeline.length > 0 && (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <div className="border-b border-gray-200 px-4 py-3">
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
+              <div className="flex-shrink-0 border-b border-gray-200 px-4 py-3">
                 <h2 className="font-medium text-gray-900">Conversation Timeline</h2>
               </div>
-              <div className="max-h-[600px] space-y-4 overflow-auto p-4">
+              <div className="flex-1 space-y-4 overflow-auto p-4">
                 {timeline.map((item) => {
                   if (item.type === 'divider') {
                     return (
@@ -236,58 +253,168 @@ export function InvitationDetail() {
           )}
         </div>
 
-        {/* Notes sidebar */}
-        <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-gray-50">
+        {/* Desktop Notes sidebar - hidden on mobile */}
+        <div className="hidden w-80 flex-shrink-0 border-l border-gray-200 bg-gray-50 lg:flex lg:flex-col">
           <div className="border-b border-gray-200 bg-white px-4 py-3">
             <h2 className="font-medium text-gray-900">Observation Notes</h2>
           </div>
-
-          {/* Add note form */}
-          <div className="border-b border-gray-200 bg-white p-4">
-            <textarea
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              placeholder="Add observation note..."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              rows={3}
+          <div className="flex-1 overflow-auto">
+            <NotesPanel
+              invitationId={invitationId!}
+              notes={invitation.observationNotes}
+              noteContent={noteContent}
+              setNoteContent={setNoteContent}
+              addNoteMutation={addNoteMutation}
             />
-            <button
-              type="button"
-              onClick={() => {
-                if (noteContent.trim()) {
-                  addNoteMutation.mutate({
-                    invitationId: invitationId!,
-                    content: noteContent.trim(),
-                  });
-                }
-              }}
-              disabled={!noteContent.trim() || addNoteMutation.isPending}
-              className="mt-2 w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
-            >
-              {addNoteMutation.isPending ? 'Saving...' : 'Save Note'}
-            </button>
-          </div>
-
-          {/* Notes list */}
-          <div className="overflow-auto p-4">
-            {invitation.observationNotes.length === 0 ? (
-              <p className="text-center text-sm text-gray-500">No notes yet</p>
-            ) : (
-              <div className="space-y-3">
-                {invitation.observationNotes.map((note) => (
-                  <div key={note.id} className="rounded-md bg-white p-3 shadow-sm">
-                    <p className="text-sm text-gray-900">{note.content}</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {note.researcher.name ?? 'Unknown'} &middot;{' '}
-                      {new Date(note.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Mobile Notes FAB */}
+      <button
+        type="button"
+        onClick={() => setNotesDrawerOpen(true)}
+        className="fixed bottom-6 right-6 flex items-center gap-2 rounded-full bg-indigo-600 py-3 pl-4 pr-5 text-white shadow-lg hover:bg-indigo-700 lg:hidden"
+      >
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+          />
+        </svg>
+        <span className="font-medium">
+          Notes{invitation.observationNotes.length > 0 && ` (${invitation.observationNotes.length})`}
+        </span>
+      </button>
+
+      {/* Mobile Notes Drawer */}
+      {notesDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setNotesDrawerOpen(false)}
+            aria-label="Close notes drawer"
+          />
+          {/* Drawer */}
+          <div className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-hidden rounded-t-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h2 className="font-semibold text-gray-900">Observation Notes</h2>
+              <button
+                type="button"
+                onClick={() => setNotesDrawerOpen(false)}
+                className="rounded-full p-1 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <svg
+                  className="h-6 w-6 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[calc(80vh-56px)] overflow-auto">
+              <NotesPanel
+                invitationId={invitationId!}
+                notes={invitation.observationNotes}
+                noteContent={noteContent}
+                setNoteContent={setNoteContent}
+                addNoteMutation={addNoteMutation}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Extracted notes panel to reuse between desktop sidebar and mobile drawer
+function NotesPanel({
+  invitationId,
+  notes,
+  noteContent,
+  setNoteContent,
+  addNoteMutation,
+}: {
+  invitationId: string;
+  notes: Array<{
+    id: string;
+    content: string;
+    timestamp: string;
+    researcher: { name: string | null };
+  }>;
+  noteContent: string;
+  setNoteContent: (value: string) => void;
+  addNoteMutation: {
+    mutate: (data: { invitationId: string; content: string }) => void;
+    isPending: boolean;
+  };
+}) {
+  return (
+    <>
+      {/* Add note form */}
+      <div className="border-b border-gray-200 bg-white p-4">
+        <textarea
+          value={noteContent}
+          onChange={(e) => setNoteContent(e.target.value)}
+          placeholder="Add observation note..."
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          rows={3}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (noteContent.trim()) {
+              addNoteMutation.mutate({
+                invitationId,
+                content: noteContent.trim(),
+              });
+            }
+          }}
+          disabled={!noteContent.trim() || addNoteMutation.isPending}
+          className="mt-2 w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-indigo-400"
+        >
+          {addNoteMutation.isPending ? 'Saving...' : 'Save Note'}
+        </button>
+      </div>
+
+      {/* Notes list */}
+      <div className="p-4">
+        {notes.length === 0 ? (
+          <p className="text-center text-sm text-gray-500">No notes yet</p>
+        ) : (
+          <div className="space-y-3">
+            {notes.map((note) => (
+              <div key={note.id} className="rounded-md bg-white p-3 shadow-sm">
+                <p className="text-sm text-gray-900">{note.content}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {note.researcher.name ?? 'Unknown'} &middot;{' '}
+                  {new Date(note.timestamp).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
@@ -201,48 +202,100 @@ export function InvitationList() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {invitations.map((inv) => (
-              <div
-                key={inv.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
-              >
-                <Link to={`/research/invitations/${inv.id}`} className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 hover:text-indigo-600">
-                      {inv.label || `${inv.token.slice(0, 8)}...`}
-                    </span>
-                    {inv.claimedAt && (
-                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                        Claimed
-                      </span>
-                    )}
-                    {inv.allowCustomScenario && !inv.scenario && (
-                      <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                        Custom
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                    {inv.scenario ? (
-                      <span>{inv.scenario.name}</span>
-                    ) : inv.allowCustomScenario ? (
-                      <span className="italic">User describes their own partner</span>
-                    ) : null}
-                    <span>
-                      {inv.sessionCount} session{inv.sessionCount !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => copyLink(inv.token)}
-                  className="ml-4 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            {invitations.map((inv) => {
+              const inviteUrl = `${window.location.origin}/invite/${inv.token}`;
+              return (
+                <Link
+                  key={inv.id}
+                  to={`/research/invitations/${inv.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50"
                 >
-                  {copiedToken === inv.token ? 'Copied!' : 'Copy Link'}
-                </button>
-              </div>
-            ))}
+                  {/* QR thumbnail for unclaimed, checkmark for claimed */}
+                  <div className="flex-shrink-0">
+                    {inv.claimedAt ? (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
+                        <svg
+                          className="h-6 w-6 text-green-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-gray-200 bg-white p-1">
+                        <QRCodeSVG value={inviteUrl} size={40} level="L" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {inv.label || `${inv.token.slice(0, 8)}...`}
+                      </span>
+                      {inv.claimedAt && (
+                        <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          Claimed
+                        </span>
+                      )}
+                      {inv.allowCustomScenario && !inv.scenario && (
+                        <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                      {inv.scenario ? (
+                        <span>{inv.scenario.name}</span>
+                      ) : inv.allowCustomScenario ? (
+                        <span className="italic">User describes their own partner</span>
+                      ) : null}
+                      <span>
+                        {inv.sessionCount} session{inv.sessionCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Copy button (stop propagation to not navigate) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      copyLink(inv.token);
+                    }}
+                    className="flex-shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    {copiedToken === inv.token ? 'Copied!' : 'Copy'}
+                  </button>
+
+                  {/* Chevron */}
+                  <svg
+                    className="h-5 w-5 flex-shrink-0 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
