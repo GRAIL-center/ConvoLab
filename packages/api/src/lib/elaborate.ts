@@ -18,7 +18,8 @@ For approved scenarios, generate prompts that create realistic, nuanced characte
 OUTPUT FORMAT (JSON only, no markdown):
 {
   "approved": true,
-  "persona": "Brief 3-5 word description (e.g., 'Dismissive manager', 'Defensive ex-partner')",
+  "name": "Short catchy title, 2-4 words, title case (e.g., 'Dismissive Manager', 'Defensive Ex', 'Overbearing Parent')",
+  "persona": "Longer description for 'Talking with:' context, 5-15 words (e.g., 'Your manager who dismisses ideas without consideration', 'Your ex who gets defensive about past decisions')",
   "partnerPrompt": "Full system prompt for the conversation partner AI. Include personality traits, communication style, underlying motivations, and how they might respond to different approaches. 150-300 words.",
   "coachPrompt": "Full system prompt for the coach AI. Include what dynamics to watch for, what approaches might work, and how to give actionable real-time guidance. 100-200 words."
 }
@@ -31,6 +32,7 @@ If refusing:
 
 export interface ElaborationResult {
   approved: boolean;
+  name?: string;
   persona?: string;
   partnerPrompt?: string;
   coachPrompt?: string;
@@ -39,6 +41,7 @@ export interface ElaborationResult {
 
 export interface ElaborationSuccess {
   success: true;
+  name: string;
   persona: string;
   partnerPrompt: string;
   coachPrompt: string;
@@ -80,10 +83,18 @@ export async function elaborateDescription(description: string): Promise<Elabora
     throw new Error('No text response from elaboration AI');
   }
 
-  // Parse JSON response
+  // Parse JSON response (strip markdown code fences if present)
+  let jsonText = textBlock.text.trim();
+  if (jsonText.startsWith('```')) {
+    // Remove opening fence (```json or ```)
+    jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '');
+    // Remove closing fence
+    jsonText = jsonText.replace(/\n?```\s*$/, '');
+  }
+
   let result: ElaborationResult;
   try {
-    result = JSON.parse(textBlock.text) as ElaborationResult;
+    result = JSON.parse(jsonText) as ElaborationResult;
   } catch (err) {
     const preview = textBlock.text.slice(0, 500);
     console.error('Failed to parse elaboration AI response as JSON.', {
@@ -101,12 +112,13 @@ export async function elaborateDescription(description: string): Promise<Elabora
     };
   }
 
-  if (!result.persona || !result.partnerPrompt || !result.coachPrompt) {
+  if (!result.name || !result.persona || !result.partnerPrompt || !result.coachPrompt) {
     throw new Error('Elaboration returned incomplete data');
   }
 
   return {
     success: true,
+    name: result.name,
     persona: result.persona,
     partnerPrompt: result.partnerPrompt,
     coachPrompt: result.coachPrompt,

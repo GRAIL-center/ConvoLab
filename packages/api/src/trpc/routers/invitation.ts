@@ -108,6 +108,7 @@ export const invitationRouter = router({
         // Pre-elaborated prompts from preview flow (skip re-elaboration if provided)
         elaborated: z
           .object({
+            name: z.string(),
             persona: z.string(),
             partnerPrompt: z.string(),
             coachPrompt: z.string(),
@@ -141,6 +142,7 @@ export const invitationRouter = router({
 
       // Get elaboration result - either pre-provided or generate new
       let elaborationResult: {
+        name: string;
         persona: string;
         partnerPrompt: string;
         coachPrompt: string;
@@ -162,6 +164,7 @@ export const invitationRouter = router({
           }
 
           elaborationResult = {
+            name: result.name,
             persona: result.persona,
             partnerPrompt: result.partnerPrompt,
             coachPrompt: result.coachPrompt,
@@ -263,6 +266,7 @@ export const invitationRouter = router({
             status: 'ACTIVE',
             // Custom scenario fields
             customDescription: elaborationResult ? input.customDescription : undefined,
+            customScenarioName: elaborationResult?.name,
             customPartnerPersona: elaborationResult?.persona,
             customPartnerPrompt: elaborationResult?.partnerPrompt,
             customCoachPrompt: elaborationResult?.coachPrompt,
@@ -302,6 +306,7 @@ export const invitationRouter = router({
         // Return custom scenario info if it was elaborated
         customScenario: elaborationResult
           ? {
+              name: elaborationResult.name,
               persona: elaborationResult.persona,
               description: input.customDescription,
             }

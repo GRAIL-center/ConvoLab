@@ -64,7 +64,7 @@ export class ConversationManager {
       // Custom scenario
       scenarioInfo = {
         id: 0, // Custom scenarios don't have DB ID
-        name: 'Custom Scenario',
+        name: this.session.customScenarioName ?? 'Custom Scenario',
         description: this.session.customDescription ?? 'User-defined conversation partner',
         partnerPersona: this.session.customPartnerPersona,
         isCustom: true,

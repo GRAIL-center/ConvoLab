@@ -158,7 +158,8 @@ model ConversationSession {
 
   // Custom scenario fields (used when allowCustomScenario invitation)
   customDescription    String? @db.Text // User's raw input
-  customPartnerPersona String?          // Generated persona name
+  customScenarioName   String?          // Generated short title (2-4 words)
+  customPartnerPersona String?          // Generated persona description for "Talking with:"
   customPartnerPrompt  String? @db.Text // Generated system prompt
   customCoachPrompt    String? @db.Text // Generated coach prompt
 
