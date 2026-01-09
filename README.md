@@ -30,24 +30,20 @@ docs/
 ## Quick Start
 
 ```bash
-# 1. Install Task (optional but recommended)
-brew install go-task/tap/go-task
-
-# 2. Setup
-task setup          # Creates .env
+cp .env.example .env
 # Edit .env: add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
-# 3. Start
-task up:bg          # Start containers (auto-migrates)
+docker compose up --build  # Auto-migrates on startup
 
-# 4. Open http://localhost:5173
+# Open http://localhost:5173
 ```
 
-**Without Task:**
+**With Task (optional):**
 ```bash
-cp .env.example .env
-docker compose up --build
-docker compose exec api sh -c "cd packages/database && pnpm migrate"
+brew install go-task/tap/go-task
+task setup          # Creates .env
+# Edit .env: add your API keys
+task up:bg          # Start containers in background
 ```
 
 ## For Contributors
