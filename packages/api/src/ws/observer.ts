@@ -58,7 +58,7 @@ export class ObserverManager {
         }
       : {
           id: 0,
-          name: 'Custom Scenario',
+          name: session.customScenarioName ?? 'Custom Scenario',
           description: session.customDescription ?? 'User-defined conversation partner',
           partnerPersona: session.customPartnerPersona ?? 'Custom partner',
           isCustom: true,
