@@ -2,9 +2,27 @@
 
 AI-powered conversation practice with dual streaming (dialog partner + coach).
 
-## Getting Started
+## Quick Start
 
-See [QUICKSTART.md](./QUICKSTART.md) for setup instructions.
+```bash
+cp .env.example .env
+# Edit .env: add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+
+docker compose up --build  # Auto-migrates on startup
+
+# Open http://localhost:5173
+```
+
+**With Task (optional):**
+```bash
+brew install go-task/tap/go-task
+task setup          # Creates .env
+task up:bg          # Start containers in background
+```
+
+> **Tip:** If you skip any configuration, the app will show a setup guide when you open it, walking you through what's needed.
+
+See [QUICKSTART.md](./QUICKSTART.md) for detailed setup instructions including Google OAuth configuration.
 
 ## Architecture
 
