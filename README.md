@@ -2,6 +2,10 @@
 
 AI-powered conversation practice with dual streaming (dialog partner + coach).
 
+## Getting Started
+
+See [QUICKSTART.md](./QUICKSTART.md) for setup instructions.
+
 ## Architecture
 
 See [conversation-coach-architecture.md](./conversation-coach-architecture.md) for details.
@@ -27,10 +31,6 @@ docs/
 └── plans/       # Implementation phases
 ```
 
-## Getting Started
-
-See [QUICKSTART.md](./QUICKSTART.md) for setup instructions.
-
 ## For Contributors
 
 Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimental implementations are welcome.
@@ -46,16 +46,18 @@ Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimenta
 - [x] Taskfile automation
 - [x] Google OAuth + sessions
 - [x] Auto-migrate on Docker startup
-- [x] tRPC foundation (auth, scenario routers)
-
-### In Progress
-- [ ] Invitation system (magic links with quotas)
-- [ ] WebSocket handler (dual AI streaming)
+- [x] tRPC foundation (auth, scenario, session, invitation routers)
+- [x] Invitation system (magic links with quotas)
+- [x] LLM provider abstraction (Anthropic, OpenAI, Google)
+- [x] WebSocket streaming (dual AI: partner + coach)
+- [x] Conversation UI
+- [x] Custom scenarios (user-defined conversation partners)
+- [x] Telemetry
 
 ### Future
-- [ ] Conversation UI
-- [ ] User testing (QR codes, researcher observations)
-- [ ] Admin interface
+- [ ] User testing features (QR codes, researcher observations)
+- [ ] Admin/research UI improvements
+- [ ] Coach aside (private Q&A with coach)
 - [ ] Voice integration
 
 ## Useful Commands
