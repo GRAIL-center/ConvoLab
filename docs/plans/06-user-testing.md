@@ -142,7 +142,7 @@ pnpm -F @workspace/app add qrcode.react
 
 ## Design Decisions
 
-- **In-memory broadcast**: Simple, works for quad testing. Upgrade to Redis for scale.
+- **In-memory broadcast**: Simple, works for guerrilla testing. Upgrade to Redis for scale.
 - **Polling for claim**: 3s interval. Could upgrade to WebSocket push later.
 - **Mobile-first**: Large touch targets, vertical layouts.
 - **All STAFF see all**: No ownership filtering for now.

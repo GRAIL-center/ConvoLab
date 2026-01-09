@@ -171,6 +171,7 @@ export function useObserverSocket(sessionId: number): UseObserverSocketResult {
               return prev;
             });
             streamingContentRef.current = '';
+            setIsStreaming(false);
             setStreamingRole(null);
             break;
 
