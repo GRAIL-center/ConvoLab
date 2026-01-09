@@ -86,7 +86,7 @@ export function SetupGuide() {
     return null;
   }
 
-  const { checks, missing, quickstartContent, warnings } = data;
+  const { checks, quickstartContent, warnings } = data;
   const hasAnyAiKey = checks.aiKeys.anthropic || checks.aiKeys.openai || checks.aiKeys.googleAi;
 
   return (
