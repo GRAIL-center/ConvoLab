@@ -78,6 +78,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm -F @workspace/database generate
 
+      - name: Build database package
+        run: pnpm -F @workspace/database build
+
       - name: Run API tests
         run: pnpm -F @workspace/api test:run
         env:

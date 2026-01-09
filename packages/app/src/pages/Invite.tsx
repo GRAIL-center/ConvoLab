@@ -191,6 +191,7 @@ export function Invite() {
                   className="mt-1 block w-full rounded-md border border-gray-400 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:bg-white min-h-[120px] p-3"
                   maxLength={2000}
                   disabled={isElaborating}
+                  // biome-ignore lint/a11y/noAutofocus: Intentional UX for form input
                   autoFocus
                 />
                 <p className="mt-2 text-sm text-gray-500">
@@ -222,6 +223,7 @@ export function Invite() {
                   className="mt-1 block w-full rounded-md border border-gray-400 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:bg-white min-h-[120px] p-3"
                   maxLength={2000}
                   disabled={isElaborating}
+                  // biome-ignore lint/a11y/noAutofocus: Intentional UX for form input
                   autoFocus
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-500">
