@@ -71,18 +71,16 @@ Priority: Get something testable in front of real users quickly.
 
 ## Technical Notes
 
-### Two Git Remotes
+### Git Remotes
 ```bash
-origin  → github.itap.purdue.edu (Purdue internal)
-github  → github.com/GRAIL-center (public)
+origin  → github.com/GRAIL-center (primary)
+purdue  → github.itap.purdue.edu (optional, Purdue internal)
 ```
 
-**PR workflow**: Create PRs on `github` first to get Copilot review, then push to `origin` after merge.
+**PR workflow**:
 ```bash
-git push github <branch>
-gh pr create --repo GRAIL-center/ai-dialogues
-# After merge:
-git push origin <branch> && git push github <branch>
+git push origin <branch>
+gh pr create
 ```
 
 ### Monorepo Structure
