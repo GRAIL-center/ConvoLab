@@ -40,16 +40,24 @@ export function runStartupChecks(): DiagnosticResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const isDev = process.env.NODE_ENV !== 'production';
+  const envFileMissing = detectMissingEnvFile();
 
   // Check for missing .env file
-  if (detectMissingEnvFile()) {
-    errors.push(
+  if (envFileMissing) {
+    const message =
       'It looks like you haven\'t created a .env file.\n' +
-        '  Run: cp .env.example .env\n' +
-        '  Then edit .env to add your API keys and secrets.'
-    );
-    // Don't bother with other checks if .env is missing
-    return { canStart: false, errors, warnings };
+      '  Run: cp .env.example .env\n' +
+      '  Then edit .env to add your API keys and secrets.\n' +
+      '  See the setup guide at http://localhost:5173 for details.';
+
+    if (isDev) {
+      // In dev mode, warn but continue so frontend can show setup guide
+      warnings.push(message);
+    } else {
+      errors.push(message);
+      // In production, stop checking - nothing will work
+      return { canStart: false, errors, warnings };
+    }
   }
 
   // Session key
@@ -97,15 +105,22 @@ export function runStartupChecks(): DiagnosticResult {
     .map(([name]) => name);
 
   if (configuredProviders.length === 0) {
-    errors.push(
+    const message =
       'No AI API keys configured. At least one is required:\n' +
-        '  - ANTHROPIC_API_KEY (recommended) - https://console.anthropic.com/\n' +
-        '  - OPENAI_API_KEY - https://platform.openai.com/api-keys\n' +
-        '  - GOOGLE_AI_API_KEY - https://aistudio.google.com/apikey\n' +
-        '\n' +
-        '  The app currently defaults to Anthropic Claude models.\n' +
-        '  Set ANTHROPIC_API_KEY to get started.'
-    );
+      '  - ANTHROPIC_API_KEY (recommended) - https://console.anthropic.com/\n' +
+      '  - OPENAI_API_KEY - https://platform.openai.com/api-keys\n' +
+      '  - GOOGLE_AI_API_KEY - https://aistudio.google.com/apikey\n' +
+      '\n' +
+      '  The app currently defaults to Anthropic Claude models.\n' +
+      '  Set ANTHROPIC_API_KEY to get started.';
+
+    if (isDev && envFileMissing) {
+      // Already warned about missing .env, don't double-warn
+    } else if (isDev) {
+      warnings.push(message);
+    } else {
+      errors.push(message);
+    }
   } else if (!aiKeys.anthropic) {
     warnings.push(
       'ANTHROPIC_API_KEY not set.\n' +
@@ -133,6 +148,9 @@ export function runStartupChecks(): DiagnosticResult {
 
 /**
  * Log startup diagnostics and exit if critical errors found.
+ *
+ * In development mode, the server will start even with configuration errors
+ * so the frontend can display the setup guide to help developers.
  */
 export function logStartupDiagnostics(log: {
   info: (msg: string) => void;
@@ -140,6 +158,7 @@ export function logStartupDiagnostics(log: {
   error: (msg: string) => void;
 }): void {
   const result = runStartupChecks();
+  const isDev = process.env.NODE_ENV !== 'production';
 
   // Log errors
   if (result.errors.length > 0) {
@@ -163,10 +182,15 @@ export function logStartupDiagnostics(log: {
     log.warn('\n' + DIVIDER + '\n');
   }
 
-  // Exit if critical errors
+  // Exit if critical errors (production only)
   if (!result.canStart) {
-    log.error('Server cannot start due to configuration errors above.');
-    process.exit(1);
+    if (isDev) {
+      log.warn('Server starting with configuration errors (dev mode).');
+      log.warn('Visit http://localhost:5173 for the setup guide.');
+    } else {
+      log.error('Server cannot start due to configuration errors above.');
+      process.exit(1);
+    }
   }
 
   // Success message

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '../api/trpc';
 import { ScenarioList } from '../components/ScenarioList';
+import { SetupGuide } from '../components/SetupGuide';
 import { YourSessions } from '../components/YourSessions';
 
 export function Home() {
@@ -11,6 +12,7 @@ export function Home() {
 
   return (
     <div className="mx-auto max-w-7xl py-6 px-4 sm:px-6 lg:px-8">
+      <SetupGuide />
       <YourSessions />
       {isStaffOrAdmin && (
         <>

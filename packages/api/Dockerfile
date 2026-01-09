@@ -13,6 +13,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/database ./packages/database
 COPY packages/api ./packages/api
 
+# Copy QUICKSTART.md for the setup guide endpoint
+COPY QUICKSTART.md ./
+
 # Install dependencies (workspace packages will be properly linked)
 RUN pnpm install --frozen-lockfile
 

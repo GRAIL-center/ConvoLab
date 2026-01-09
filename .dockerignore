@@ -44,6 +44,7 @@ docker-compose.yml
 
 # Documentation
 *.md
+!QUICKSTART.md
 LICENSE
 
 # Misc

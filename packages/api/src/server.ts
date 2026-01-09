@@ -7,7 +7,7 @@ import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/a
 import { isDatabaseEmpty, prisma, seedReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 
-import { getAIProviderSummary, logStartupDiagnostics } from './lib/startup-checks.js';
+import { getAIProviderSummary, logStartupDiagnostics, runStartupChecks } from './lib/startup-checks.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
@@ -64,6 +64,67 @@ if (process.env.SESSION_KEY) {
 fastify.get('/health', async () => {
   return { status: 'healthy', timestamp: new Date().toISOString() };
 });
+
+// Setup status endpoint (dev-only, doesn't require auth)
+// This is a plain REST endpoint so it works even when tRPC isn't registered
+if (isDev) {
+  fastify.get('/api/setup/status', async () => {
+    const checks = runStartupChecks();
+
+    // Load quickstart content
+    let quickstartContent: string | null = null;
+    const possiblePaths = [
+      '/app/QUICKSTART.md', // Docker container path (most common)
+      path.resolve(__dirname, '../../QUICKSTART.md'),
+      path.resolve(__dirname, '../../../QUICKSTART.md'),
+      path.resolve(__dirname, '../../../../QUICKSTART.md'),
+    ];
+    for (const p of possiblePaths) {
+      try {
+        const fs = await import('node:fs');
+        if (fs.existsSync(p)) {
+          quickstartContent = fs.readFileSync(p, 'utf-8');
+          break;
+        }
+      } catch {
+        // Continue to next path
+      }
+    }
+
+    const googleOAuth = {
+      clientId: !!process.env.GOOGLE_CLIENT_ID,
+      clientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+      callbackUrl: !!process.env.GOOGLE_CALLBACK_URL,
+    };
+
+    const aiKeys = {
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      openai: !!process.env.OPENAI_API_KEY,
+      googleAi: !!process.env.GOOGLE_AI_API_KEY,
+    };
+
+    const hasAnyAiKey = Object.values(aiKeys).some(Boolean);
+    const hasGoogleOAuth = googleOAuth.clientId && googleOAuth.clientSecret;
+
+    return {
+      complete: checks.canStart && hasGoogleOAuth && hasAnyAiKey,
+      checks: {
+        googleOAuth,
+        aiKeys,
+        sessionKey: !!process.env.SESSION_KEY,
+        databaseUrl: !!process.env.DATABASE_URL,
+      },
+      missing: {
+        googleOAuth: !hasGoogleOAuth,
+        aiKey: !hasAnyAiKey,
+        sessionKey: !process.env.SESSION_KEY,
+      },
+      errors: checks.errors,
+      warnings: checks.warnings,
+      quickstartContent,
+    };
+  });
+}
 
 // Serve static files in production (SPA with fallback to index.html)
 if (!isDev) {
