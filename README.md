@@ -27,30 +27,14 @@ docs/
 └── plans/       # Implementation phases
 ```
 
-## Quick Start
+## Getting Started
 
-```bash
-cp .env.example .env
-# Edit .env: add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-
-docker compose up --build  # Auto-migrates on startup
-
-# Open http://localhost:5173
-```
-
-**With Task (optional):**
-```bash
-brew install go-task/tap/go-task
-task setup          # Creates .env
-# Edit .env: add your API keys
-task up:bg          # Start containers in background
-```
+See [QUICKSTART.md](./QUICKSTART.md) for setup instructions.
 
 ## For Contributors
 
 Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimental implementations are welcome.
 
-- [QUICKSTART.md](./QUICKSTART.md) - Setup details
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Dev workflow
 - [docs/plans/](./docs/plans/) - Implementation phases
 

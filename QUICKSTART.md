@@ -29,6 +29,32 @@ task status                       # Verify running
 
 ---
 
+## One-Time Setup: API Keys
+
+### Google OAuth Credentials
+
+To enable sign-in with Google:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select an existing one)
+3. Navigate to **APIs & Services > Credentials**
+4. Click **Create Credentials > OAuth client ID**
+5. If prompted, configure the OAuth consent screen first:
+   - Choose "External" user type
+   - Fill in app name and your email
+   - Add your email to test users
+6. Select **Web application** as application type
+7. Configure the URIs:
+   - **Authorized JavaScript origins:** `http://localhost:5173`
+   - **Authorized redirect URIs:** `http://localhost:5173/api/auth/google/callback`
+8. Click **Create** and copy the Client ID and Client Secret
+
+### Anthropic API Key
+
+Get your API key from [console.anthropic.com](https://console.anthropic.com/)
+
+---
+
 ## Steps
 
 ### 1. Configure Environment
@@ -37,9 +63,11 @@ task status                       # Verify running
 cp .env.example .env
 ```
 
-**Edit `.env` and add your Anthropic API key:**
+**Edit `.env` and add your keys:**
 ```
 ANTHROPIC_API_KEY=sk-ant-your-key-here
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
 Other defaults are fine for Docker-based development.
