@@ -11,6 +11,7 @@ import type { WebSocket } from 'ws';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
+import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
 // Default model for custom scenarios
@@ -63,7 +64,7 @@ export class ConversationManager {
       // Custom scenario
       scenarioInfo = {
         id: 0, // Custom scenarios don't have DB ID
-        name: 'Custom Scenario',
+        name: this.session.customScenarioName ?? 'Custom Scenario',
         description: this.session.customDescription ?? 'User-defined conversation partner',
         partnerPersona: this.session.customPartnerPersona,
         isCustom: true,
@@ -114,6 +115,19 @@ export class ConversationManager {
       // 1. Persist user message
       const userMsg = await this.persistMessage('user', content);
       this.session.messages.push(userMsg);
+
+      // Broadcast user message to observers (they don't receive it via WebSocket)
+      broadcast(this.session.id, {
+        type: 'history',
+        messages: [
+          {
+            id: userMsg.id,
+            role: 'user',
+            content: userMsg.content,
+            timestamp: userMsg.timestamp.toISOString(),
+          },
+        ],
+      });
 
       // 2. Stream partner response
       const partnerResult = await this.streamResponse('partner');
@@ -219,7 +233,10 @@ export class ConversationManager {
         })) {
           if (chunk.type === 'delta' && chunk.content) {
             fullContent += chunk.content;
-            send(this.ws, { type: `${role}:delta`, content: chunk.content });
+            const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
+            send(this.ws, { type: deltaType, content: chunk.content });
+            // Broadcast to observers
+            broadcast(this.session.id, { type: deltaType, content: chunk.content });
           } else if (chunk.type === 'done' && chunk.usage) {
             usage = chunk.usage;
           } else if (chunk.type === 'error' && chunk.error) {
@@ -236,11 +253,15 @@ export class ConversationManager {
         const message = await this.persistMessage(role, fullContent);
         this.session.messages.push(message);
 
-        send(this.ws, {
-          type: `${role}:done`,
-          messageId: message.id,
-          usage,
-        });
+        if (role === 'partner') {
+          const doneMsg = { type: 'partner:done' as const, messageId: message.id, usage };
+          send(this.ws, doneMsg);
+          broadcast(this.session.id, doneMsg);
+        } else {
+          const doneMsg = { type: 'coach:done' as const, messageId: message.id, usage };
+          send(this.ws, doneMsg);
+          broadcast(this.session.id, doneMsg);
+        }
 
         return { content: fullContent, messageId: message.id, usage };
       } catch (error) {

@@ -53,6 +53,33 @@ export const invitationRouter = router({
       const quota = parseQuota(invitation.quota);
       const quotaStatus = await getInvitationQuotaStatus(ctx.prisma, invitation.id, quota);
 
+      // If claimed with custom scenario, fetch the existing partner info
+      let existingCustomPartner: {
+        sessionId: number;
+        description: string;
+        persona: string;
+      } | null = null;
+
+      if (invitation.claimedAt && invitation.allowCustomScenario && !invitation.scenarioId) {
+        const session = await ctx.prisma.conversationSession.findFirst({
+          where: { invitationId: invitation.id },
+          orderBy: { startedAt: 'desc' },
+          select: {
+            id: true,
+            customDescription: true,
+            customPartnerPersona: true,
+          },
+        });
+
+        if (session?.customDescription && session?.customPartnerPersona) {
+          existingCustomPartner = {
+            sessionId: session.id,
+            description: session.customDescription,
+            persona: session.customPartnerPersona,
+          };
+        }
+      }
+
       return {
         id: invitation.id,
         scenario: invitation.scenario,
@@ -64,6 +91,7 @@ export const invitationRouter = router({
         },
         claimed: !!invitation.claimedAt,
         expiresAt: invitation.expiresAt,
+        existingCustomPartner,
       };
     }),
 
@@ -80,6 +108,7 @@ export const invitationRouter = router({
         // Pre-elaborated prompts from preview flow (skip re-elaboration if provided)
         elaborated: z
           .object({
+            name: z.string(),
             persona: z.string(),
             partnerPrompt: z.string(),
             coachPrompt: z.string(),
@@ -113,6 +142,7 @@ export const invitationRouter = router({
 
       // Get elaboration result - either pre-provided or generate new
       let elaborationResult: {
+        name: string;
         persona: string;
         partnerPrompt: string;
         coachPrompt: string;
@@ -134,6 +164,7 @@ export const invitationRouter = router({
           }
 
           elaborationResult = {
+            name: result.name,
             persona: result.persona,
             partnerPrompt: result.partnerPrompt,
             coachPrompt: result.coachPrompt,
@@ -235,6 +266,7 @@ export const invitationRouter = router({
             status: 'ACTIVE',
             // Custom scenario fields
             customDescription: elaborationResult ? input.customDescription : undefined,
+            customScenarioName: elaborationResult?.name,
             customPartnerPersona: elaborationResult?.persona,
             customPartnerPrompt: elaborationResult?.partnerPrompt,
             customCoachPrompt: elaborationResult?.coachPrompt,
@@ -274,6 +306,7 @@ export const invitationRouter = router({
         // Return custom scenario info if it was elaborated
         customScenario: elaborationResult
           ? {
+              name: elaborationResult.name,
               persona: elaborationResult.persona,
               description: input.customDescription,
             }
@@ -416,4 +449,93 @@ export const invitationRouter = router({
       isDefault: p.isDefault,
     }));
   }),
+
+  /**
+   * Get detailed invitation info for researchers (staff+).
+   * Returns invitation, all sessions with messages, and observation notes.
+   * Used for the InvitationDetail page (QR + status polling + conversation timeline).
+   */
+  detail: staffProcedure
+    .input(z.object({ invitationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invitation = await ctx.prisma.invitation.findUnique({
+        where: { id: input.invitationId },
+        include: {
+          scenario: { select: scenarioSelect },
+          linkedUser: {
+            select: { id: true, name: true, role: true },
+          },
+          sessions: {
+            orderBy: { startedAt: 'asc' },
+            include: {
+              messages: {
+                orderBy: { timestamp: 'asc' },
+                select: {
+                  id: true,
+                  role: true,
+                  content: true,
+                  timestamp: true,
+                },
+              },
+            },
+          },
+          observationNotes: {
+            orderBy: { timestamp: 'desc' },
+            include: {
+              researcher: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invitation) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
+      }
+
+      const quota = parseQuota(invitation.quota);
+      const quotaStatus = await getInvitationQuotaStatus(ctx.prisma, invitation.id, quota);
+
+      // Find the currently active session (if any)
+      const activeSession = invitation.sessions.find((s) => s.status === 'ACTIVE');
+
+      return {
+        id: invitation.id,
+        token: invitation.token,
+        label: invitation.label,
+        scenario: invitation.scenario,
+        allowCustomScenario: invitation.allowCustomScenario,
+        quota: {
+          label: quota.label,
+          total: quota.tokens,
+          remaining: quotaStatus.remaining,
+          used: quota.tokens - quotaStatus.remaining,
+        },
+        expiresAt: invitation.expiresAt,
+        createdAt: invitation.createdAt,
+        claimedAt: invitation.claimedAt,
+        linkedUser: invitation.linkedUser,
+        sessions: invitation.sessions.map((session) => ({
+          id: session.id,
+          status: session.status,
+          startedAt: session.startedAt,
+          endedAt: session.endedAt,
+          totalMessages: session.totalMessages,
+          // Custom scenario info if applicable
+          customDescription: session.customDescription,
+          customPartnerPersona: session.customPartnerPersona,
+          // Messages for timeline view
+          messages: session.messages.map((m) => ({
+            id: m.id,
+            role: m.role as 'user' | 'partner' | 'coach',
+            content: m.content,
+            timestamp: m.timestamp.toISOString(),
+          })),
+        })),
+        observationNotes: invitation.observationNotes,
+        // Quick access to active session for "Watch Live" button
+        activeSessionId: activeSession?.id ?? null,
+      };
+    }),
 });

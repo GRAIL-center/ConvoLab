@@ -1,14 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
-import { ResearchSidebar } from '../components/ResearchSidebar';
 import { UserMenu } from '../components/UserMenu';
 
 const siteBanner = import.meta.env.VITE_SITE_BANNER as string | undefined;
 
 export function ResearchLayout() {
   const trpc = useTRPC();
-  const location = useLocation();
   const { data, isLoading } = useQuery(trpc.auth.me.queryOptions());
 
   // Show loading state while checking auth
@@ -52,13 +50,10 @@ export function ResearchLayout() {
         </div>
       </header>
 
-      {/* Main content with sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        <ResearchSidebar currentPath={location.pathname} />
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
+      {/* Main content */}
+      <main className="flex-1 overflow-auto">
+        <Outlet />
+      </main>
     </div>
   );
 }

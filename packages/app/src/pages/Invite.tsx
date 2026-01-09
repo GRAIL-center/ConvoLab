@@ -1,29 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
+import {
+  AnimatedEllipsis,
+  ELABORATION_STEPS,
+  useElaboration,
+} from '../components/CustomScenarioForm';
 import { SignOutConfirmDialog } from '../components/SignOutConfirmDialog';
-
-const ELABORATION_STEPS = [
-  'Understanding your scenario',
-  'Creating your conversation partner',
-  'Preparing coaching guidance',
-];
-
-function AnimatedEllipsis() {
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((prev) => (prev + 1) % 3);
-    }, 400);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fixed-width ellipsis: ".  " → ".. " → "..."
-  const frames = ['.\u00A0\u00A0', '..\u00A0', '...'];
-  return <span>{frames[step]}</span>;
-}
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
@@ -31,16 +15,20 @@ export function Invite() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [customDescription, setCustomDescription] = useState('');
-  const [elaborationStep, setElaborationStep] = useState(0);
-  // Preview state for custom scenarios
-  const [elaborationPreview, setElaborationPreview] = useState<{
-    persona: string;
-    partnerPrompt: string;
-    coachPrompt: string;
-  } | null>(null);
-  // Refusal reason when AI declines to create the scenario
-  const [refusalReason, setRefusalReason] = useState<string | null>(null);
+
+  // Elaboration state from shared hook
+  const {
+    description: customDescription,
+    setDescription: setCustomDescription,
+    elaborated: elaborationPreview,
+    refusalReason,
+    elaborationStep,
+    canElaborate,
+    isPending: isElaborating,
+    error: elaborationError,
+    elaborate: handleCreatePartner,
+    reset: handleTryAgain,
+  } = useElaboration();
 
   // Get current user to show appropriate sign-out messaging
   const { data: authData } = useQuery(trpc.auth.me.queryOptions());
@@ -58,24 +46,6 @@ export function Invite() {
     retry: false,
   });
 
-  // Elaborate mutation (for custom scenario preview)
-  const elaborateMutation = useMutation({
-    ...trpc.scenario.elaborate.mutationOptions(),
-    onSuccess: (data) => {
-      if (data.success) {
-        setRefusalReason(null);
-        setElaborationPreview({
-          persona: data.persona,
-          partnerPrompt: data.partnerPrompt,
-          coachPrompt: data.coachPrompt,
-        });
-      } else {
-        // AI declined to create this scenario
-        setRefusalReason(data.refusalReason);
-      }
-    },
-  });
-
   const claimMutation = useMutation({
     ...trpc.invitation.claim.mutationOptions(),
     onSuccess: (data) => {
@@ -86,20 +56,6 @@ export function Invite() {
       navigate(`/conversation/${data.sessionId}`);
     },
   });
-
-  // Cycle through elaboration steps while elaborating
-  useEffect(() => {
-    if (!elaborateMutation.isPending) {
-      setElaborationStep(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setElaborationStep((prev) => (prev < ELABORATION_STEPS.length - 1 ? prev + 1 : prev));
-    }, 1500);
-
-    return () => clearInterval(interval);
-  }, [elaborateMutation.isPending]);
 
   if (!token) {
     return (
@@ -137,12 +93,7 @@ export function Invite() {
 
   // Determine if this is a custom scenario invitation
   const isCustomScenario = invitation?.allowCustomScenario && !invitation?.scenario;
-  const canElaborate = customDescription.trim().length >= 10 && customDescription.length <= 2000;
-
-  // For custom scenarios: first elaborate to preview, then claim
-  const handleCreatePartner = () => {
-    elaborateMutation.mutate({ description: customDescription.trim() });
-  };
+  const hasExistingPartner = !!invitation?.existingCustomPartner;
 
   const handleStartConversation = () => {
     if (isCustomScenario && elaborationPreview) {
@@ -158,10 +109,10 @@ export function Invite() {
     }
   };
 
-  const handleTryAgain = () => {
-    setElaborationPreview(null);
-    setRefusalReason(null);
-    elaborateMutation.reset();
+  const handleContinueExisting = () => {
+    if (invitation?.existingCustomPartner) {
+      navigate(`/conversation/${invitation.existingCustomPartner.sessionId}`);
+    }
   };
 
   const handleSignOut = async (unclaim = false) => {
@@ -189,14 +140,31 @@ export function Invite() {
               <p className="mt-1 text-gray-600">{invitation.scenario.partnerPersona}</p>
             </div>
           </>
+        ) : hasExistingPartner ? (
+          // Show existing custom partner (already created)
+          <>
+            <h1 className="text-2xl font-bold text-gray-900">Your Conversation Partner</h1>
+            <div className="mt-4 rounded-md bg-purple-50 p-4">
+              <h3 className="font-medium text-purple-900">
+                {invitation.existingCustomPartner!.persona}
+              </h3>
+              <p className="mt-2 text-sm text-purple-700">
+                Based on: "{invitation.existingCustomPartner!.description.slice(0, 100)}
+                {invitation.existingCustomPartner!.description.length > 100 ? '...' : ''}"
+              </p>
+            </div>
+            <p className="mt-4 text-sm text-gray-600">
+              Your conversation partner is ready. Continue where you left off.
+            </p>
+          </>
         ) : isCustomScenario ? (
           elaborationPreview ? (
             // Show preview after elaboration
             <>
-              <h1 className="text-2xl font-bold text-gray-900">Your Conversation Partner</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{elaborationPreview.name}</h1>
+              <p className="mt-1 text-gray-600">Talking with: {elaborationPreview.persona}</p>
               <div className="mt-4 rounded-md bg-purple-50 p-4">
-                <h3 className="font-medium text-purple-900">{elaborationPreview.persona}</h3>
-                <p className="mt-2 text-sm text-purple-700">
+                <p className="text-sm text-purple-700">
                   Based on: "{customDescription.slice(0, 100)}
                   {customDescription.length > 100 ? '...' : ''}"
                 </p>
@@ -220,9 +188,10 @@ export function Invite() {
                   id="description"
                   value={customDescription}
                   onChange={(e) => setCustomDescription(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px] p-3"
+                  className="mt-1 block w-full rounded-md border border-gray-400 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:bg-white min-h-[120px] p-3"
                   maxLength={2000}
-                  disabled={elaborateMutation.isPending}
+                  disabled={isElaborating}
+                  autoFocus
                 />
                 <p className="mt-2 text-sm text-gray-500">
                   Try describing a realistic conversation you'd like to practice—like a difficult
@@ -250,9 +219,10 @@ export function Invite() {
                   value={customDescription}
                   onChange={(e) => setCustomDescription(e.target.value)}
                   placeholder="Example: My manager who micromanages everything and doesn't trust me to do my job. They constantly check in and question my decisions."
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-h-[120px] p-3"
+                  className="mt-1 block w-full rounded-md border border-gray-400 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:bg-white min-h-[120px] p-3"
                   maxLength={2000}
-                  disabled={elaborateMutation.isPending}
+                  disabled={isElaborating}
+                  autoFocus
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-500">
                   <span>
@@ -287,15 +257,25 @@ export function Invite() {
         )}
 
         {/* Button section - different flows for custom vs predefined scenarios */}
-        {isCustomScenario && !elaborationPreview ? (
+        {hasExistingPartner ? (
+          // Existing custom partner: just continue
+          <button
+            type="button"
+            onClick={handleContinueExisting}
+            disabled={invitation.quota.remaining === 0}
+            className="mt-6 w-full rounded-md bg-blue-600 px-4 py-3 text-white font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {invitation.quota.remaining === 0 ? 'No quota remaining' : 'Continue Conversation'}
+          </button>
+        ) : isCustomScenario && !elaborationPreview ? (
           // Custom scenario: first step - create partner (or retry after refusal)
           <button
             type="button"
             onClick={handleCreatePartner}
-            disabled={elaborateMutation.isPending || !canElaborate}
+            disabled={isElaborating || !canElaborate}
             className="mt-6 w-full rounded-md bg-blue-600 px-4 py-3 text-white font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {elaborateMutation.isPending ? (
+            {isElaborating ? (
               <span>
                 {ELABORATION_STEPS[elaborationStep]}
                 <AnimatedEllipsis />
@@ -343,10 +323,10 @@ export function Invite() {
         )}
 
         {/* Error messages */}
-        {elaborateMutation.error && (
+        {elaborationError && (
           <div className="mt-3 rounded-md bg-red-50 p-3">
             <p className="text-center text-sm text-red-600">
-              {elaborateMutation.error.message || 'Failed to create partner. Please try again.'}
+              {elaborationError.message || 'Failed to create partner. Please try again.'}
             </p>
           </div>
         )}
