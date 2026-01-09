@@ -291,7 +291,8 @@ export function InvitationDetail() {
           />
         </svg>
         <span className="font-medium">
-          Notes{invitation.observationNotes.length > 0 && ` (${invitation.observationNotes.length})`}
+          Notes
+          {invitation.observationNotes.length > 0 && ` (${invitation.observationNotes.length})`}
         </span>
       </button>
 

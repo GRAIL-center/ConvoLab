@@ -110,13 +110,13 @@ export function useElaboration() {
   const handleElaborate = useCallback(() => {
     if (!canElaborate) return;
     elaborate.mutate({ description: description.trim() });
-  }, [canElaborate, description, elaborate]);
+  }, [canElaborate, description, elaborate.mutate]);
 
   const reset = useCallback(() => {
     setElaborated(null);
     setRefusalReason(null);
     elaborate.reset();
-  }, [elaborate]);
+  }, [elaborate.reset]);
 
   return {
     // State
