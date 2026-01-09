@@ -16,12 +16,12 @@ COPY packages/api ./packages/api
 # Install dependencies (workspace packages will be properly linked)
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client and build database package
-RUN pnpm -F @workspace/database generate
-RUN pnpm -F @workspace/database build
+# Copy entrypoint script
+COPY packages/api/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port
 EXPOSE 3000
 
-# Start development server
-CMD ["pnpm", "-F", "@workspace/api", "dev:docker"]
+# Entrypoint builds database package (after volume mount) then starts server
+ENTRYPOINT ["docker-entrypoint.sh"]

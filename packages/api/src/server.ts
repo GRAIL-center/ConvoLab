@@ -7,6 +7,7 @@ import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/a
 import { isDatabaseEmpty, prisma, seedReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 
+import { getAIProviderSummary, logStartupDiagnostics } from './lib/startup-checks.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
@@ -17,21 +18,15 @@ import { registerWebSocketHandler } from './ws/handler.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV !== 'production';
 
-// Validate required environment variables in production
-if (!isDev) {
-  const required = ['FRONTEND_URL', 'SESSION_KEY'];
-  const missing = required.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    console.error(`Missing required environment variables: ${missing.join(', ')}`);
-    process.exit(1);
-  }
-}
-
 const fastify = Fastify({
   logger: {
     level: isDev ? 'debug' : 'info',
   },
 });
+
+// Run startup diagnostics (will exit if critical config missing)
+logStartupDiagnostics(fastify.log);
+fastify.log.info(`AI providers available: ${getAIProviderSummary()}`);
 
 // Register plugins
 await fastify.register(cors, {
