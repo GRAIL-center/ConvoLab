@@ -29,13 +29,11 @@ Auth code: `packages/api/src/auth/handlers.ts`
 STAFF = researchers who run user testing sessions. ADMIN = full system access.
 
 ### Implementation Plans Live in `docs/plans/`
-Remaining phases:
-- `03b-realtime-streaming.md` - LLM providers + WebSocket (the core AI conversation)
-- `06-user-testing.md` - QR codes, observation notes
+Future phases:
 - `07-consolidate-landing.md` - Merge Astro landing into React app
-- `08-model-discovery.md` - Runtime model adoption, tier abstraction (future)
+- `08-model-discovery.md` - Runtime model adoption, tier abstraction
+- `12-coach-aside.md` - Private Q&A with coach mid-conversation
 - `04b-invitation-tests.md` - Deferred test coverage
-- `schema-reference.md` - Current Prisma schema
 
 ### Invitation Model
 - Opening invitation creates anonymous User immediately (for session continuity)

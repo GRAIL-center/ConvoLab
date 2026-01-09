@@ -1,5 +1,7 @@
 # Phase 6: User Testing Features
 
+**Status**: Complete
+
 Support guerrilla user testing with live observation and QR code sharing.
 
 ## Data Model

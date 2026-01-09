@@ -1,19 +1,22 @@
 # Conversation Coach - Technical Architecture
 
-**Purpose:** Dual-stream AI conversation practice (dialog partner + coach) with future voice integration
+**Purpose:** Dual-stream AI conversation practice (dialog partner + coach) with research observation tools.
 
-**Audience:** Claude Code, for context across sessions
+**Audience:** Claude Code, for context across sessions.
 
 ## Core Architecture
 
 ```
-React SPA (behind auth or invitation)
-  ↓
-Fastify Server
+React SPA
+  │
   ├── tRPC (CRUD operations)
-  ├── WebSocket (dual AI streams)
-  └── Google OAuth + Invitations
-  ↓
+  └── WebSocket (dual AI streams)
+  │
+Fastify Server
+  ├── Vercel AI SDK (multi-provider LLM)
+  ├── Google OAuth + Invitations
+  └── Broadcaster (live observation)
+  │
 PostgreSQL (Prisma ORM)
 ```
 
@@ -23,9 +26,9 @@ PostgreSQL (Prisma ORM)
 - Fastify 5 - Server + WebSocket
 - tRPC 11 - Type-safe API
 - Prisma 7 - ORM (runtime connection pattern)
+- Vercel AI SDK - Multi-provider LLM (Anthropic, OpenAI, Google)
 - @fastify/oauth2 - Google OAuth
 - @fastify/secure-session - Stateless encrypted cookies
-- Anthropic SDK - AI streaming
 
 ### Frontend
 - Vite 7 + React 19 + TypeScript 5
@@ -33,14 +36,10 @@ PostgreSQL (Prisma ORM)
 - React Router 7 - Routing
 - Tailwind CSS
 
-### Landing
-- Astro 5 - Static pages (SEO/link previews)
-
 ### Infrastructure
 - pnpm workspaces
 - PostgreSQL 17
-- Cloud Run (3 services)
-- GitHub Actions CI/CD
+- Docker Compose (dev)
 
 ## Project Structure
 
@@ -49,96 +48,152 @@ packages/
 ├── database/        # Prisma schema + client
 ├── api/             # Fastify server
 ├── app/             # React SPA
-└── landing/         # Astro pages
+└── landing/         # Astro pages (may consolidate into app)
+docs/
+├── plans/           # Future implementation plans
+└── plans/completed/ # Historical plans with design rationale
 ```
 
 ## Auth Model
 
-### Google OAuth (primary)
+### Google OAuth
 - @fastify/oauth2 with Google OIDC
-- Stateless encrypted cookie sessions
+- Stateless encrypted cookie sessions (7-day expiry)
 
 ### Invitations (guest access)
-- Admin creates invitation with quota preset
-- User accesses /invite/:token
+- STAFF+ creates invitation with quota preset
+- User accesses `/invite/:token` → anonymous User created
 - Can start conversations without login
-- Progressive auth: nudge to link Google account
+- Progressive auth: can link Google account later
 
 ### Roles
-```
-GUEST      - Self-registered, default quota
-USER       - Verified, standard quota
-POWER_USER - Extended quota
-ADMIN      - Full access
-```
+
+| Role | Description |
+|------|-------------|
+| GUEST | Anonymous via invitation |
+| USER | Authenticated via OAuth |
+| STAFF | Researchers (create invitations, observe sessions) |
+| ADMIN | Full access (manage users, assign STAFF) |
 
 ### Quota System
 - Inviter picks from preset token allocations
-- Tracked per invitation, deducted on AI response
+- Absolute quota per invitation (not daily)
+- Tracked via UsageLog, deducted on AI response
+
+## Dual AI Streaming
+
+```
+User message
+    │
+    ├──▶ Partner AI (sees partner conversation only)
+    │         │
+    │         ▼
+    │    partner:delta → partner:done
+    │
+    └──▶ Coach AI (sees BOTH conversations)
+              │
+              ▼
+         coach:delta → coach:done
+```
+
+Partner and coach stream sequentially. Both persisted as Messages with role `partner` or `coach`.
+
+## WebSocket Protocol
+
+### Conversation (`/ws/conversation/:sessionId`)
+```
+Client → Server:
+  { type: "message", content: "..." }
+
+Server → Client:
+  { type: "history", messages: [...] }
+  { type: "partner:delta", content: "..." }
+  { type: "partner:done", messageId: 123 }
+  { type: "coach:delta", content: "..." }
+  { type: "coach:done", messageId: 124 }
+  { type: "error", error: "..." }
+```
+
+### Observer (`/ws/observe/:sessionId`)
+Read-only stream for researchers. Same delta/done messages, no send capability.
+
+## Research Tools
+
+### Live Observation
+- Researcher creates invitation → gets QR code
+- Participant scans → claims invitation → starts conversation
+- Researcher sees "Watch Live" → observes messages in real-time
+- In-memory broadcaster pushes deltas to all observers
+
+### Observation Notes
+- Attached to invitation (participant-level)
+- Optionally linked to specific session
+- STAFF+ can add notes while observing or reviewing
+
+### Admin UI (`/admin/*`)
+- User management, role assignment
+- Telemetry dashboard
+
+### Research UI (`/research/*`)
+- Invitation management with QR codes
+- Live observation
+- Session review with notes
+
+## Custom Scenarios
+
+Users can describe their own conversation partner instead of picking a predefined scenario:
+
+1. Invitation created with `allowCustomScenario: true`
+2. User submits description (e.g., "my critical mother-in-law")
+3. Elaboration AI (Sonnet) generates partner/coach prompts
+4. Session proceeds with generated prompts
+
+Custom prompts stored on ConversationSession, not Scenario.
 
 ## Data Models
 
 See `docs/plans/schema-reference.md` for full Prisma schema.
 
 Key models:
-- **User** - Google OAuth identity, role
-- **Invitation** - Token, quota JSON, usage JSON, expiration
-- **QuotaPreset** - Admin-configurable templates
-- **Scenario** - AI personas, system prompts
-- **ConversationSession** - Links user/invitation to scenario
+- **User** - OAuth identity, role
+- **ExternalIdentity** - OAuth provider links (supports multiple per user)
+- **Invitation** - Token, quota, usage, expiration
+- **QuotaPreset** - Admin-configurable quota templates
+- **Scenario** - Predefined AI personas + prompts
+- **ConversationSession** - Links user/invitation to scenario (or custom prompts)
 - **Message** - role (user/partner/coach), content
-- **UsageLog** - Token tracking for analytics
-
-## Dual AI Streaming
-
-```typescript
-class ConversationManager {
-  partnerHistory: Message[]  // Partner sees partner conversation
-  coachHistory: Message[]    // Coach sees BOTH conversations
-
-  async streamDualResponses(ws, userMessage) {
-    // Check quota
-    // Stream partner response
-    // Stream coach response (with partner context)
-    // Deduct tokens, persist messages
-  }
-}
-```
-
-## WebSocket Flow
-
-```
-1. Connect: /ws/conversation/:sessionId
-2. Auth: validate session cookie or invitation token
-3. Load scenario + history
-4. User message → dual AI streams → persist
-5. Repeat
-```
+- **UsageLog** - Token tracking per stream
+- **ObservationNote** - Researcher notes on sessions
+- **TelemetryEvent** - Analytics events
 
 ## URL Structure
 
 ```
-/                    → Scenario list (auth or invitation required)
-/login               → Google sign-in
-/invite/:token       → Invitation landing
-/conversation/:id    → Chat UI
-/api/*               → Fastify backend
-/ws/*                → WebSocket
-```
+/                           → Home (scenario list or active sessions)
+/login                      → Google sign-in
+/invite/:token              → Invitation landing
+/conversation/:sessionId    → Chat UI
 
-Landing (Astro):
-```
-coach.example.com/   → Landing page (SSR)
-coach.example.com/scenarios/:slug → Preview (SSR)
+/admin/users                → User management
+/admin/telemetry            → Analytics dashboard
+
+/research/invitations       → Invitation list + create
+/research/invitations/:id   → Detail + QR code + observe
+
+/api/*                      → tRPC endpoints
+/ws/*                       → WebSocket endpoints
 ```
 
 ## Environment Variables
 
-See `.env.example` for full list. Key vars: `DATABASE_URL`, `GOOGLE_CLIENT_*`, `ANTHROPIC_API_KEY`.
+See `.env.example` for full list. Key vars:
+- `DATABASE_URL` - PostgreSQL connection
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - OAuth
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` - LLM providers
+- `ADMIN_EMAILS` - Bootstrap admin users on OAuth login
 
-## Future: Voice
+## Future
 
-When adding voice (Deepgram STT + ElevenLabs TTS):
-- Audio chunks via WebSocket
-- Stream to STT → text to AI → TTS back
-- Node handles this naturally
+- **Coach aside** - Private Q&A with coach mid-conversation
+- **Voice integration** - Deepgram STT + ElevenLabs TTS
+- **Runtime model discovery** - Dynamic model selection by tier

@@ -66,24 +66,17 @@ Use AI assistants freely. Rapid prototyping > perfect code. Multiple experimenta
 ## Implementation Status
 
 ### Done
-- [x] Project structure + Docker setup
-- [x] Prisma schema (auth + conversations)
-- [x] Taskfile automation
-- [x] Google OAuth + sessions
-- [x] Auto-migrate on Docker startup
-- [x] tRPC foundation (auth, scenario, session, invitation routers)
-- [x] Invitation system (magic links with quotas)
-- [x] LLM provider abstraction (Anthropic, OpenAI, Google)
-- [x] WebSocket streaming (dual AI: partner + coach)
-- [x] Conversation UI
-- [x] Custom scenarios (user-defined conversation partners)
-- [x] Telemetry
+- [x] Full-stack foundation (Docker, Prisma, tRPC, Google OAuth, auto-migrations)
+- [x] Multi-provider LLM streaming (Anthropic, OpenAI, Google via WebSocket)
+- [x] Invitation system (magic links with token quotas)
+- [x] Conversation practice (dual AI partner + coach, custom scenarios)
+- [x] Research tools (QR codes, live observation, notes, admin UI, telemetry)
 
 ### Future
-- [ ] User testing features (QR codes, researcher observations)
-- [ ] Admin/research UI improvements
-- [ ] Coach aside (private Q&A with coach)
+- [ ] Coach aside (private Q&A with coach mid-conversation)
 - [ ] Voice integration
+- [ ] Consolidate landing page into React app
+- [ ] Runtime model discovery (dynamic model selection)
 
 ## Useful Commands
 
