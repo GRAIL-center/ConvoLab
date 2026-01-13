@@ -29,6 +29,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm -F @workspace/database generate
 
+      - name: Build database package
+        run: pnpm -F @workspace/database build
+
       - name: Lint
         run: pnpm lint
 
