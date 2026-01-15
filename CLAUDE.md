@@ -130,4 +130,3 @@ Biome for both linting and formatting. Run `pnpm check` to lint + format.
 
 - Run `pnpm -F @workspace/database generate` after schema changes
 - The `docs/plans/schema-reference.md` has the full target Prisma schema
-- Working branches are based on `realtime-typesafe`, not `main` (PRs go to GitHub for Copilot review)
