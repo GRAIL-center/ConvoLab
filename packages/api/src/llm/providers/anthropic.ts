@@ -29,7 +29,30 @@ export const anthropicProvider: LLMProvider = {
         max_tokens: params.maxTokens ?? 1024,
       });
 
+      // Wire up abort signal to cancel the stream
+      if (params.signal) {
+        params.signal.addEventListener(
+          'abort',
+          () => {
+            stream.abort();
+          },
+          { once: true }
+        );
+      }
+
       for await (const event of stream) {
+        // Check if aborted before yielding
+        if (params.signal?.aborted) {
+          yield {
+            type: 'error',
+            error: {
+              code: 'ABORTED',
+              message: 'Stream was cancelled',
+              retryable: false,
+            },
+          };
+          return;
+        }
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           yield { type: 'delta', content: event.delta.text };
         }
@@ -44,6 +67,18 @@ export const anthropicProvider: LLMProvider = {
         },
       };
     } catch (error) {
+      // Handle abort errors gracefully
+      if (params.signal?.aborted) {
+        yield {
+          type: 'error',
+          error: {
+            code: 'ABORTED',
+            message: 'Stream was cancelled',
+            retryable: false,
+          },
+        };
+        return;
+      }
       const err = error as Error & { status?: number };
       const retryable = err.status === 429 || err.status === 529 || err.status === 500;
       yield {

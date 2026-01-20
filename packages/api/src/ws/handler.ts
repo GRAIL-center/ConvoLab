@@ -143,6 +143,28 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
             await manager.handleResume(message.afterMessageId);
             break;
 
+          case 'aside:start':
+            if (typeof message.content === 'string' && message.content.trim() && message.threadId) {
+              const content = message.content.trim();
+              const MAX_ASIDE_LENGTH = 2000;
+              if (content.length > MAX_ASIDE_LENGTH) {
+                send(socket, {
+                  type: 'aside:error',
+                  threadId: message.threadId,
+                  error: `Question too long (max ${MAX_ASIDE_LENGTH} characters)`,
+                });
+                return;
+              }
+              await manager.handleAsideStart(message.threadId, content);
+            }
+            break;
+
+          case 'aside:cancel':
+            if (message.threadId) {
+              manager.handleAsideCancel(message.threadId);
+            }
+            break;
+
           default:
             send(socket, {
               type: 'error',

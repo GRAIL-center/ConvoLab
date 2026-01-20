@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AsideButton } from '../components/conversation/AsideButton';
+import { AsidePanel } from '../components/conversation/AsidePanel';
 import { MessageInput } from '../components/conversation/MessageInput';
 import { MessageList } from '../components/conversation/MessageList';
 import { useConversationSocket } from '../hooks/useConversationSocket';
@@ -57,11 +59,38 @@ export function Conversation() {
 
 function ConversationContent({ sessionId }: { sessionId: number }) {
   const navigate = useNavigate();
-  const { status, scenario, messages, sendMessage, isStreaming, streamingRole, quota, error } =
-    useConversationSocket(sessionId);
+  const [asideOpen, setAsideOpen] = useState(false);
+  const {
+    status,
+    scenario,
+    messages,
+    sendMessage,
+    isStreaming,
+    streamingRole,
+    quota,
+    error,
+    // Aside state
+    asideMessages,
+    isAsideStreaming,
+    asideError,
+    startAside,
+    cancelAside,
+  } = useConversationSocket(sessionId);
 
   const handleLeave = () => {
     navigate('/');
+  };
+
+  const handleAsideOpen = () => {
+    setAsideOpen(true);
+  };
+
+  const handleAsideClose = () => {
+    setAsideOpen(false);
+  };
+
+  const handleAsideSend = (question: string) => {
+    startAside(question);
   };
 
   // Loading state
@@ -167,12 +196,21 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
           </div>
         )}
 
-        {/* Input */}
-        <MessageInput
-          onSend={sendMessage}
-          disabled={isStreaming || quota?.exhausted || false}
-          placeholder={quota?.exhausted ? 'Quota exhausted' : undefined}
-        />
+        {/* Input with Ask Coach button */}
+        <div className="relative">
+          <MessageInput
+            onSend={sendMessage}
+            disabled={isStreaming || quota?.exhausted || false}
+            placeholder={quota?.exhausted ? 'Quota exhausted' : undefined}
+          />
+          {/* Ask Coach button positioned above the input */}
+          <div className="absolute right-4 -top-12">
+            <AsideButton
+              onClick={handleAsideOpen}
+              disabled={isStreaming || quota?.exhausted || false}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Quota bar at bottom */}
@@ -202,6 +240,17 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
           </div>
         </div>
       )}
+
+      {/* Aside Panel */}
+      <AsidePanel
+        isOpen={asideOpen}
+        onClose={handleAsideClose}
+        messages={asideMessages}
+        isStreaming={isAsideStreaming}
+        error={asideError}
+        onSend={handleAsideSend}
+        onCancel={cancelAside}
+      />
     </div>
   );
 }

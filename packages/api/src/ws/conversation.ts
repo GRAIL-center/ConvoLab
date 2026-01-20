@@ -17,6 +17,15 @@ import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 // Default model for custom scenarios
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 
+// Instructions for aside questions
+const ASIDE_INSTRUCTIONS = `
+When responding to an aside question (marked with [ASIDE QUESTION]):
+- You are stepping out of the main coaching flow to answer a specific question
+- Reference specific parts of the conversation when relevant
+- Keep responses focused and concise
+- Do not continue the main coaching narrative
+`;
+
 interface SessionWithScenario extends ConversationSession {
   scenario: Scenario | null;
   invitation: Invitation | null;
@@ -32,6 +41,8 @@ export class ConversationManager {
   private session: SessionWithScenario;
   private logger: FastifyBaseLogger;
   private isProcessing = false;
+  private activeAsideController: AbortController | null = null;
+  private activeAsideThreadId: string | null = null;
 
   constructor(
     ws: WebSocket,
@@ -80,6 +91,8 @@ export class ConversationManager {
       role: m.role as 'user' | 'partner' | 'coach',
       content: m.content,
       timestamp: m.timestamp.toISOString(),
+      messageType: (m.messageType as 'main' | 'aside') ?? 'main',
+      asideThreadId: m.asideThreadId ?? undefined,
     }));
 
     send(this.ws, { type: 'history', messages: historyMessages });
@@ -185,6 +198,8 @@ export class ConversationManager {
       role: m.role as 'user' | 'partner' | 'coach',
       content: m.content,
       timestamp: m.timestamp.toISOString(),
+      messageType: (m.messageType as 'main' | 'aside') ?? 'main',
+      asideThreadId: m.asideThreadId ?? undefined,
     }));
 
     send(this.ws, { type: 'history', messages: historyMessages });
@@ -280,8 +295,7 @@ export class ConversationManager {
         // Save partial message if we have content
         if (fullContent.length > 0) {
           await this.persistMessage(role, fullContent, {
-            complete: false,
-            error: 'PROVIDER_ERROR',
+            metadata: { complete: false, error: 'PROVIDER_ERROR' },
           });
         }
 
@@ -336,14 +350,20 @@ export class ConversationManager {
   private async persistMessage(
     role: string,
     content: string,
-    metadata?: Record<string, unknown>
+    options?: {
+      metadata?: Record<string, unknown>;
+      messageType?: 'main' | 'aside';
+      asideThreadId?: string;
+    }
   ): Promise<Message> {
     return this.prisma.message.create({
       data: {
         sessionId: this.session.id,
         role,
         content,
-        metadata: metadata as Prisma.InputJsonValue | undefined,
+        metadata: options?.metadata as Prisma.InputJsonValue | undefined,
+        messageType: options?.messageType ?? 'main',
+        asideThreadId: options?.asideThreadId,
       },
     });
   }
@@ -424,6 +444,243 @@ export class ConversationManager {
         total: status.total,
       });
     }
+  }
+
+  /**
+   * Handle start of an aside question to the coach.
+   */
+  async handleAsideStart(threadId: string, question: string): Promise<void> {
+    // Check if main flow is processing
+    if (this.isProcessing) {
+      send(this.ws, {
+        type: 'aside:error',
+        threadId,
+        error: 'Please wait for the current response to complete',
+      });
+      return;
+    }
+
+    // Check if already processing an aside
+    if (this.activeAsideThreadId) {
+      send(this.ws, {
+        type: 'aside:error',
+        threadId,
+        error: 'Another aside question is in progress',
+      });
+      return;
+    }
+
+    // Check quota before making LLM call
+    if (this.session.invitationId) {
+      const hasQuota = await this.checkQuotaAllowed();
+      if (!hasQuota) {
+        send(this.ws, { type: 'quota:exhausted' });
+        return;
+      }
+    }
+
+    this.isProcessing = true;
+    this.activeAsideThreadId = threadId;
+    this.activeAsideController = new AbortController();
+
+    try {
+      // 1. Persist user's aside question
+      const userMsg = await this.persistMessage('user', question, {
+        messageType: 'aside',
+        asideThreadId: threadId,
+      });
+      this.session.messages.push(userMsg);
+
+      // Broadcast user aside message to observers
+      broadcast(this.session.id, {
+        type: 'history',
+        messages: [
+          {
+            id: userMsg.id,
+            role: 'user',
+            content: userMsg.content,
+            timestamp: userMsg.timestamp.toISOString(),
+            messageType: 'aside',
+            asideThreadId: threadId,
+          },
+        ],
+      });
+
+      // 2. Build context and stream coach response
+      const context = this.buildAsideContext(question);
+      const result = await this.streamAsideResponse(threadId, context);
+
+      if (result) {
+        // 3. Log usage
+        await this.logAsideUsage(result.usage);
+
+        // 4. Check quota warning
+        await this.checkQuotaWarning();
+      }
+    } catch (error) {
+      this.logger.error({ sessionId: this.session.id, threadId, error }, 'Error handling aside');
+      send(this.ws, {
+        type: 'aside:error',
+        threadId,
+        error: 'An unexpected error occurred',
+      });
+    } finally {
+      this.isProcessing = false;
+      this.activeAsideThreadId = null;
+      this.activeAsideController = null;
+    }
+  }
+
+  /**
+   * Handle cancellation of an aside question.
+   */
+  handleAsideCancel(threadId: string): void {
+    if (this.activeAsideThreadId !== threadId) {
+      // Not the active aside, ignore
+      return;
+    }
+
+    if (this.activeAsideController) {
+      this.activeAsideController.abort();
+    }
+  }
+
+  /**
+   * Build context for aside question.
+   * Includes full conversation history plus the aside question marker.
+   */
+  private buildAsideContext(question: string): LLMMessage[] {
+    const messages = this.session.messages;
+
+    // Include all main messages as context
+    const context: LLMMessage[] = messages
+      .filter((m) => m.messageType === 'main' || m.messageType === null)
+      .map((m) => {
+        if (m.role === 'user') {
+          return { role: 'user' as const, content: m.content };
+        }
+        const prefix = m.role === 'partner' ? '[Partner]' : '[Your previous advice]';
+        return { role: 'assistant' as const, content: `${prefix} ${m.content}` };
+      });
+
+    // Add the aside question with marker
+    context.push({
+      role: 'user' as const,
+      content: `[ASIDE QUESTION]: ${question}`,
+    });
+
+    return context;
+  }
+
+  /**
+   * Stream coach response for an aside question.
+   */
+  private async streamAsideResponse(
+    threadId: string,
+    context: LLMMessage[]
+  ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
+    const scenario = this.session.scenario;
+
+    // Get coach model and system prompt
+    let modelString: string;
+    let systemPrompt: string;
+
+    if (scenario) {
+      modelString = scenario.coachModel;
+      systemPrompt = scenario.coachSystemPrompt + ASIDE_INSTRUCTIONS;
+    } else if (this.session.customCoachPrompt) {
+      modelString = DEFAULT_MODEL;
+      systemPrompt = this.session.customCoachPrompt + ASIDE_INSTRUCTIONS;
+    } else {
+      throw new Error('Session has neither scenario nor custom prompts');
+    }
+
+    let fullContent = '';
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+
+    try {
+      for await (const chunk of streamCompletion(modelString, {
+        systemPrompt,
+        messages: context,
+        maxTokens: 1024,
+        signal: this.activeAsideController?.signal,
+      })) {
+        if (chunk.type === 'delta' && chunk.content) {
+          fullContent += chunk.content;
+          send(this.ws, { type: 'aside:delta', threadId, content: chunk.content });
+          broadcast(this.session.id, { type: 'aside:delta', threadId, content: chunk.content });
+        } else if (chunk.type === 'done' && chunk.usage) {
+          usage = chunk.usage;
+        } else if (chunk.type === 'error' && chunk.error) {
+          // Check if it was aborted
+          if (chunk.error.code === 'ABORTED') {
+            // Save partial with incomplete marker
+            if (fullContent.length > 0) {
+              const partialMsg = await this.persistMessage('coach', fullContent, {
+                messageType: 'aside',
+                asideThreadId: threadId,
+                metadata: { incomplete: true },
+              });
+              this.session.messages.push(partialMsg);
+              send(this.ws, { type: 'aside:done', threadId, messageId: partialMsg.id, usage });
+            }
+            return null;
+          }
+          throw new Error(chunk.error.message);
+        }
+      }
+
+      // Persist the complete coach response
+      const message = await this.persistMessage('coach', fullContent, {
+        messageType: 'aside',
+        asideThreadId: threadId,
+      });
+      this.session.messages.push(message);
+
+      send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
+      broadcast(this.session.id, { type: 'aside:done', threadId, messageId: message.id, usage });
+
+      return { content: fullContent, messageId: message.id, usage };
+    } catch (error) {
+      this.logger.error({ sessionId: this.session.id, threadId, error }, 'Error streaming aside');
+
+      // Save partial if we have content
+      if (fullContent.length > 0) {
+        await this.persistMessage('coach', fullContent, {
+          messageType: 'aside',
+          asideThreadId: threadId,
+          metadata: { incomplete: true, error: 'PROVIDER_ERROR' },
+        });
+      }
+
+      send(this.ws, {
+        type: 'aside:error',
+        threadId,
+        error: 'AI service temporarily unavailable',
+      });
+
+      return null;
+    }
+  }
+
+  /**
+   * Log token usage for aside stream.
+   */
+  private async logAsideUsage(usage: TokenUsage): Promise<void> {
+    const scenario = this.session.scenario;
+    const coachModel = scenario?.coachModel ?? DEFAULT_MODEL;
+
+    await this.prisma.usageLog.create({
+      data: {
+        sessionId: this.session.id,
+        userId: this.session.userId,
+        invitationId: this.session.invitationId,
+        model: coachModel,
+        streamType: 'aside',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      },
+    });
   }
 }
 
