@@ -7,7 +7,11 @@ import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/a
 import { isDatabaseEmpty, prisma, seedReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 
-import { getAIProviderSummary, logStartupDiagnostics, runStartupChecks } from './lib/startup-checks.js';
+import {
+  getAIProviderSummary,
+  logStartupDiagnostics,
+  runStartupChecks,
+} from './lib/startup-checks.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';

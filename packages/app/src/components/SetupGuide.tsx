@@ -93,9 +93,7 @@ export function SetupGuide() {
     <div className="mb-8 rounded-lg border-2 border-amber-300 bg-amber-50 overflow-hidden">
       {/* Header */}
       <div className="bg-amber-200 px-4 py-3 border-b border-amber-300">
-        <h2 className="text-lg font-semibold text-amber-900">
-          Welcome! Let's get you set up
-        </h2>
+        <h2 className="text-lg font-semibold text-amber-900">Welcome! Let's get you set up</h2>
         <p className="text-sm text-amber-800 mt-1">
           Some configuration is missing. Here's what you need:
         </p>
@@ -110,21 +108,15 @@ export function SetupGuide() {
             configured={checks.googleOAuth.clientId && checks.googleOAuth.clientSecret}
             hint="needed for sign-in"
           />
-          <CheckItem
-            label="AI API Key"
-            configured={hasAnyAiKey}
-            hint="at least one required"
-          />
+          <CheckItem label="AI API Key" configured={hasAnyAiKey} hint="at least one required" />
           {hasAnyAiKey && !checks.aiKeys.anthropic && (
             <li className="ml-6 text-sm text-amber-700">
-              Note: Default scenarios use Claude. You have {checks.aiKeys.openai ? 'OpenAI' : ''}{checks.aiKeys.openai && checks.aiKeys.googleAi ? ' and ' : ''}{checks.aiKeys.googleAi ? 'Google AI' : ''} configured.
+              Note: Default scenarios use Claude. You have {checks.aiKeys.openai ? 'OpenAI' : ''}
+              {checks.aiKeys.openai && checks.aiKeys.googleAi ? ' and ' : ''}
+              {checks.aiKeys.googleAi ? 'Google AI' : ''} configured.
             </li>
           )}
-          <CheckItem
-            label="Session Key"
-            configured={checks.sessionKey}
-            hint="needed for auth"
-          />
+          <CheckItem label="Session Key" configured={checks.sessionKey} hint="needed for auth" />
         </ul>
 
         {warnings.length > 0 && (

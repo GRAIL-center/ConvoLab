@@ -226,10 +226,14 @@ export class ConversationManager {
       try {
         fullContent = '';
 
+        // Enable web search for partner if scenario has it enabled
+        const useWebSearch = role === 'partner' && scenario?.partnerUseWebSearch === true;
+
         for await (const chunk of streamCompletion(modelString, {
           systemPrompt,
           messages: context,
           maxTokens: 1024,
+          useWebSearch,
         })) {
           if (chunk.type === 'delta' && chunk.content) {
             fullContent += chunk.content;
