@@ -14,8 +14,9 @@ import type { LLMMessage, TokenUsage } from '../llm/types.js';
 import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
-// Default model for custom scenarios
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+// Default models for custom scenarios
+const DEFAULT_PARTNER_MODEL = 'google:gemini-2.0-flash'; // Gemini for web search support
+const DEFAULT_COACH_MODEL = 'claude-sonnet-4-20250514';
 
 interface SessionWithScenario extends ConversationSession {
   scenario: Scenario | null;
@@ -206,8 +207,8 @@ export class ConversationManager {
       modelString = role === 'partner' ? scenario.partnerModel : scenario.coachModel;
       systemPrompt = role === 'partner' ? scenario.partnerSystemPrompt : scenario.coachSystemPrompt;
     } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
-      // Custom scenario - use default model
-      modelString = DEFAULT_MODEL;
+      // Custom scenario - Gemini for partner (web search), Claude for coach
+      modelString = role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL;
       systemPrompt =
         role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
     } else {
@@ -226,8 +227,9 @@ export class ConversationManager {
       try {
         fullContent = '';
 
-        // Enable web search for partner if scenario has it enabled
-        const useWebSearch = role === 'partner' && scenario?.partnerUseWebSearch === true;
+        // Enable web search for partner when using Gemini models
+        const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
+        const useWebSearch = role === 'partner' && isGeminiModel;
 
         for await (const chunk of streamCompletion(modelString, {
           systemPrompt,
@@ -353,8 +355,8 @@ export class ConversationManager {
    */
   private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage): Promise<void> {
     const scenario = this.session.scenario;
-    const partnerModel = scenario?.partnerModel ?? DEFAULT_MODEL;
-    const coachModel = scenario?.coachModel ?? DEFAULT_MODEL;
+    const partnerModel = scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL;
+    const coachModel = scenario?.coachModel ?? DEFAULT_COACH_MODEL;
 
     await this.prisma.usageLog.createMany({
       data: [
