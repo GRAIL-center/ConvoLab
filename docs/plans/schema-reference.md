@@ -124,8 +124,9 @@ model Scenario {
   partnerPersona      String
   partnerSystemPrompt String @db.Text
   coachSystemPrompt   String @db.Text
-  partnerModel        String @default("claude-sonnet-4-20250514")
-  coachModel          String @default("claude-sonnet-4-20250514")
+  partnerModel        String  @default("claude-sonnet-4-20250514")
+  coachModel          String  @default("claude-sonnet-4-20250514")
+  partnerUseWebSearch Boolean @default(false) // Gemini web search grounding
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

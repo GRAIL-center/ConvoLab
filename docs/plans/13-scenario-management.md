@@ -139,6 +139,9 @@ This lets researchers choose: **pin for reproducibility** OR **use category for 
    - Partner Model (dropdown of known models)
    - Coach Model (dropdown of known models)
    - Can type custom model string if needed
+   - Partner capabilities (model-specific options):
+     - "Enable web search grounding" checkbox (Gemini only, via `partnerUseWebSearch`)
+     - Note: More capabilities may emerge as model providers evolve; keep this section minimal and add options only when needed
 
 4. **Status**
    - Active checkbox (controls visibility in public list)
