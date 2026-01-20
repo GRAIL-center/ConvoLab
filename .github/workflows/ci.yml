@@ -84,6 +84,11 @@ jobs:
       - name: Build database package
         run: pnpm -F @workspace/database build
 
+      - name: Push database schema
+        run: pnpm -F @workspace/database exec prisma db push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conversation_coach_test
+
       - name: Run API tests
         run: pnpm -F @workspace/api test:run
         env:
