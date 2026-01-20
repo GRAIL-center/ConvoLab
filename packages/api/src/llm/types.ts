@@ -15,6 +15,8 @@ export interface StreamParams {
   systemPrompt: string;
   messages: LLMMessage[];
   maxTokens?: number;
+  /** Enable web search grounding (currently only supported by Google/Gemini) */
+  useWebSearch?: boolean;
 }
 
 export interface StreamChunk {

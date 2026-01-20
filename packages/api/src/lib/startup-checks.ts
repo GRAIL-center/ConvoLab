@@ -45,7 +45,7 @@ export function runStartupChecks(): DiagnosticResult {
   // Check for missing .env file
   if (envFileMissing) {
     const message =
-      'It looks like you haven\'t created a .env file.\n' +
+      "It looks like you haven't created a .env file.\n" +
       '  Run: cp .env.example .env\n' +
       '  Then edit .env to add your API keys and secrets.\n' +
       '  See the setup guide at http://localhost:5173 for details.';
@@ -69,8 +69,7 @@ export function runStartupChecks(): DiagnosticResult {
       );
     } else {
       errors.push(
-        'SESSION_KEY is required in production.\n' +
-          '  Generate one with: openssl rand -hex 32'
+        'SESSION_KEY is required in production.\n' + '  Generate one with: openssl rand -hex 32'
       );
     }
   }
@@ -88,7 +87,7 @@ export function runStartupChecks(): DiagnosticResult {
   } else if (missingGoogle.length === googleVars.length) {
     warnings.push(
       'Google OAuth not configured.\n' +
-        '  Users won\'t be able to sign in. Get credentials from:\n' +
+        "  Users won't be able to sign in. Get credentials from:\n" +
         '  https://console.cloud.google.com/apis/credentials'
     );
   }
@@ -126,7 +125,7 @@ export function runStartupChecks(): DiagnosticResult {
       'ANTHROPIC_API_KEY not set.\n' +
         `  Configured providers: ${configuredProviders.join(', ')}\n` +
         '  Note: Default scenarios use Claude. If you only have OpenAI/Google keys,\n' +
-        '  you\'ll need to create custom scenarios specifying those providers.'
+        "  you'll need to create custom scenarios specifying those providers."
     );
   }
 
