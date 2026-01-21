@@ -123,8 +123,8 @@ export function SetupGuide() {
           <div className="mt-4 p-3 bg-amber-100 rounded text-sm text-amber-800">
             <strong>Warnings:</strong>
             <ul className="mt-1 list-disc ml-4">
-              {warnings.map((w, i) => (
-                <li key={i}>{w.split('\n')[0]}</li>
+              {warnings.map((w) => (
+                <li key={w}>{w.split('\n')[0]}</li>
               ))}
             </ul>
           </div>

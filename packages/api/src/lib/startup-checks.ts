@@ -161,24 +161,24 @@ export function logStartupDiagnostics(log: {
 
   // Log errors
   if (result.errors.length > 0) {
-    log.error('\n' + DIVIDER);
+    log.error(`\n${DIVIDER}`);
     log.error('CONFIGURATION ERRORS');
     log.error(DIVIDER);
     for (const error of result.errors) {
-      log.error('\n' + error);
+      log.error(`\n${error}`);
     }
-    log.error('\n' + DIVIDER + '\n');
+    log.error(`\n${DIVIDER}\n`);
   }
 
   // Log warnings
   if (result.warnings.length > 0) {
-    log.warn('\n' + DIVIDER);
+    log.warn(`\n${DIVIDER}`);
     log.warn('CONFIGURATION WARNINGS');
     log.warn(DIVIDER);
     for (const warning of result.warnings) {
-      log.warn('\n' + warning);
+      log.warn(`\n${warning}`);
     }
-    log.warn('\n' + DIVIDER + '\n');
+    log.warn(`\n${DIVIDER}\n`);
   }
 
   // Exit if critical errors (production only)
