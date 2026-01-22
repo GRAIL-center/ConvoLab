@@ -1,8 +1,12 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MessageInput } from '../components/conversation/MessageInput';
 import { MessageList } from '../components/conversation/MessageList';
 import { useConversationSocket } from '../hooks/useConversationSocket';
+import { FeedbackModal, type FeedbackPayload } from '../components/feedback/FeedbackModal';
+import { useTRPC } from '../api/trpc';
+import { useState as useReactState } from 'react';
 
 /** Full-screen centered message with optional title, message, and action button */
 function FullScreenMessage({
@@ -59,7 +63,34 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   const navigate = useNavigate();
   const { status, scenario, messages, sendMessage, isStreaming, streamingRole, quota, error } =
     useConversationSocket(sessionId);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackState, setFeedbackState] = useState<'idle' | 'saving' | 'success' | 'error'>(
+    'idle',
+  );
+  const [feedbackError, setFeedbackError] = useState<string | undefined>();
 
+  const trpc = useTRPC();
+  const feedbackMutation = useMutation({
+    ...trpc.feedback.create.mutationOptions(),
+  });
+
+  const handleFeedbackSubmit = async ({ rating, message }: FeedbackPayload) => {
+    setFeedbackError(undefined);
+    setFeedbackState('saving');
+    try {
+      await feedbackMutation.mutateAsync({ sessionId, rating, message });
+      setFeedbackState('success');
+      // Auto-close after a short delay
+      setTimeout(() => {
+        setFeedbackState('idle');
+        setFeedbackOpen(false);
+      }, 1000);
+    } catch (err) {
+      setFeedbackState('error');
+      setFeedbackError(err instanceof Error ? err.message : 'Failed, try again.');
+    }
+  };
+  
   const handleLeave = () => {
     navigate('/');
   };
@@ -126,6 +157,14 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
               <p className="text-sm text-gray-500">Talking with: {scenario.partnerPersona}</p>
             )}
           </div>
+          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className="rounded border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Feedback
+          </button>
           <button
             type="button"
             onClick={handleLeave}
@@ -133,6 +172,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
           >
             Leave
           </button>
+          </div>
         </div>
       </header>
 
@@ -174,6 +214,15 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
           placeholder={quota?.exhausted ? 'Quota exhausted' : undefined}
         />
       </div>
+
+      <FeedbackModal
+        sessionId={sessionId}
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        onSubmit={handleFeedbackSubmit}
+        submitState={feedbackState}
+        errorMessage={feedbackError}
+      />
 
       {/* Quota bar at bottom */}
       {quota && (

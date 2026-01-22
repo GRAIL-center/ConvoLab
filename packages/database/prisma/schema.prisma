@@ -47,6 +47,7 @@ model User {
   invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
   telemetryEvents    TelemetryEvent[]
+  feedbacks          Feedback[]
 }
 
 model ContactMethod {
@@ -173,6 +174,7 @@ model ConversationSession {
   messages         Message[]
   usageLogs        UsageLog[]
   observationNotes ObservationNote[]
+  feedbacks        Feedback[]
 
   @@index([userId])
   @@index([invitationId])
@@ -193,6 +195,20 @@ model Message {
   @@index([sessionId])
 }
 
+model Feedback {
+  id           Int      @id @default(autoincrement())
+  sessionId    Int
+  rating       Int      // 1–5
+  message      String   @default("")
+  userId       String?
+  createdAt    DateTime @default(now())
+
+  conversation ConversationSession @relation(fields: [sessionId], references: [id])
+  user         User?               @relation(fields: [userId], references: [id])
+}
+// 
+// potentially add Feedback[] for user and ConversationSession, to be able to back query.
+//
 // ============================================
 // USAGE TRACKING
 // ============================================
