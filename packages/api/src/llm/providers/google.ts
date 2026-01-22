@@ -44,6 +44,18 @@ export const googleProvider: LLMProvider = {
       let outputTokens = 0;
 
       for await (const chunk of response) {
+        // Check if aborted before yielding
+        if (params.signal?.aborted) {
+          yield {
+            type: 'error',
+            error: {
+              code: 'ABORTED',
+              message: 'Stream was cancelled',
+              retryable: false,
+            },
+          };
+          return;
+        }
         const text = chunk.text;
         if (text) {
           yield { type: 'delta', content: text };
@@ -61,6 +73,18 @@ export const googleProvider: LLMProvider = {
         usage: { inputTokens, outputTokens },
       };
     } catch (error) {
+      // Handle abort errors gracefully
+      if (params.signal?.aborted) {
+        yield {
+          type: 'error',
+          error: {
+            code: 'ABORTED',
+            message: 'Stream was cancelled',
+            retryable: false,
+          },
+        };
+        return;
+      }
       const err = error as Error & { status?: number };
       const retryable = err.status === 429 || err.status === 500 || err.status === 503;
       yield {

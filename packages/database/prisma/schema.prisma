@@ -184,13 +184,17 @@ model Message {
   sessionId Int
   session   ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  role      String   // MessageRole: "user" | "partner" | "coach" (see types.ts)
-  content   String   @db.Text
-  timestamp DateTime @default(now())
-  audioUrl  String?
-  metadata  Json?
+  role          String   // MessageRole: "user" | "partner" | "coach" (see types.ts)
+  content       String   @db.Text
+  timestamp     DateTime @default(now())
+  audioUrl      String?
+  metadata      Json?
+  messageType   String   @default("main")  // "main" | "aside"
+  asideThreadId String?                    // UUID grouping aside Q&A pairs
 
   @@index([sessionId])
+  @@index([sessionId, messageType])
+  @@index([asideThreadId])
 }
 
 // ============================================

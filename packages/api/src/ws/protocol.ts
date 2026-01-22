@@ -15,6 +15,9 @@ export type ServerMessage =
   | { type: 'partner:done'; messageId: number; usage: TokenUsage }
   | { type: 'coach:delta'; content: string }
   | { type: 'coach:done'; messageId: number; usage: TokenUsage }
+  | { type: 'aside:delta'; threadId: string; content: string }
+  | { type: 'aside:done'; threadId: string; messageId: number; usage: TokenUsage }
+  | { type: 'aside:error'; threadId: string; error: string }
   | { type: 'error'; code: ErrorCode; message: string; recoverable: boolean }
   | { type: 'quota:warning'; remaining: number; total: number }
   | { type: 'quota:exhausted' };
@@ -23,7 +26,9 @@ export type ServerMessage =
 export type ClientMessage =
   | { type: 'message'; content: string }
   | { type: 'ping' }
-  | { type: 'resume'; afterMessageId?: number };
+  | { type: 'resume'; afterMessageId?: number }
+  | { type: 'aside:start'; content: string; threadId: string }
+  | { type: 'aside:cancel'; threadId: string };
 
 export interface ScenarioInfo {
   id: number;
@@ -38,6 +43,8 @@ export interface HistoryMessage {
   role: 'user' | 'partner' | 'coach';
   content: string;
   timestamp: string;
+  messageType?: 'main' | 'aside';
+  asideThreadId?: string;
 }
 
 export type ErrorCode =

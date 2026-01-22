@@ -19,24 +19,39 @@ export const openaiProvider: LLMProvider = {
 
   async *streamCompletion(params: StreamParams): AsyncIterable<StreamChunk> {
     try {
-      const stream = await getClient().chat.completions.create({
-        model: params.model,
-        messages: [
-          { role: 'system', content: params.systemPrompt },
-          ...params.messages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-        ],
-        max_tokens: params.maxTokens ?? 1024,
-        stream: true,
-        stream_options: { include_usage: true },
-      });
+      const stream = await getClient().chat.completions.create(
+        {
+          model: params.model,
+          messages: [
+            { role: 'system', content: params.systemPrompt },
+            ...params.messages.map((m) => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            })),
+          ],
+          max_tokens: params.maxTokens ?? 1024,
+          stream: true,
+          stream_options: { include_usage: true },
+        },
+        { signal: params.signal }
+      );
 
       let inputTokens = 0;
       let outputTokens = 0;
 
       for await (const chunk of stream) {
+        // Check if aborted before yielding
+        if (params.signal?.aborted) {
+          yield {
+            type: 'error',
+            error: {
+              code: 'ABORTED',
+              message: 'Stream was cancelled',
+              retryable: false,
+            },
+          };
+          return;
+        }
         const delta = chunk.choices[0]?.delta;
         if (delta?.content) {
           yield { type: 'delta', content: delta.content };
@@ -54,6 +69,18 @@ export const openaiProvider: LLMProvider = {
         usage: { inputTokens, outputTokens },
       };
     } catch (error) {
+      // Handle abort errors gracefully
+      if (params.signal?.aborted) {
+        yield {
+          type: 'error',
+          error: {
+            code: 'ABORTED',
+            message: 'Stream was cancelled',
+            retryable: false,
+          },
+        };
+        return;
+      }
       const err = error as Error & { status?: number };
       const retryable = err.status === 429 || err.status === 500 || err.status === 503;
       yield {
