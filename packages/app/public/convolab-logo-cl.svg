@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Single speech bubble -->
+  <ellipse cx="32" cy="28" rx="26" ry="20" fill="#CEB888"/>
+  <polygon points="18,44 28,46 24,56" fill="#CEB888"/>
+
+  <!-- CL text -->
+  <text x="32" y="34" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="22" fill="#5B8C8C">CL</text>
+</svg>
