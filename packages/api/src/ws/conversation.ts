@@ -15,8 +15,9 @@ import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
 // Default models for custom scenarios
-const DEFAULT_PARTNER_MODEL = 'google:gemini-2.0-flash'; // Gemini for web search support
+const DEFAULT_PARTNER_MODEL = 'google:gemini-2.5-flash'; // Gemini for web search support
 const DEFAULT_COACH_MODEL = 'claude-sonnet-4-20250514';
+const FALLBACK_PARTNER_MODEL = 'claude-sonnet-4-20250514'; // Fallback when Gemini quota exceeded
 
 interface SessionWithScenario extends ConversationSession {
   scenario: Scenario | null;
@@ -218,83 +219,158 @@ export class ConversationManager {
     // Build context based on role
     const context = this.buildContext(role);
 
-    let fullContent = '';
-    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
-    let retries = 0;
-    const maxRetries = 2;
+    // Try primary model, with fallback for Gemini quota issues
+    const result = await this.tryStreamWithFallback(role, modelString, systemPrompt, context);
+    return result;
+  }
 
-    while (retries <= maxRetries) {
-      try {
-        fullContent = '';
+  /**
+   * Attempt to stream from a model, falling back to Claude if Gemini quota is exceeded.
+   */
+  private async tryStreamWithFallback(
+    role: 'partner' | 'coach',
+    modelString: string,
+    systemPrompt: string,
+    context: LLMMessage[]
+  ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
+    const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
+    let currentModel = modelString;
+    let useWebSearch = role === 'partner' && isGeminiModel;
+    let usedFallback = false;
 
-        // Enable web search for partner when using Gemini models
-        const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
-        const useWebSearch = role === 'partner' && isGeminiModel;
+    this.logger.info(
+      { sessionId: this.session.id, role, model: currentModel, useWebSearch },
+      'Starting LLM stream'
+    );
 
-        for await (const chunk of streamCompletion(modelString, {
-          systemPrompt,
-          messages: context,
-          maxTokens: 1024,
-          useWebSearch,
-        })) {
-          if (chunk.type === 'delta' && chunk.content) {
-            fullContent += chunk.content;
-            const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
-            send(this.ws, { type: deltaType, content: chunk.content });
-            // Broadcast to observers
-            broadcast(this.session.id, { type: deltaType, content: chunk.content });
-          } else if (chunk.type === 'done' && chunk.usage) {
-            usage = chunk.usage;
-          } else if (chunk.type === 'error' && chunk.error) {
-            if (chunk.error.retryable && retries < maxRetries) {
-              retries++;
-              await sleep(1000 * retries);
-              continue;
+    // Try up to 2 attempts: primary model, then fallback if Gemini fails
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let fullContent = '';
+      let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+      let retries = 0;
+      const maxRetries = 2;
+
+      while (retries <= maxRetries) {
+        try {
+          fullContent = '';
+
+          // Use same token limit for both - rely on prompt instructions for partner brevity
+          const maxTokens = 1024;
+
+          for await (const chunk of streamCompletion(currentModel, {
+            systemPrompt,
+            messages: context,
+            maxTokens,
+            useWebSearch,
+          })) {
+            if (chunk.type === 'delta' && chunk.content) {
+              fullContent += chunk.content;
+              const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
+              send(this.ws, { type: deltaType, content: chunk.content });
+              // Broadcast to observers
+              broadcast(this.session.id, { type: deltaType, content: chunk.content });
+            } else if (chunk.type === 'done' && chunk.usage) {
+              usage = chunk.usage;
+            } else if (chunk.type === 'error' && chunk.error) {
+              // Check if this is a Gemini quota error we should fall back from
+              const isQuotaError =
+                chunk.error.code === 'HTTP_429' || chunk.error.message?.includes('quota');
+              if (isGeminiModel && isQuotaError && !usedFallback) {
+                this.logger.warn(
+                  { sessionId: this.session.id, role, error: chunk.error },
+                  'Gemini quota exceeded, falling back to Claude'
+                );
+                currentModel = FALLBACK_PARTNER_MODEL;
+                useWebSearch = false; // Claude doesn't support web search
+                usedFallback = true;
+                break; // Break inner loop to retry with fallback
+              }
+
+              if (chunk.error.retryable && retries < maxRetries) {
+                retries++;
+                await sleep(1000 * retries);
+                continue;
+              }
+              throw new Error(chunk.error.message);
             }
-            throw new Error(chunk.error.message);
           }
-        }
 
-        // Persist the message
-        const message = await this.persistMessage(role, fullContent);
-        this.session.messages.push(message);
+          // If we broke out to try fallback, continue outer loop
+          if (usedFallback && attempt === 0) {
+            continue;
+          }
 
-        if (role === 'partner') {
-          const doneMsg = { type: 'partner:done' as const, messageId: message.id, usage };
-          send(this.ws, doneMsg);
-          broadcast(this.session.id, doneMsg);
-        } else {
-          const doneMsg = { type: 'coach:done' as const, messageId: message.id, usage };
-          send(this.ws, doneMsg);
-          broadcast(this.session.id, doneMsg);
-        }
+          // Success - persist and return
+          const message = await this.persistMessage(role, fullContent.trim());
+          this.session.messages.push(message);
 
-        return { content: fullContent, messageId: message.id, usage };
-      } catch (error) {
-        if (retries < maxRetries) {
-          retries++;
-          await sleep(1000 * retries);
-          continue;
-        }
+          if (usedFallback) {
+            this.logger.info(
+              { sessionId: this.session.id, role },
+              'Successfully used Claude fallback after Gemini quota exceeded'
+            );
+          }
 
-        this.logger.error({ sessionId: this.session.id, role, error }, 'Error streaming response');
+          if (role === 'partner') {
+            const doneMsg = { type: 'partner:done' as const, messageId: message.id, usage };
+            send(this.ws, doneMsg);
+            broadcast(this.session.id, doneMsg);
+          } else {
+            const doneMsg = { type: 'coach:done' as const, messageId: message.id, usage };
+            send(this.ws, doneMsg);
+            broadcast(this.session.id, doneMsg);
+          }
 
-        // Save partial message if we have content
-        if (fullContent.length > 0) {
-          await this.persistMessage(role, fullContent, {
-            complete: false,
-            error: 'PROVIDER_ERROR',
+          return { content: fullContent, messageId: message.id, usage };
+        } catch (error) {
+          // Check if this is a Gemini quota error we should fall back from
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const isQuotaError = errorMsg.includes('429') || errorMsg.includes('quota');
+          if (isGeminiModel && isQuotaError && !usedFallback) {
+            this.logger.warn(
+              { sessionId: this.session.id, role, errorMessage: errorMsg },
+              'Gemini quota exceeded (caught), falling back to Claude'
+            );
+            currentModel = FALLBACK_PARTNER_MODEL;
+            useWebSearch = false;
+            usedFallback = true;
+            break; // Break to retry with fallback
+          }
+
+          if (retries < maxRetries) {
+            retries++;
+            await sleep(1000 * retries);
+            continue;
+          }
+
+          this.logger.error(
+            {
+              sessionId: this.session.id,
+              role,
+              model: currentModel,
+              errorMessage: error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+            'Error streaming response'
+          );
+
+          // Save partial message if we have content
+          if (fullContent.length > 0) {
+            await this.persistMessage(role, fullContent, {
+              complete: false,
+              error: 'PROVIDER_ERROR',
+            });
+          }
+
+          send(this.ws, {
+            type: 'error',
+            code: 'PROVIDER_ERROR',
+            message: 'AI service temporarily unavailable',
+            recoverable: true,
           });
+
+          return null;
         }
-
-        send(this.ws, {
-          type: 'error',
-          code: 'PROVIDER_ERROR',
-          message: 'AI service temporarily unavailable',
-          recoverable: true,
-        });
-
-        return null;
       }
     }
 
@@ -315,7 +391,7 @@ export class ConversationManager {
         .filter((m) => m.role === 'user' || m.role === 'partner')
         .map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content,
+          content: m.content.trim(), // Trim to avoid Claude's trailing whitespace error
         })) as LLMMessage[];
     }
 
@@ -324,11 +400,11 @@ export class ConversationManager {
     // Actually, coach needs to see the structure. Let's format it clearly.
     return messages.map((m) => {
       if (m.role === 'user') {
-        return { role: 'user' as const, content: m.content };
+        return { role: 'user' as const, content: m.content.trim() };
       }
       // For partner and coach, we show as assistant but with context
       const prefix = m.role === 'partner' ? '[Partner]' : '[Your previous advice]';
-      return { role: 'assistant' as const, content: `${prefix} ${m.content}` };
+      return { role: 'assistant' as const, content: `${prefix} ${m.content.trim()}` };
     });
   }
 
