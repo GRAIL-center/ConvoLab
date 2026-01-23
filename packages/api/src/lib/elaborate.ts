@@ -20,7 +20,7 @@ OUTPUT FORMAT (JSON only, no markdown):
   "approved": true,
   "name": "Short catchy title, 2-4 words, title case (e.g., 'Dismissive Manager', 'Defensive Ex', 'Overbearing Parent')",
   "persona": "Longer description for 'Talking with:' context, 5-15 words (e.g., 'Your manager who dismisses ideas without consideration', 'Your ex who gets defensive about past decisions')",
-  "partnerPrompt": "Full system prompt for the conversation partner AI. Include personality traits, communication style, underlying motivations, and how they might respond to different approaches. 150-300 words.",
+  "partnerPrompt": "Full system prompt for the conversation partner AI. Include personality traits, communication style, underlying motivations, and how they might respond to different approaches. CRITICAL: Instruct the partner to keep responses SHORT - 1-3 sentences max, like real texting or casual conversation. No long paragraphs or monologues. 150-300 words.",
   "coachPrompt": "Full system prompt for the coach AI. Include what dynamics to watch for, what approaches might work, and how to give actionable real-time guidance. 100-200 words."
 }
 

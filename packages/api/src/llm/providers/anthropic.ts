@@ -24,7 +24,7 @@ export const anthropicProvider: LLMProvider = {
         system: params.systemPrompt,
         messages: params.messages.map((m) => ({
           role: m.role,
-          content: m.content,
+          content: m.content.trim(), // Trim to avoid "trailing whitespace" error
         })),
         max_tokens: params.maxTokens ?? 1024,
       });
