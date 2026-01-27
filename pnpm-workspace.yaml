@@ -2,4 +2,9 @@ packages:
   - packages/*
 
 ignoredBuiltDependencies:
+  - esbuild
+  - prisma
   - sharp
+
+onlyBuiltDependencies:
+  - '@prisma/engines'

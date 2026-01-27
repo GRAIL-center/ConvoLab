@@ -16,10 +16,19 @@
 
     /* Linting */
     "strict": true,
+    "strictNullChecks": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Paths Configuration */
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/api": ["../../api/src/trpc/router.ts"],
+      "@workspace/api/*": ["../../api/*"],
+      "@workspace/database": ["../../database/src/index.ts"]
+    }
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src", "../api/src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
