@@ -35,7 +35,7 @@ interface SessionWithScenario extends ConversationSession {
     invitation: Invitation | null;
     messages: Message[];
     invitationId: string | null;
-    userId: string;
+    userId: string | null;
     customPartnerPersona: string | null;
     customScenarioName: string | null;
     customDescription: string | null;

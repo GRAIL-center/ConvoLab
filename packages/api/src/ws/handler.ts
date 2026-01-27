@@ -83,7 +83,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       const manager = new ConversationManager(
         socket,
         prisma,
-        { ...session, scenario: session.scenario },
+        { ...session, scenario: session.scenario, userId: userId as string } as any,
         fastify.log
       );
 
