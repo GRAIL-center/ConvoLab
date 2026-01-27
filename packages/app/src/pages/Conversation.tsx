@@ -227,6 +227,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
               stroke="currentColor"
               className="h-5 w-5"
             >
+              <title>Ask Coach</title>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
             </svg>
           </button>
@@ -246,10 +247,10 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200">
               <div
                 className={`h-1.5 rounded-full transition-all ${quota.exhausted
-                    ? 'bg-red-500'
-                    : quota.remaining < quota.total * 0.2
-                      ? 'bg-amber-500'
-                      : 'bg-blue-500'
+                  ? 'bg-red-500'
+                  : quota.remaining < quota.total * 0.2
+                    ? 'bg-amber-500'
+                    : 'bg-blue-500'
                   }`}
                 style={{
                   width: `${Math.min(100, ((quota.total - quota.remaining) / quota.total) * 100)}%`,
