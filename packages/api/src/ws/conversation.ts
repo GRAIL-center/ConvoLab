@@ -233,7 +233,8 @@ export class ConversationManager {
 
     // Add brevity instruction for partner responses
     if (role === 'partner') {
-      systemPrompt += '\n\nIMPORTANT: Keep your responses SHORT - 1-3 sentences maximum, like natural texting or casual conversation. Never write long paragraphs.';
+      systemPrompt +=
+        '\n\nIMPORTANT: Keep your responses SHORT - 1-3 sentences maximum, like natural texting or casual conversation. Never write long paragraphs.';
     }
 
     // Build context based on role

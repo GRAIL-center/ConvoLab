@@ -15,7 +15,7 @@ export interface StreamParams {
   systemPrompt: string;
   messages: LLMMessage[];
   maxTokens?: number;
-/** Enable web search grounding (currently only supported by Google/Gemini) */
+  /** Enable web search grounding (currently only supported by Google/Gemini) */
   useWebSearch?: boolean;
   /** AbortSignal for cancelling in-progress streams */
   signal?: AbortSignal;

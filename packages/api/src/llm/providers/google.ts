@@ -30,7 +30,12 @@ export const googleProvider: LLMProvider = {
       // Configure tools (web search grounding if enabled)
       const tools = params.useWebSearch ? [{ googleSearch: {} }] : undefined;
 
-      console.log('[Google Provider] useWebSearch:', params.useWebSearch, 'tools:', JSON.stringify(tools));
+      console.log(
+        '[Google Provider] useWebSearch:',
+        params.useWebSearch,
+        'tools:',
+        JSON.stringify(tools)
+      );
 
       const response = await client.models.generateContentStream({
         model: params.model,
