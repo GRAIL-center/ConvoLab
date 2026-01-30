@@ -41,7 +41,7 @@ export function AdminLayout() {
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <a href="/" className="text-xl font-bold text-gray-900 hover:text-gray-700">
-              Conversation Coach
+              ConvoLab Conversation Coach
             </a>
             <span className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
               Admin
