@@ -19,9 +19,9 @@ COPY QUICKSTART.md ./
 # Install dependencies (workspace packages will be properly linked)
 RUN pnpm install --frozen-lockfile
 
-# Copy entrypoint script
+# Copy entrypoint script (strip Windows line endings if present)
 COPY packages/api/docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port
 EXPOSE 3000

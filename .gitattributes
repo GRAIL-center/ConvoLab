@@ -1,0 +1,5 @@
+# Force LF for all text files
+* text=auto eol=lf
+
+# Explicitly mark shell scripts
+*.sh text eol=lf
