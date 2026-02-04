@@ -125,7 +125,7 @@ Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for 
 
 ### Roadmap
 - [ ] Coach aside (private Q&A with coach mid-conversation)
-- [ ] Voice integration
+- [ ] Prompt Mangement and Opacity
 - [ ] Consolidate landing page into React app
 - [ ] Runtime model discovery (dynamic model selection)
 
