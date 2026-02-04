@@ -118,15 +118,19 @@ export function AsidePanel({
 
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 h-full bg-white shadow-xl transform transition-transform duration-200 ease-out flex flex-col z-50 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        } w-[calc(100%-3rem)] md:w-[400px]`}
+        className={`fixed z-50 bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-out
+          bottom-0 left-0 w-full h-[85vh] rounded-t-2xl md:rounded-none
+          md:top-0 md:right-0 md:h-full md:w-[400px] md:bottom-auto md:left-auto
+          ${isOpen
+            ? 'translate-y-0 md:translate-x-0'
+            : 'translate-y-full md:translate-x-full md:translate-y-0'
+          }`}
         role="dialog"
         aria-label="Ask Coach"
         aria-hidden={!isOpen}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50 rounded-t-2xl md:rounded-none">
           <h2 className="text-lg font-semibold text-amber-900">Ask Coach</h2>
           <button
             type="button"
@@ -143,7 +147,8 @@ export function AsidePanel({
               className="h-6 w-6"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" className="md:hidden" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" className="hidden md:block" />
             </svg>
           </button>
         </div>

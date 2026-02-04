@@ -277,7 +277,8 @@ export class ConversationManager {
                     this.session.messages.push(message);
 
                     const doneType = role === 'partner' ? 'partner:done' : 'coach:done';
-                    const doneMsg = { type: doneType as any, messageId: message.id, usage };
+                    // Fix lint: noExplicitAny
+                    const doneMsg = { type: doneType as 'partner:done' | 'coach:done', messageId: message.id, usage };
                     send(this.ws, doneMsg);
                     broadcast(this.session.id, doneMsg);
 
@@ -482,8 +483,10 @@ export class ConversationManager {
         context: LLMMessage[]
     ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
         const scenario = this.session.scenario;
-        let modelString = scenario?.coachModel ?? DEFAULT_MODEL;
-        let systemPrompt = (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
+        // Fix lint: useConst
+        const modelString = scenario?.coachModel ?? DEFAULT_MODEL;
+        // Fix lint: useConst
+        const systemPrompt = (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
         let fullContent = '';
         let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
@@ -510,7 +513,7 @@ export class ConversationManager {
             this.session.messages.push(message);
             send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
             return { content: fullContent, messageId: message.id, usage };
-        } catch (error) {
+        } catch (_error) { // Fix lint: noUnusedVariables
             return null;
         }
     }
