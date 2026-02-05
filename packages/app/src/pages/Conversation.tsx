@@ -227,13 +227,34 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             disabled={isStreaming || quota?.exhausted || false}
             placeholder={quota?.exhausted ? 'Quota exhausted' : undefined}
           />
-          {/* Ask Coach button positioned above the input */}
-          <div className="absolute right-4 -top-12">
+          {/* Ask Coach button positioned above the input (Desktop) */}
+          <div className="absolute right-4 -top-12 hidden md:block">
             <AsideButton
               onClick={handleAsideOpen}
               disabled={isStreaming || quota?.exhausted || false}
             />
           </div>
+
+          {/* Mobile Ask Coach Slide-up Trigger */}
+          <button
+            type="button"
+            onClick={handleAsideOpen}
+            disabled={isStreaming || quota?.exhausted || false}
+            className="absolute left-1/2 -top-10 -translate-x-1/2 flex items-center justify-center h-8 w-12 rounded-t-lg bg-amber-500 text-white shadow-lg md:hidden hover:bg-amber-600 disabled:bg-gray-300"
+            aria-label="Ask Coach"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              className="h-5 w-5"
+            >
+              <title>Ask Coach</title>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+            </svg>
+          </button>
         </div>
 
         {/* Mobile Input */}
