@@ -5,6 +5,9 @@ import { AsidePanel } from '../components/conversation/AsidePanel';
 import { MessageInput } from '../components/conversation/MessageInput';
 import { MessageList } from '../components/conversation/MessageList';
 import { useConversationSocket } from '../hooks/useConversationSocket';
+import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
+import { CoachInsightsPanel } from '../components/conversation/CoachInsightsPanel';
+
 
 /** Full-screen centered message with optional title, message, and action button */
 function FullScreenMessage({
@@ -60,6 +63,9 @@ export function Conversation() {
 function ConversationContent({ sessionId }: { sessionId: number }) {
   const navigate = useNavigate();
   const [asideOpen, setAsideOpen] = useState(false);
+  const [mobileInsightsOpen, setMobileInsightsOpen] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
   const {
     status,
     scenario,
@@ -142,7 +148,10 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
   const statusText = getStatusIndicator();
 
+
+
   return (
+
     <div className="flex h-dvh flex-col">
       {/* Header */}
       <header className="border-b bg-white px-4 py-3">
@@ -167,7 +176,21 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
       {/* Messages area */}
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
-        <MessageList messages={messages} isStreaming={isStreaming} />
+        {/* Render merged list of main messages AND coach messages */}
+        <MessageList
+          messages={[
+            ...messages,
+            ...asideMessages.map(m => ({
+              ...m,
+              // Map 'coach' role to 'coach' (already matches)
+              // Map 'user' role in aside to 'user' (already matches)
+              // Ensure it has required Message fields
+              messageType: 'aside' as const,
+              asideThreadId: m.threadId
+            }))
+          ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())}
+          isStreaming={isStreaming || isAsideStreaming}
+        />
 
         {/* Status indicator */}
         {statusText && (
@@ -196,8 +219,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
           </div>
         )}
 
-        {/* Input with Ask Coach button */}
-        <div className="relative">
+        {/* Desktop Input with Ask Coach button */}
+        <div className="relative hidden md:block">
+
           <MessageInput
             onSend={sendMessage}
             disabled={isStreaming || quota?.exhausted || false}
@@ -211,11 +235,40 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             />
           </div>
         </div>
+
+        {/* Mobile Input */}
+        <div className="md:hidden">
+          <MobileMessageInput
+            onSendPartner={sendMessage}
+            onSendCoach={(content) => {
+              handleAsideSend(content);
+              setMobileInsightsOpen(true);
+            }}
+            partnerName={scenario?.partnerPersona || 'Partner'}
+            disabled={isStreaming || isAsideStreaming || quota?.exhausted || false}
+            isInsightsOpen={mobileInsightsOpen}
+            onToggleInsights={() => setMobileInsightsOpen(!mobileInsightsOpen)}
+            onInputFocus={() => setIsInputFocused(true)}
+            onInputBlur={() => setIsInputFocused(false)}
+          />
+
+        </div>
+
+        {/* Mobile Coach Insights Panel */}
+        {/* Only show when input is NOT focused (keyboard is closed) */}
+        {!isInputFocused && (
+          <CoachInsightsPanel
+            isOpen={mobileInsightsOpen}
+            onClose={() => setMobileInsightsOpen(false)}
+            messages={asideMessages}
+          />
+        )}
       </div>
 
       {/* Quota bar at bottom */}
       {quota && (
-        <div className="border-t bg-gray-50 px-4 py-2">
+        <div className="border-t bg-gray-50 px-4 py-2 hidden md:block">
+
           <div className="mx-auto max-w-3xl">
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>Token usage</span>
@@ -225,13 +278,12 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             </div>
             <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200">
               <div
-                className={`h-1.5 rounded-full transition-all ${
-                  quota.exhausted
-                    ? 'bg-red-500'
-                    : quota.remaining < quota.total * 0.2
-                      ? 'bg-amber-500'
-                      : 'bg-blue-500'
-                }`}
+                className={`h-1.5 rounded-full transition-all ${quota.exhausted
+                  ? 'bg-red-500'
+                  : quota.remaining < quota.total * 0.2
+                    ? 'bg-amber-500'
+                    : 'bg-blue-500'
+                  }`}
                 style={{
                   width: `${Math.min(100, ((quota.total - quota.remaining) / quota.total) * 100)}%`,
                 }}

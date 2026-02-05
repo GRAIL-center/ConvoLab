@@ -83,6 +83,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       const manager = new ConversationManager(
         socket,
         prisma,
+        // biome-ignore lint/suspicious/noExplicitAny: legacy code
         { ...session, scenario: session.scenario, userId: userId as string } as any,
         fastify.log
       );
