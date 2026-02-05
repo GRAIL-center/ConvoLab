@@ -27,7 +27,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className={`${baseClasses} bg-blue-600 text-white ${markdownClasses}`}>
+        <div className={`${baseClasses} bg-gray-200 text-gray-900 ${markdownClasses}`}>
           <Markdown>{content}</Markdown>
         </div>
       </div>
@@ -37,7 +37,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (role === 'partner') {
     return (
       <div className="flex justify-start">
-        <div className={`${baseClasses} bg-gray-200 text-gray-900 ${markdownClasses}`}>
+        <div className={`${baseClasses} bg-white text-gray-900 border border-gray-200 shadow-sm ${markdownClasses}`}>
           <Markdown>{content}</Markdown>
           {isStreaming && <span className="ml-1 animate-pulse">|</span>}
         </div>
@@ -46,12 +46,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }
 
   // Coach message - centered with distinct styling
+  // User requested "Yellow" if uncle is white.
   return (
     <div className="flex justify-center">
       <div
-        className={`${baseClasses} bg-amber-100 text-amber-900 border border-amber-200 text-sm ${markdownClasses}`}
+        className={`${baseClasses} bg-yellow-100 text-yellow-900 border border-yellow-200 text-sm ${markdownClasses}`}
       >
-        <span className="font-semibold">Coach:</span>
+        <span className="font-semibold block mb-1">Coach:</span>
         <Markdown>{content}</Markdown>
         {isStreaming && <span className="ml-1 animate-pulse">|</span>}
       </div>
