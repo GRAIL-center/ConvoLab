@@ -483,9 +483,7 @@ export class ConversationManager {
         context: LLMMessage[]
     ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
         const scenario = this.session.scenario;
-        // Fix lint: useConst
         const modelString = scenario?.coachModel ?? DEFAULT_MODEL;
-        // Fix lint: useConst
         const systemPrompt = (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
         let fullContent = '';
@@ -506,6 +504,7 @@ export class ConversationManager {
                     usage = chunk.usage;
                 }
             }
+
             const message = await this.persistMessage('coach', fullContent, {
                 messageType: 'aside',
                 asideThreadId: threadId,
@@ -513,7 +512,7 @@ export class ConversationManager {
             this.session.messages.push(message);
             send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
             return { content: fullContent, messageId: message.id, usage };
-        } catch (_error) { // Fix lint: noUnusedVariables
+        } catch (_error) {
             return null;
         }
     }
