@@ -7,12 +7,13 @@ import { MessageList } from '../components/conversation/MessageList';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
 import { CoachInsightsPanel } from '../components/conversation/CoachInsightsPanel';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 
 /** Full-screen centered message with optional title, message, and action button */
 function FullScreenMessage({
   title,
-  titleColor = 'text-gray-900',
+  titleColor = 'text-gray-900 dark:text-white',
   message,
   action,
 }: {
@@ -22,10 +23,10 @@ function FullScreenMessage({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex h-dvh items-center justify-center">
+    <div className="flex h-dvh items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center">
         {title && <h1 className={`text-2xl font-bold ${titleColor}`}>{title}</h1>}
-        {message && <div className="mt-2 text-gray-600">{message}</div>}
+        {message && <div className="mt-2 text-gray-600 dark:text-gray-400">{message}</div>}
         {action && <div className="mt-4">{action}</div>}
       </div>
     </div>
@@ -42,13 +43,13 @@ export function Conversation() {
     return (
       <FullScreenMessage
         title="Invalid Session"
-        titleColor="text-red-600"
+        titleColor="text-red-600 dark:text-red-400"
         message="The session ID is not valid."
         action={
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             Go Home
           </button>
@@ -105,9 +106,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
       <FullScreenMessage
         message={
           <output aria-live="polite">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 dark:border-blue-400 border-t-transparent" />
             <span className="sr-only">Loading</span>
-            <p className="mt-4">Connecting...</p>
+            <p className="mt-4 text-gray-900 dark:text-white">Connecting...</p>
           </output>
         }
       />
@@ -119,13 +120,13 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     return (
       <FullScreenMessage
         title="Connection Error"
-        titleColor="text-red-600"
+        titleColor="text-red-600 dark:text-red-400"
         message={error.message}
         action={
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             Refresh Page
           </button>
@@ -148,58 +149,52 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
   const statusText = getStatusIndicator();
 
-
+  // Filter out aside messages from the main conversation view
+  const mainMessages = messages.filter(m => !('asideThreadId' in m));
 
   return (
 
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="border-b bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
+      <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               {scenario?.name || 'Conversation'}
             </h1>
             {scenario?.partnerPersona && (
-              <p className="text-sm text-gray-500">Talking with: {scenario.partnerPersona}</p>
+              <p className="text-base text-gray-500 dark:text-gray-400">Talking with: {scenario.partnerPersona}</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleLeave}
-            className="rounded border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Leave
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={handleLeave}
+              className="rounded border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Leave
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Messages area */}
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
-        {/* Render merged list of main messages AND coach messages */}
+      {/* Messages area - WIDER max-width */}
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-hidden">
+        {/* Render ONLY main messages (not aside messages) */}
         <MessageList
-          messages={[
-            ...messages,
-            ...asideMessages.map(m => ({
-              ...m,
-              // Map 'coach' role to 'coach' (already matches)
-              // Map 'user' role in aside to 'user' (already matches)
-              // Ensure it has required Message fields
-              messageType: 'aside' as const,
-              asideThreadId: m.threadId
-            }))
-          ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())}
-          isStreaming={isStreaming || isAsideStreaming}
+          messages={mainMessages}
+          isStreaming={isStreaming}
         />
 
         {/* Status indicator */}
         {statusText && (
-          <div className="px-4 py-2 text-center text-sm text-gray-500">{statusText}</div>
+          <div className="px-4 py-2 text-center text-base text-gray-500 dark:text-gray-400">{statusText}</div>
         )}
 
         {/* Quota warning */}
         {quota && !quota.exhausted && quota.remaining < quota.total * 0.2 && (
-          <div className="bg-amber-50 px-4 py-2 text-center text-sm text-amber-700">
+          <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-2 text-center text-base text-amber-700 dark:text-amber-300">
             Low quota: {quota.remaining.toLocaleString()} / {quota.total.toLocaleString()} tokens
             remaining
           </div>
@@ -207,14 +202,14 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
         {/* Quota exhausted */}
         {quota?.exhausted && (
-          <div className="bg-red-50 px-4 py-2 text-center text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-900/30 px-4 py-2 text-center text-base text-red-700 dark:text-red-300">
             Quota exhausted. You can no longer send messages.
           </div>
         )}
 
         {/* Recoverable error */}
         {error?.recoverable && (
-          <div className="bg-red-50 px-4 py-2 text-center text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-900/30 px-4 py-2 text-center text-base text-red-700 dark:text-red-300">
             {error.message}
           </div>
         )}
@@ -240,7 +235,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             type="button"
             onClick={handleAsideOpen}
             disabled={isStreaming || quota?.exhausted || false}
-            className="absolute left-1/2 -top-10 -translate-x-1/2 flex items-center justify-center h-8 w-12 rounded-t-lg bg-amber-500 text-white shadow-lg md:hidden hover:bg-amber-600 disabled:bg-gray-300"
+            className="absolute left-1/2 -top-10 -translate-x-1/2 flex items-center justify-center h-8 w-12 rounded-t-lg bg-amber-500 dark:bg-amber-600 text-white shadow-lg md:hidden hover:bg-amber-600 dark:hover:bg-amber-700 disabled:bg-gray-300 dark:disabled:bg-gray-600"
             aria-label="Ask Coach"
           >
             <svg
@@ -288,22 +283,22 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
       {/* Quota bar at bottom */}
       {quota && (
-        <div className="border-t bg-gray-50 px-4 py-2 hidden md:block">
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 hidden md:block">
 
-          <div className="mx-auto max-w-3xl">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="mx-auto max-w-6xl">
+            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
               <span>Token usage</span>
               <span>
                 {(quota.total - quota.remaining).toLocaleString()} / {quota.total.toLocaleString()}
               </span>
             </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200">
+            <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
               <div
                 className={`h-1.5 rounded-full transition-all ${quota.exhausted
-                  ? 'bg-red-500'
+                  ? 'bg-red-500 dark:bg-red-400'
                   : quota.remaining < quota.total * 0.2
-                    ? 'bg-amber-500'
-                    : 'bg-blue-500'
+                    ? 'bg-amber-500 dark:bg-amber-400'
+                    : 'bg-blue-500 dark:bg-blue-400'
                   }`}
                 style={{
                   width: `${Math.min(100, ((quota.total - quota.remaining) / quota.total) * 100)}%`,
