@@ -16,7 +16,7 @@ export function Home() {
       <YourSessions />
       {isStaffOrAdmin && (
         <>
-          <h2 className="mb-6 text-lg font-medium text-gray-900">Start a new conversation</h2>
+          <h2 className="mb-6 text-lg font-medium text-gray-900 dark:text-white">Start a new conversation</h2>
           <ScenarioList />
         </>
       )}

@@ -64,7 +64,7 @@ export function MobileMessageInput({
     };
 
     return (
-        <div className="border-t bg-white p-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
             {/* Input Row */}
             <form onSubmit={handleSubmit} className="flex gap-2">
                 <div className="relative" ref={dropdownRef}>
@@ -72,7 +72,7 @@ export function MobileMessageInput({
                     <button
                         type="button"
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className={`flex h-10 w-12 items-center justify-center rounded-xl bg-gray-50 text-gray-900 border border-gray-200 ${isDropdownOpen ? 'bg-gray-100' : ''}`}
+                        className={`flex h-12 w-14 items-center justify-center rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 ${isDropdownOpen ? 'bg-gray-100 dark:bg-gray-600' : ''}`}
                         aria-label="Switch partner"
                     >
                         {activeIcon(recipient)}
@@ -83,40 +83,40 @@ export function MobileMessageInput({
 
                     {/* Dropdown Menu Positioned bottom-up or just above */}
                     {isDropdownOpen && (
-                        <div className="absolute bottom-12 left-0 w-64 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl ring-1 ring-black/5 z-20">
+                        <div className="absolute bottom-14 left-0 w-72 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-xl ring-1 ring-black/5 dark:ring-white/5 z-20">
                             <button
                                 type="button"
                                 onClick={() => handleRecipientSelect('partner')}
-                                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${recipient === 'partner' ? 'bg-gray-50' : 'hover:bg-gray-50'
+                                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${recipient === 'partner' ? 'bg-gray-50 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6" aria-hidden="true">
                                         <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
                                     </svg>
                                 </div>
                                 <div>
-                                    <div className="font-semibold text-gray-900">{partnerName}</div>
-                                    <div className="text-xs text-gray-500">Practice conversation</div>
+                                    <div className="font-semibold text-base text-gray-900 dark:text-gray-100">{partnerName}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">Practice conversation</div>
                                 </div>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => handleRecipientSelect('coach')}
-                                className={`mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${recipient === 'coach' ? 'bg-gray-50' : 'hover:bg-gray-50'
+                                className={`mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${recipient === 'coach' ? 'bg-gray-50 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" aria-hidden="true">
                                         <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
                                         <path d="M9 18h6" />
                                         <path d="M10 22h4" />
                                     </svg>
                                 </div>
                                 <div>
-                                    <div className="font-semibold text-gray-900">Conversation Coach</div>
-                                    <div className="text-xs text-gray-500">Ask for advice</div>
+                                    <div className="font-semibold text-base text-gray-900 dark:text-gray-100">Conversation Coach</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">Ask for advice</div>
                                 </div>
                             </button>
                         </div>
@@ -132,20 +132,20 @@ export function MobileMessageInput({
                     placeholder={recipient === 'partner' ? `Reply to ${partnerName}...` : "Ask the coach..."}
                     disabled={disabled}
                     rows={1}
-                    className="flex-1 resize-none rounded-xl border border-gray-200 px-4 py-2.5 text-base shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="flex-1 resize-none rounded-3xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-5 py-3 text-base shadow-sm focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500"
                 />
 
                 {/* Insights Toggle */}
                 <button
                     type="button"
                     onClick={onToggleInsights}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${isInsightsOpen
-                        ? 'bg-teal-100 text-teal-700 border-teal-200'
-                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-colors ${isInsightsOpen
+                        ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700'
+                        : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                         }`}
                     aria-label="Toggle insights"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" aria-hidden="true">
                         <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
                         <path d="M9 18h6" />
                         <path d="M10 22h4" />
@@ -155,10 +155,10 @@ export function MobileMessageInput({
                 <button
                     type="submit"
                     disabled={disabled || !content.trim()}
-                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400 hover:text-teal-600 disabled:opacity-50"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-50"
                     aria-label="Send message"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 -rotate-45 translate-x-0.5 -translate-y-0.5" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 -rotate-45 translate-x-0.5 -translate-y-0.5" aria-hidden="true">
                         <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
                     </svg>
                 </button>
@@ -170,17 +170,16 @@ export function MobileMessageInput({
 function activeIcon(recipient: Recipient) {
     if (recipient === 'partner') {
         return (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6" aria-hidden="true">
                 <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
             </svg>
         );
     }
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" aria-hidden="true">
             <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
             <path d="M9 18h6" />
             <path d="M10 22h4" />
         </svg>
     )
 }
-

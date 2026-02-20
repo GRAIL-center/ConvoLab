@@ -21,7 +21,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500">
+      <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
         <p>Send a message to start the conversation</p>
       </div>
     );
