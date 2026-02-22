@@ -10,8 +10,8 @@ const markdownClasses = `
   [&_ul]:list-disc [&_ul]:ml-4 [&_ul]:my-2
   [&_ol]:list-decimal [&_ol]:ml-4 [&_ol]:my-2
   [&_li]:my-1
-  [&_code]:bg-black/10 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
-  [&_pre]:bg-black/10 [&_pre]:p-2 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-2
+  [&_code]:bg-black/10 dark:bg-white/10 [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+  [&_pre]:bg-black/10 dark:bg-white/10 [&_pre]:p-2 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-2
   [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2
   [&_hr]:my-3 [&_hr]:border-current [&_hr]:opacity-30
 `.trim();
@@ -33,7 +33,7 @@ function AsideMessageBubble({ message }: { message: AsideMessage }) {
     return (
       <div className="flex justify-end">
         <div
-          className={`max-w-[85%] rounded-lg px-3 py-2 bg-amber-500 text-white ${markdownClasses}`}
+          className={`max-w-[85%] rounded-lg px-3 py-2 bg-amber-500 dark:bg-amber-600 text-white ${markdownClasses}`}
         >
           <Markdown>{content}</Markdown>
         </div>
@@ -45,7 +45,7 @@ function AsideMessageBubble({ message }: { message: AsideMessage }) {
   return (
     <div className="flex justify-start">
       <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 bg-gray-100 text-gray-900 ${markdownClasses}`}
+        className={`max-w-[85%] rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${markdownClasses}`}
       >
         <Markdown>{content}</Markdown>
         {isStreaming && <span className="ml-1 animate-pulse">|</span>}
@@ -110,7 +110,7 @@ export function AsidePanel({
       {isOpen && (
         <button
           type="button"
-          className="fixed inset-0 bg-black/30 transition-opacity duration-200 md:hidden cursor-default"
+          className="fixed inset-0 bg-black/30 dark:bg-black/50 transition-opacity duration-200 md:hidden cursor-default"
           onClick={handleClose}
           aria-label="Close aside panel"
         />
@@ -118,7 +118,7 @@ export function AsidePanel({
 
       {/* Panel */}
       <div
-        className={`fixed z-50 bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-out
+        className={`fixed z-50 bg-white dark:bg-gray-800 shadow-xl flex flex-col transform transition-transform duration-300 ease-out
           bottom-0 left-0 w-full h-[85vh] rounded-t-2xl md:rounded-none
           md:top-0 md:right-0 md:h-full md:w-[400px] md:bottom-auto md:left-auto
           ${isOpen
@@ -130,12 +130,12 @@ export function AsidePanel({
         aria-hidden={!isOpen}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50 rounded-t-2xl md:rounded-none">
-          <h2 className="text-lg font-semibold text-amber-900">Ask Coach</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 rounded-t-2xl md:rounded-none">
+          <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-100">Ask Coach</h2>
           <button
             type="button"
             onClick={handleClose}
-            className="p-1 rounded hover:bg-amber-100 text-amber-700"
+            className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-800 text-amber-700 dark:text-amber-300"
             aria-label="Close panel"
           >
             <svg
@@ -154,9 +154,9 @@ export function AsidePanel({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-gray-800">
           {messages.length === 0 && !isStreaming && (
-            <div className="text-center text-gray-500 text-sm py-8">
+            <div className="text-center text-gray-500 dark:text-gray-400 text-sm py-8">
               <p>Ask the coach a private question.</p>
               <p className="mt-2 text-xs">
                 The coach can see your full conversation and will provide focused guidance.
@@ -171,13 +171,13 @@ export function AsidePanel({
 
         {/* Error message */}
         {error && (
-          <div className="px-4 py-2 bg-red-50 text-red-700 text-sm border-t border-red-200">
+          <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border-t border-red-200 dark:border-red-800">
             {error.message}
           </div>
         )}
 
         {/* Input form */}
-        <form onSubmit={handleSubmit} className="border-t bg-white p-3">
+        <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
           <div className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -188,13 +188,13 @@ export function AsidePanel({
               disabled={isStreaming}
               rows={1}
               aria-label="Question input"
-              className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:bg-gray-100 disabled:text-gray-500"
+              className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2 text-sm focus:border-amber-500 dark:focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:focus:ring-amber-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500"
             />
             {isStreaming ? (
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600 text-sm"
+                className="rounded-lg bg-red-500 dark:bg-red-600 px-4 py-2 text-white hover:bg-red-600 dark:hover:bg-red-700 text-sm"
               >
                 Cancel
               </button>
@@ -202,7 +202,7 @@ export function AsidePanel({
               <button
                 type="submit"
                 disabled={!question.trim()}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-white hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                className="rounded-lg bg-amber-500 dark:bg-amber-600 px-4 py-2 text-white hover:bg-amber-600 dark:hover:bg-amber-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-sm"
               >
                 Ask
               </button>

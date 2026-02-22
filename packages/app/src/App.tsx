@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
 import { UserMenu } from './components/UserMenu';
+import { ThemeToggle } from './components/ThemeToggle';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ResearchLayout } from './layouts/ResearchLayout';
 import { Telemetry } from './pages/admin/Telemetry';
@@ -15,6 +16,7 @@ import { Invite } from './pages/Invite';
 import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
 import { ObserveSession } from './pages/research/ObserveSession';
+
 
 function makeQueryClient() {
   return new QueryClient({
@@ -92,20 +94,22 @@ export function App() {
             <Route
               path="*"
               element={
-                <div className="min-h-screen bg-gray-50">
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">  {/* ADD dark: class */}
                   {siteBanner && (
                     <div
                       className="bg-amber-300 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-700"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: admin-controlled env var, not user input
                       dangerouslySetInnerHTML={{ __html: siteBanner }}
                     />
                   )}
-                  <header className="bg-white shadow">
+                  <header className="bg-white dark:bg-gray-800 shadow">  {/* ADD dark: class */}
                     <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                      <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                      <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">  {/* ADD dark: class */}
                         ConvoLab Conversation Coach
                       </h1>
-                      <UserMenu />
+                      <div className="flex items-center gap-4">  {/* ADD THIS DIV */}
+                        <ThemeToggle />  {/* ADD THIS */}
+                        <UserMenu />
+                      </div>  {/* END DIV */}
                     </div>
                   </header>
                   <main>

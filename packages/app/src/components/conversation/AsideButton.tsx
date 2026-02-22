@@ -9,7 +9,7 @@ export function AsideButton({ onClick, disabled }: AsideButtonProps) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center justify-center h-10 w-10 rounded-full bg-amber-500 text-white shadow-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+      className="flex items-center justify-center h-10 w-10 rounded-full bg-amber-500 dark:bg-amber-600 text-white shadow-lg hover:bg-amber-600 dark:hover:bg-amber-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
       title="Ask Coach"
       aria-label="Ask Coach a question"
     >
