@@ -75,7 +75,6 @@ const markdownClasses = `
 
 function ConversationContent({ sessionId }: { sessionId: number }) {
   const navigate = useNavigate();
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const coachMessagesEndRef = useRef<HTMLDivElement>(null);
   const coachInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -101,6 +100,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   };
 
   // Auto-scroll coach messages
+  // biome-ignore lint/correctness/useExhaustiveDependencies: asideMessages triggers scroll
   useEffect(() => {
     if (coachMessagesEndRef.current) {
       coachMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -161,7 +161,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
   const handleCoachSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (coachInputRef.current && coachInputRef.current.value.trim() && !isAsideStreaming) {
+    if (coachInputRef.current?.value.trim() && !isAsideStreaming) {
       startAside(coachInputRef.current.value.trim());
       coachInputRef.current.value = '';
     }
@@ -200,8 +200,8 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
         </div>
       </header>
 
-      {/* SPLIT SCREEN LAYOUT - Centered together with margins */}
-      <div className="flex-1 flex overflow-hidden justify-center px-8">
+      {/* SPLIT SCREEN LAYOUT - Centered with small gap */}
+      <div className="flex-1 flex overflow-hidden justify-center px-8 gap-3">
         
         {/* LEFT SIDE: Main Conversation */}
         <div className="flex w-full max-w-4xl flex-col">
@@ -257,15 +257,15 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                 disabled={isStreaming || isAsideStreaming || quota?.exhausted || false}
                 isInsightsOpen={false}
                 onToggleInsights={() => {}}
-                onInputFocus={() => setIsInputFocused(true)}
-                onInputBlur={() => setIsInputFocused(false)}
+                onInputFocus={() => {}}
+                onInputBlur={() => {}}
               />
             </div>
           </div>
         </div>
 
-        {/* RIGHT SIDE: Coach Panel - Rounded on BOTH sides */}
-        <div className="hidden md:flex md:w-[32rem] lg:w-[36rem] flex-col bg-white dark:bg-gray-800 border-l-2 border-r-2 border-gray-300 dark:border-gray-600 rounded-2xl shadow-lg overflow-hidden">
+        {/* RIGHT SIDE: Coach Panel - Shadow only, no borders */}
+        <div className="hidden md:flex md:w-[32rem] lg:w-[36rem] flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
           
           {/* Coach header */}
           <div className="border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20 px-5 py-4">
