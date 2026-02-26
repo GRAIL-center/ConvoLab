@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect } from 'react';
+import { type ReactNode, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MessageInput } from '../components/conversation/MessageInput';
 import { MessageList } from '../components/conversation/MessageList';
