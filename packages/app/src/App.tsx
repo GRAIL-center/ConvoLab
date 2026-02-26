@@ -98,6 +98,7 @@ export function App() {
                   {siteBanner && (
                     <div
                       className="bg-amber-300 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-700"
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Admin-controlled content only
                       dangerouslySetInnerHTML={{ __html: siteBanner }}
                     />
                   )}
