@@ -3,3 +3,38 @@
 @tailwind utilities;
 
 /* TODO: Copy Purdue font imports from django-react-template */
+
+
+@layer base {
+  html {
+    background-color: #F5F5F4;
+  }
+  html.dark {
+    background-color: #1A1A1A;
+  }
+  body {
+    @apply antialiased;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(130, 167, 161, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(130, 167, 161, 0.5);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(212, 232, 229, 0.2);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 232, 229, 0.3);
+}

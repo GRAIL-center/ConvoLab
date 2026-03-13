@@ -5,14 +5,13 @@ import { MessageBubble } from './MessageBubble';
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
+  partnerName?: string;
 }
 
-export function MessageList({ messages, isStreaming }: MessageListProps) {
+export function MessageList({ messages, isStreaming, partnerName }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive or during streaming
-  // biome-ignore lint/correctness/useExhaustiveDependencies: we need to scroll when messages array changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on messages change
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
@@ -21,16 +20,15 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
-        <p>Send a message to start the conversation</p>
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-gray-400 dark:text-[#6B6B6B] text-sm">Send a message to start the conversation</p>
       </div>
     );
   }
 
   return (
     <div
-      ref={containerRef}
-      className="flex-1 overflow-y-auto p-4 space-y-3"
+      className="flex-1 overflow-y-auto px-6 py-6 space-y-4"
       role="log"
       aria-label="Conversation messages"
     >
@@ -38,6 +36,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
         <MessageBubble
           key={message.id !== -1 ? message.id : `streaming-${index}`}
           message={message}
+          partnerName={partnerName}
         />
       ))}
       <div ref={bottomRef} />

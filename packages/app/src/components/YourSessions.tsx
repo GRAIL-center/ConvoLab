@@ -12,13 +12,11 @@ interface Session {
   };
 }
 
-/** Format a date as a relative time string (e.g., "5m ago", "2d ago") */
 function formatRelativeTime(date: string | Date): string {
   const d = new Date(date);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
 
-  // Handle future dates gracefully (e.g., server time skew)
   if (diffMs < 0) return d.toLocaleDateString();
 
   const diffMins = Math.floor(diffMs / 60000);
@@ -43,43 +41,60 @@ export function YourSessions() {
 
   const isLoading = userLoading || sessionsLoading;
 
-  // Show welcome message for unauthenticated users
   if (!isLoading && !authData?.user) {
     return (
-      <div className="mb-8 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 p-6">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Welcome</h2>
-        <p className="text-gray-600 dark:text-gray-300">
+      <div className="mb-8 rounded-2xl p-6
+                      bg-white dark:bg-[rgba(40,40,40,0.9)]
+                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]">
+        <h2 className="text-base font-medium text-gray-900 dark:text-[#EBEBEB] mb-2">Welcome</h2>
+        <p className="text-gray-500 dark:text-[#A0A0A0]">
           Sign in or use an invitation link to start practicing conversations.
         </p>
       </div>
     );
   }
 
-  // Don't render anything if loading or no sessions
   if (isLoading || !sessions || !Array.isArray(sessions) || sessions.length === 0) {
+    // Show empty state when not loading and authenticated but no sessions
+    if (!isLoading && authData?.user && (!sessions || (sessions as unknown as Session[]).length === 0)) {
+      return (
+        <div className="mb-8">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">Your Conversations</h2>
+          <div className="rounded-2xl p-6 text-center
+                          bg-white dark:bg-[rgba(40,40,40,0.9)]
+                          border border-[rgba(130,167,161,0.15)] dark:border-[rgba(212,232,229,0.08)]">
+            <p className="text-gray-400 dark:text-[#6B6B6B]">No conversations yet. Start one below!</p>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
   return (
     <div className="mb-8">
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Your Conversations</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">Your Conversations</h2>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(sessions as Session[]).map((session) => (
           <button
             key={session.id}
             type="button"
             onClick={() => navigate(`/conversation/${session.id}`)}
-            className="text-left rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all"
+            className="text-left rounded-2xl p-4 transition-all
+                       bg-white dark:bg-[rgba(40,40,40,0.9)]
+                       border border-[rgba(130,167,161,0.15)] dark:border-[rgba(212,232,229,0.08)]
+                       hover:border-[rgba(130,167,161,0.4)] dark:hover:border-[rgba(212,232,229,0.2)]
+                       hover:shadow-md shadow-sm"
           >
-            <div className="font-medium text-gray-900 dark:text-white">
+            <div className="font-medium text-gray-900 dark:text-[#EBEBEB] text-sm">
               {session.scenario?.name || 'Conversation'}
             </div>
             {session.scenario?.partnerPersona && (
-              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <div className="text-xs text-gray-500 dark:text-[#A0A0A0] mt-0.5">
                 with {session.scenario.partnerPersona}
               </div>
             )}
-            <div className="flex items-center justify-between mt-3 text-xs text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-between mt-3 text-xs text-gray-400 dark:text-[#6B6B6B]">
               <span>{session.messageCount} messages</span>
               <span>{formatRelativeTime(session.startedAt)}</span>
             </div>
