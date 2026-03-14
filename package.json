@@ -18,5 +18,8 @@
     "@biomejs/biome": "^2.3.10",
     "concurrently": "^9.2.1",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "lucide-react": "^0.577.0"
   }
 }

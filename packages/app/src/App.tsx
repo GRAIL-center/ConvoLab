@@ -10,7 +10,7 @@ import { ResearchLayout } from './layouts/ResearchLayout';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
 import { UserList } from './pages/admin/UserList';
-import { Conversation } from './pages/Conversation';
+import { Conversation } from './pages//Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
 import { InvitationDetail } from './pages/research/InvitationDetail';
