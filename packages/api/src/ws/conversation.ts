@@ -18,8 +18,8 @@ import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
 // Default models for custom scenarios
 const DEFAULT_PARTNER_MODEL = 'google:gemini-2.0-flash';
-const DEFAULT_COACH_MODEL = 'claude-3-5-sonnet-20241022';
-const FALLBACK_PARTNER_MODEL = 'claude-3-5-sonnet-20241022';
+const DEFAULT_COACH_MODEL = 'claude-sonnet-4-20250514';
+const FALLBACK_PARTNER_MODEL = 'claude-sonnet-4-20250514';
 
 const ASIDE_INSTRUCTIONS = `
 When responding to an aside question (marked with [ASIDE QUESTION]):
@@ -216,18 +216,21 @@ export class ConversationManager {
         }
 
         const context = this.buildContext(role);
-        return await this.tryStreamWithFallback(role, modelString, systemPrompt, context);
+        const useWebSearch = role === 'partner'
+            ? (this.session.scenario?.partnerUseWebSearch ?? false)
+            : (this.session.scenario?.coachUseWebSearch ?? false);
+        return await this.tryStreamWithFallback(role, modelString, systemPrompt, context, useWebSearch);
     }
 
     private async tryStreamWithFallback(
         role: 'partner' | 'coach',
         modelString: string,
         systemPrompt: string,
-        context: LLMMessage[]
+        context: LLMMessage[],
+        useWebSearch = false
     ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
         const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
         let currentModel = modelString;
-        let useWebSearch = role === 'partner' && isGeminiModel;
         let usedFallback = false;
 
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -284,6 +287,7 @@ export class ConversationManager {
                     return { content: fullContent, messageId: message.id, usage };
                 } catch (error) {
                     const errorMsg = error instanceof Error ? error.message : String(error);
+                    this.logger.error({ sessionId: this.session.id, role, model: currentModel, errorMsg }, 'Provider error in tryStreamWithFallback');
                     if (isGeminiModel && (errorMsg.includes('429') || errorMsg.includes('quota')) && !usedFallback) {
                         currentModel = FALLBACK_PARTNER_MODEL;
                         useWebSearch = false;
