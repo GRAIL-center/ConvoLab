@@ -36,6 +36,7 @@ type ServerMessage =
   | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
   | { type: 'history'; messages: Message[] }
   | { type: 'partner:delta'; content: string }
+  | { type: 'partner:retry' }
   | { type: 'partner:done'; messageId: number; usage: TokenUsage }
   | { type: 'coach:delta'; content: string }
   | { type: 'coach:done'; messageId: number; usage: TokenUsage }
@@ -286,6 +287,18 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             }
             break;
           }
+
+          case 'partner:retry':
+            // Fallback triggered (e.g. Gemini quota → Claude): clear partial content
+            streamingContentRef.current = '';
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'partner' && last.isStreaming) {
+                return [...prev.slice(0, -1), { ...last, content: '' }];
+              }
+              return prev;
+            });
+            break;
 
           case 'partner:delta':
             setIsStreaming(true);

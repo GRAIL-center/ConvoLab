@@ -12,6 +12,7 @@ export type ServerMessage =
   | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
   | { type: 'history'; messages: HistoryMessage[] }
   | { type: 'partner:delta'; content: string }
+  | { type: 'partner:retry' }
   | { type: 'partner:done'; messageId: number; usage: TokenUsage }
   | { type: 'coach:delta'; content: string }
   | { type: 'coach:done'; messageId: number; usage: TokenUsage }

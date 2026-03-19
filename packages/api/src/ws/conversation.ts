@@ -234,6 +234,10 @@ export class ConversationManager {
         let usedFallback = false;
 
         for (let attempt = 0; attempt < 2; attempt++) {
+            // On fallback attempt, signal frontend to clear partial content from first attempt
+            if (attempt === 1 && role === 'partner') {
+                send(this.ws, { type: 'partner:retry' });
+            }
             let fullContent = '';
             let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
             let retries = 0;
@@ -274,7 +278,7 @@ export class ConversationManager {
                         }
                     }
 
-                    if (usedFallback && attempt === 0) continue;
+                    if (usedFallback && attempt === 0) break; // break while loop so for loop advances to attempt=1
 
                     const message = await this.persistMessage(role, fullContent.trim());
                     this.session.messages.push(message);
