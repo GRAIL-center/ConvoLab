@@ -1,17 +1,41 @@
-import { type ReactNode, useRef, useEffect } from 'react';
+import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MessageInput } from '../components/conversation/MessageInput';
-import { MessageList } from '../components/conversation/MessageList';
-import { useConversationSocket } from '../hooks/useConversationSocket';
-import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
-import { ThemeToggle } from '../components/ThemeToggle';
 import Markdown from 'react-markdown';
+import { MessageList } from '../components/conversation/MessageList';
+import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
+import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel';
+import { useConversationSocket } from '../hooks/useConversationSocket';
+import { ThemeToggle } from '../components/ThemeToggle';
+import type { AsideMessage, Message } from '../hooks/useConversationSocket';
 
+// Inline SVG Icons
+const ArrowLeftIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+  </svg>
+);
 
-/** Full-screen centered message with optional title, message, and action button */
+const MessageSquareIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+  </svg>
+);
+
+const LightbulbIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+  </svg>
+);
+
+const SendIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+  </svg>
+);
+
 function FullScreenMessage({
   title,
-  titleColor = 'text-gray-900 dark:text-white',
+  titleColor = 'text-[#1A1A1A] dark:text-[#EBEBEB]',
   message,
   action,
 }: {
@@ -21,33 +45,59 @@ function FullScreenMessage({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex h-dvh items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-dvh items-center justify-center bg-[#F8F8F8] dark:bg-[#1A1A1A]">
       <div className="text-center">
         {title && <h1 className={`text-2xl font-bold ${titleColor}`}>{title}</h1>}
-        {message && <div className="mt-2 text-gray-600 dark:text-gray-400 text-xl">{message}</div>}
+        {message && <div className="mt-2 text-[#6B6B6B] dark:text-[#A0A0A0]">{message}</div>}
         {action && <div className="mt-4">{action}</div>}
       </div>
     </div>
   );
 }
 
+// Extract short name from scenario
+// "Angry Uncle at Thanksgiving" → "Angry Uncle"
+// "Difficult Coworker Feedback" → "Difficult Coworker"
+function getShortName(scenario: { name?: string; partnerPersona?: string } | null | undefined): string {
+  if (!scenario?.name) return 'Partner';
+  
+  // Split on " at " and take first part
+  const beforeAt = scenario.name.split(/\s+at\s+/i)[0].trim();
+  if (beforeAt && beforeAt !== scenario.name) {
+    return beforeAt; // "Angry Uncle at Thanksgiving" → "Angry Uncle"
+  }
+  
+  // For names without " at ", take first 2-3 words
+  // "Difficult Coworker Feedback" → "Difficult Coworker"
+  const words = scenario.name.split(/\s+/);
+  if (words.length > 2 && (words[words.length - 1].toLowerCase() === 'feedback' || 
+                           words[words.length - 1].toLowerCase() === 'conversation' ||
+                           words[words.length - 1].toLowerCase() === 'discussion')) {
+    return words.slice(0, -1).join(' ');
+  }
+  
+  return scenario.name;
+}
+
 export function Conversation() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-
   const parsedSessionId = sessionId ? parseInt(sessionId, 10) : NaN;
 
   if (Number.isNaN(parsedSessionId)) {
     return (
       <FullScreenMessage
         title="Invalid Session"
-        titleColor="text-red-600 dark:text-red-400"
+        titleColor="text-[#991B1B] dark:text-[#FCA5A5]"
         message="The session ID is not valid."
         action={
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="rounded-xl px-5 py-2.5 text-sm font-medium
+                       bg-[rgba(212,232,229,0.6)] dark:bg-[rgba(212,232,229,0.15)]
+                       text-[#1A1A1A] dark:text-[#EBEBEB]
+                       hover:bg-[rgba(212,232,229,0.8)] transition-colors"
           >
             Go Home
           </button>
@@ -59,24 +109,11 @@ export function Conversation() {
   return <ConversationContent sessionId={parsedSessionId} />;
 }
 
-// Markdown styling for coach messages - matches main conversation
-const markdownClasses = `
-  [&_p]:my-3 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:text-lg [&_p]:leading-relaxed
-  [&_strong]:font-semibold
-  [&_em]:italic
-  [&_ul]:list-disc [&_ul]:ml-5 [&_ul]:my-3 [&_ul]:text-lg
-  [&_ol]:list-decimal [&_ol]:ml-5 [&_ol]:my-3 [&_ol]:text-lg
-  [&_li]:my-2 [&_li]:text-lg
-  [&_code]:bg-black/10 dark:bg-white/10 [&_code]:px-1.5 [&_code]:rounded [&_code]:text-base
-  [&_pre]:bg-black/10 dark:bg-white/10 [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:text-base
-  [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3 [&_blockquote]:text-lg
-  [&_hr]:my-4 [&_hr]:border-current [&_hr]:opacity-30
-`.trim();
-
 function ConversationContent({ sessionId }: { sessionId: number }) {
   const navigate = useNavigate();
-  const coachMessagesEndRef = useRef<HTMLDivElement>(null);
-  const coachInputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [inputMode, setInputMode] = useState<'partner' | 'coach'>('partner');
 
   const {
     status,
@@ -84,28 +121,44 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     messages,
     sendMessage,
     isStreaming,
-    streamingRole,
     quota,
     error,
-    // Aside state
     asideMessages,
     isAsideStreaming,
-    asideError,
     startAside,
-    cancelAside,
   } = useConversationSocket(sessionId);
 
-  const handleLeave = () => {
-    navigate('/');
+  // Auto-scroll main messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!inputRef.current?.value.trim()) return;
+    
+    const content = inputRef.current.value.trim();
+    if (inputMode === 'partner') {
+      sendMessage(content);
+    } else {
+      startAside(content);
+    }
+    inputRef.current.value = '';
   };
 
-  // Auto-scroll coach messages
-  // biome-ignore lint/correctness/useExhaustiveDependencies: asideMessages triggers scroll
-  useEffect(() => {
-    if (coachMessagesEndRef.current) {
-      coachMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-  }, [asideMessages]);
+  };
+
+  const mainMessages = messages.filter(m => m.role !== 'coach');
+  const coachMessages = messages.filter(m => m.role === 'coach');
+  const shortName = getShortName(scenario);
+  
+  const isInputDisabled = 
+    (inputMode === 'partner' && (isStreaming || quota?.exhausted)) ||
+    (inputMode === 'coach' && isAsideStreaming);
 
   // Loading state
   if (status === 'connecting' && !scenario) {
@@ -113,9 +166,11 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
       <FullScreenMessage
         message={
           <output aria-live="polite">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 dark:border-blue-400 border-t-transparent" />
-            <span className="sr-only">Loading</span>
-            <p className="mt-4 text-gray-900 dark:text-white">Connecting...</p>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-2
+                              border-[rgba(212,232,229,0.6)] border-t-[rgba(212,232,229,0.8)] animate-spin" />
+              <p>Connecting...</p>
+            </div>
           </output>
         }
       />
@@ -127,13 +182,16 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     return (
       <FullScreenMessage
         title="Connection Error"
-        titleColor="text-red-600 dark:text-red-400"
+        titleColor="text-[#991B1B] dark:text-[#FCA5A5]"
         message={error.message}
         action={
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="rounded-xl px-5 py-2.5 text-sm font-medium
+                       bg-[rgba(212,232,229,0.6)] dark:bg-[rgba(212,232,229,0.15)]
+                       text-[#1A1A1A] dark:text-[#EBEBEB]
+                       hover:bg-[rgba(212,232,229,0.8)] transition-colors"
           >
             Refresh Page
           </button>
@@ -142,245 +200,158 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     );
   }
 
-  const getStatusIndicator = () => {
-    if (isStreaming) {
-      if (streamingRole === 'partner') return 'Partner is typing...';
-      if (streamingRole === 'coach') return 'Coach is thinking...';
-      return 'Processing...';
-    }
-    if (status === 'connecting') {
-      return 'Reconnecting...';
-    }
-    return null;
-  };
-
-  const statusText = getStatusIndicator();
-
-  // Filter out aside messages from the main conversation view
-  const mainMessages = messages.filter(m => !('asideThreadId' in m));
-
-  const handleCoachSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (coachInputRef.current?.value.trim() && !isAsideStreaming) {
-      startAside(coachInputRef.current.value.trim());
-      coachInputRef.current.value = '';
-    }
-  };
-
-  const handleCoachKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleCoachSubmit(e);
-    }
-  };
-
   return (
-    <div className="flex h-dvh flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
+    <div className="flex h-dvh flex-col bg-[#F8F8F8] dark:bg-[#1A1A1A]">
+      {/* Header - EXACT FIGMA */}
+      <header className="flex items-center justify-between px-4 py-3 backdrop-blur-sm
+                         bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(30,30,30,0.95)]
+                         border-b border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="p-2 rounded-full transition-colors
+                       text-[#1A1A1A] dark:text-[#EBEBEB]
+                       hover:bg-[rgba(212,232,229,0.4)]"
+            type="button"
+            aria-label="Go back"
+          >
+            <ArrowLeftIcon />
+          </button>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">
               {scenario?.name || 'Conversation'}
             </h1>
             {scenario?.partnerPersona && (
-              <p className="text-base text-gray-500 dark:text-gray-400">Talking with: {scenario.partnerPersona}</p>
+              <p className="text-sm text-[#6B6B6B] dark:text-[#A0A0A0]">
+                {scenario.partnerPersona}
+              </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={handleLeave}
-              className="rounded border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Leave
-            </button>
-          </div>
         </div>
+        <ThemeToggle />
       </header>
 
-      {/* SPLIT SCREEN LAYOUT - Centered with small gap */}
-      <div className="flex-1 flex overflow-hidden justify-center px-8 gap-3">
-        
-        {/* LEFT SIDE: Main Conversation */}
-        <div className="flex w-full max-w-4xl flex-col">
-          <div className="flex w-full flex-1 flex-col overflow-hidden">
-            
-            {/* Main conversation messages */}
-            <MessageList
-              messages={mainMessages}
-              isStreaming={isStreaming}
-            />
-
-            {/* Status indicator */}
-            {statusText && (
-              <div className="px-4 py-2 text-center text-base text-gray-500 dark:text-gray-400">{statusText}</div>
-            )}
-
-            {/* Quota warning */}
-            {quota && !quota.exhausted && quota.remaining < quota.total * 0.2 && (
-              <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-2 text-center text-base text-amber-700 dark:text-amber-300">
-                Low quota: {quota.remaining.toLocaleString()} / {quota.total.toLocaleString()} tokens remaining
-              </div>
-            )}
-
-            {/* Quota exhausted */}
-            {quota?.exhausted && (
-              <div className="bg-red-50 dark:bg-red-900/30 px-4 py-2 text-center text-base text-red-700 dark:text-red-300">
-                Quota exhausted. You can no longer send messages.
-              </div>
-            )}
-
-            {/* Recoverable error */}
-            {error?.recoverable && (
-              <div className="bg-red-50 dark:bg-red-900/30 px-4 py-2 text-center text-base text-red-700 dark:text-red-300">
-                {error.message}
-              </div>
-            )}
-
-            {/* Desktop Input */}
-            <div className="hidden md:block">
-              <MessageInput
-                onSend={sendMessage}
-                disabled={isStreaming || quota?.exhausted || false}
-                placeholder={quota?.exhausted ? 'Quota exhausted' : 'Type your message...'}
+      {/* Main content - TWO COLUMN LAYOUT (desktop) */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT: Main conversation */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
+            <div className="mx-auto max-w-4xl">
+              <MessageList 
+                messages={mainMessages} 
+                partnerName={shortName}
+                isStreaming={isStreaming}
               />
-            </div>
-
-            {/* Mobile Input */}
-            <div className="md:hidden">
-              <MobileMessageInput
-                onSendPartner={sendMessage}
-                onSendCoach={startAside}
-                partnerName={scenario?.partnerPersona || 'Partner'}
-                disabled={isStreaming || isAsideStreaming || quota?.exhausted || false}
-                isInsightsOpen={false}
-                onToggleInsights={() => {}}
-                onInputFocus={() => {}}
-                onInputBlur={() => {}}
-              />
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        </div>
 
-        {/* RIGHT SIDE: Coach Panel - Shadow only, no borders */}
-        <div className="hidden md:flex md:w-[32rem] lg:w-[36rem] flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-          
-          {/* Coach header */}
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20 px-5 py-4">
-            <h2 className="text-xl font-semibold text-yellow-900 dark:text-yellow-200 flex items-center gap-2">
-              💡 Coach
-            </h2>
-            <p className="text-base text-yellow-800 dark:text-yellow-300 mt-1">
-              Ask for advice anytime
-            </p>
-          </div>
-
-          {/* Coach messages */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {asideMessages.length === 0 && !isAsideStreaming ? (
-              <div className="text-center text-gray-500 dark:text-gray-400 text-base py-8">
-                <p className="mb-2 text-lg">👋 Hi! I'm your conversation coach.</p>
-                <p className="text-base">
-                  I can see your full conversation and provide guidance. Ask me anything!
-                </p>
-              </div>
-            ) : (
-              asideMessages.map((msg, i) => (
-                <div key={msg.id !== -1 ? msg.id : `streaming-${i}`}>
-                  {msg.role === 'user' ? (
-                    // User message - matches main conversation style
-                    <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl px-6 py-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-lg">
-                        {msg.content}
-                      </div>
-                    </div>
-                  ) : (
-                    // Coach message - matches YELLOW coach messages from main conversation
-                    <div className="flex justify-start">
-                      <div className={`max-w-[85%] rounded-2xl px-6 py-4 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-100 border border-yellow-200 dark:border-yellow-700 ${markdownClasses}`}>
-                        <Markdown>{msg.content}</Markdown>
-                        {msg.isStreaming && <span className="ml-1 animate-pulse text-lg">|</span>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-            <div ref={coachMessagesEndRef} />
-          </div>
-
-          {/* Coach error */}
-          {asideError && (
-            <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm border-t border-red-200 dark:border-red-800">
-              {asideError.message}
-            </div>
-          )}
-
-          {/* Coach input */}
-          <form 
-            onSubmit={handleCoachSubmit}
-            className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4"
-          >
-            <div className="flex gap-3 items-end">
-              <textarea
-                ref={coachInputRef}
-                placeholder="Ask the coach a question..."
-                disabled={isAsideStreaming}
-                rows={1}
-                onKeyDown={handleCoachKeyDown}
-                className="flex-1 resize-none rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-5 py-3 text-lg focus:border-yellow-500 dark:focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 disabled:bg-gray-100 dark:disabled:bg-gray-800"
-              />
-              {isAsideStreaming ? (
+          {/* DESKTOP Input area - SINGLE INPUT - EXACT FIGMA */}
+          <div className="hidden md:block px-6 py-4
+                          bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(30,30,30,0.95)]
+                          border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]">
+            <div className="mx-auto max-w-4xl space-y-3">
+              {/* Mode selection buttons */}
+              <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={cancelAside}
-                  className="rounded-2xl bg-red-500 dark:bg-red-600 px-6 py-3 text-white hover:bg-red-600 dark:hover:bg-red-700 text-base font-medium"
+                  onClick={() => {
+                    setInputMode('partner');
+                    inputRef.current?.focus();
+                  }}
+                  disabled={isStreaming || quota?.exhausted}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium transition-all
+                    ${inputMode === 'partner'
+                      ? 'bg-[rgba(212,232,229,0.6)] text-[#1A1A1A] dark:text-[#EBEBEB] hover:bg-[rgba(212,232,229,0.8)]'
+                      : 'bg-[rgba(240,240,240,1)] dark:bg-[rgba(40,40,40,0.5)] text-[#6B6B6B] dark:text-[#A0A0A0] hover:bg-[rgba(230,230,230,1)] dark:hover:bg-[rgba(40,40,40,0.7)]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  Cancel
+                  <MessageSquareIcon />
+                  Reply to {shortName}
                 </button>
-              ) : (
                 <button
-                  type="submit"
-                  disabled={!coachInputRef.current?.value.trim()}
-                  className="rounded-2xl bg-yellow-500 dark:bg-yellow-600 px-6 py-3 text-white hover:bg-yellow-600 dark:hover:bg-yellow-700 text-base font-medium disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => {
+                    setInputMode('coach');
+                    inputRef.current?.focus();
+                  }}
+                  disabled={isAsideStreaming}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium transition-all border
+                    ${inputMode === 'coach'
+                      ? 'bg-[rgba(134,199,194,0.3)] border-[rgba(100,180,175,0.8)] text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.9)] hover:bg-[rgba(134,199,194,0.5)]'
+                      : 'bg-[rgba(240,240,240,1)] dark:bg-[rgba(40,40,40,0.5)] border-[rgba(200,220,210,0.6)] dark:border-[rgba(255,255,255,0.1)] text-[#6B6B6B] dark:text-[#A0A0A0] hover:bg-[rgba(230,230,230,1)] dark:hover:bg-[rgba(40,40,40,0.7)]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  Ask
+                  <LightbulbIcon />
+                  Ask the Coach
                 </button>
-              )}
-            </div>
-          </form>
-        </div>
-      </div>
+              </div>
 
-      {/* Quota bar at bottom - full width */}
-      {quota && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 hidden md:block">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-              <span>Token usage</span>
-              <span>
-                {(quota.total - quota.remaining).toLocaleString()} / {quota.total.toLocaleString()}
-              </span>
-            </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-              <div
-                className={`h-1.5 rounded-full transition-all ${
-                  quota.exhausted
-                    ? 'bg-red-500 dark:bg-red-400'
-                    : quota.remaining < quota.total * 0.2
-                    ? 'bg-amber-500 dark:bg-amber-400'
-                    : 'bg-blue-500 dark:bg-blue-400'
-                }`}
-                style={{
-                  width: `${Math.min(100, ((quota.total - quota.remaining) / quota.total) * 100)}%`,
-                }}
-              />
+              {/* SINGLE input that changes based on mode - EXACT FIGMA */}
+              <div className="flex gap-2">
+                <textarea
+                  ref={inputRef}
+                  onKeyDown={handleKeyDown}
+                  placeholder={inputMode === 'partner' 
+                    ? `Type your response to ${shortName}...`
+                    : 'Ask the coach for guidance...'
+                  }
+                  className={`flex-1 rounded-3xl px-6 py-4 text-base resize-none
+                    focus:outline-none focus:ring-2 focus:border-transparent
+                    text-[#1A1A1A] dark:text-[#EBEBEB]
+                    placeholder-[#6B6B6B] dark:placeholder-[#858585]
+                    ${inputMode === 'partner'
+                      ? 'bg-white dark:bg-[rgba(40,40,40,0.9)] border border-[rgba(200,220,210,0.6)] dark:border-[rgba(212,232,229,0.25)] focus:ring-[rgba(212,232,229,0.6)]'
+                      : 'bg-[rgba(134,199,194,0.3)] dark:bg-[rgba(134,199,194,0.1)] border border-[rgba(100,180,175,0.8)] dark:border-[rgba(134,199,194,0.2)] focus:ring-[rgba(134,199,194,0.5)]'
+                    }`}
+                  rows={1}
+                  disabled={isInputDisabled}
+                />
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isInputDisabled}
+                  className="p-3 rounded-full transition-all flex-shrink-0
+                             bg-[rgba(212,232,229,0.4)] hover:bg-[rgba(212,232,229,0.6)]
+                             text-[#1A1A1A] dark:text-[#EBEBEB]
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <SendIcon />
+                </button>
+              </div>
+
+              <p className="text-xs text-[#4A4A4A] dark:text-[#858585] text-center pb-2">
+                Press Enter to send • Shift+Enter for new line
+              </p>
             </div>
           </div>
+
+          {/* MOBILE Input (unchanged) */}
+          <div className="md:hidden">
+            <MobileMessageInput
+              onSendPartner={(content) => sendMessage(content)}
+              onSendCoach={(content) => startAside(content)}
+              partnerName={shortName}
+              disabled={isStreaming || isAsideStreaming || quota?.exhausted || false}
+              isInsightsOpen={false}
+              onToggleInsights={() => {}}
+              onInputFocus={() => {}}
+              onInputBlur={() => {}}
+            />
+          </div>
         </div>
-      )}
+
+        {/* RIGHT: Desktop Coach Panel */}
+        <div className="hidden lg:block lg:w-[400px] xl:w-[450px] p-4 overflow-hidden
+                        bg-[#F8F8F8] dark:bg-[#1A1A1A]
+                        border-l border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]">
+          <DesktopCoachPanel 
+            coachMessages={coachMessages}
+            asideMessages={asideMessages} 
+          />
+        </div>
+      </div>
     </div>
   );
 }

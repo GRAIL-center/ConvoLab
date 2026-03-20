@@ -10,7 +10,7 @@ import { ResearchLayout } from './layouts/ResearchLayout';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
 import { UserList } from './pages/admin/UserList';
-import { Conversation } from './pages/Conversation';
+import { Conversation } from './pages//Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
 import { InvitationDetail } from './pages/research/InvitationDetail';
@@ -44,7 +44,6 @@ function makeTRPCClient() {
   });
 }
 
-// For client-only apps, we can use module-level singletons
 let browserQueryClient: QueryClient | undefined;
 let browserTRPCClient: ReturnType<typeof makeTRPCClient> | undefined;
 
@@ -94,7 +93,7 @@ export function App() {
             <Route
               path="*"
               element={
-                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">  {/* ADD dark: class */}
+                <div className="min-h-screen bg-[#F5F5F4] dark:bg-[#1A1A1A]">
                   {siteBanner && (
                     <div
                       className="bg-amber-300 px-4 py-2 text-center text-sm font-medium text-black [&_a]:underline [&_a]:hover:text-amber-700"
@@ -102,15 +101,29 @@ export function App() {
                       dangerouslySetInnerHTML={{ __html: siteBanner }}
                     />
                   )}
-                  <header className="bg-white dark:bg-gray-800 shadow">  {/* ADD dark: class */}
-                    <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                      <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">  {/* ADD dark: class */}
-                        ConvoLab Conversation Coach
-                      </h1>
-                      <div className="flex items-center gap-4">  {/* ADD THIS DIV */}
-                        <ThemeToggle />  {/* ADD THIS */}
+                  <header className="bg-white/95 dark:bg-[rgba(30,30,30,0.95)] backdrop-blur-sm
+                                     border-b border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.08)]
+                                     sticky top-0 z-10">
+                    {/*
+                      ── HEADER HEIGHT ──────────────────────────────
+                      py-4 = top/bottom padding → increase to py-5/py-6 to make taller
+                      px-10/px-16 = side padding
+                    */}
+                    <div className="flex items-center justify-between px-8 py-4 sm:px-10 lg:px-16">
+                      <div>
+                        {/* HEADER TITLE SIZE → currently text-2xl, try text-3xl to go bigger */}
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-[#EBEBEB]">
+                          Conversation Coach
+                        </h1>
+                        {/* HEADER SUBTITLE SIZE → currently text-sm, try text-base to go bigger */}
+                        <p className="text-sm text-gray-500 dark:text-[#A0A0A0] mt-0.5">
+                          Practice difficult conversations with AI guidance
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ThemeToggle />
                         <UserMenu />
-                      </div>  {/* END DIV */}
+                      </div>
                     </div>
                   </header>
                   <main>
