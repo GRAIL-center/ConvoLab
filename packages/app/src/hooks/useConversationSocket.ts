@@ -37,9 +37,9 @@ type ServerMessage =
   | { type: 'history'; messages: Message[] }
   | { type: 'partner:delta'; content: string }
   | { type: 'partner:retry' }
-  | { type: 'partner:done'; messageId: number; usage: TokenUsage }
+  | { type: 'partner:done'; messageId: number; usage: TokenUsage; content: string }
   | { type: 'coach:delta'; content: string }
-  | { type: 'coach:done'; messageId: number; usage: TokenUsage }
+  | { type: 'coach:done'; messageId: number; usage: TokenUsage; content: string }
   | { type: 'aside:delta'; threadId: string; content: string }
   | { type: 'aside:done'; threadId: string; messageId: number; usage: TokenUsage }
   | { type: 'aside:error'; threadId: string; error: string }
@@ -328,6 +328,19 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
               if (last?.role === 'partner' && last.isStreaming) {
                 return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
               }
+              // No streaming message (e.g. Gemini search chunks had null text) — create from content
+              if (msg.content) {
+                return [
+                  ...prev,
+                  {
+                    id: msg.messageId,
+                    role: 'partner' as const,
+                    content: msg.content,
+                    timestamp: new Date().toISOString(),
+                    isStreaming: false,
+                  },
+                ];
+              }
               return prev;
             });
             lastMessageIdRef.current = msg.messageId;
@@ -363,6 +376,19 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
               const last = prev[prev.length - 1];
               if (last?.role === 'coach' && last.isStreaming) {
                 return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+              }
+              // No streaming message — create from content
+              if (msg.content) {
+                return [
+                  ...prev,
+                  {
+                    id: msg.messageId,
+                    role: 'coach' as const,
+                    content: msg.content,
+                    timestamp: new Date().toISOString(),
+                    isStreaming: false,
+                  },
+                ];
               }
               return prev;
             });

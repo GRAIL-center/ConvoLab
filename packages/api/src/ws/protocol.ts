@@ -13,9 +13,9 @@ export type ServerMessage =
   | { type: 'history'; messages: HistoryMessage[] }
   | { type: 'partner:delta'; content: string }
   | { type: 'partner:retry' }
-  | { type: 'partner:done'; messageId: number; usage: TokenUsage }
+  | { type: 'partner:done'; messageId: number; usage: TokenUsage; content: string }
   | { type: 'coach:delta'; content: string }
-  | { type: 'coach:done'; messageId: number; usage: TokenUsage }
+  | { type: 'coach:done'; messageId: number; usage: TokenUsage; content: string }
   | { type: 'aside:delta'; threadId: string; content: string }
   | { type: 'aside:done'; threadId: string; messageId: number; usage: TokenUsage }
   | { type: 'aside:error'; threadId: string; error: string }

@@ -285,7 +285,7 @@ export class ConversationManager {
 
                     const doneType = role === 'partner' ? 'partner:done' : 'coach:done';
                     // Fix lint: noExplicitAny
-                    const doneMsg = { type: doneType as 'partner:done' | 'coach:done', messageId: message.id, usage };
+                    const doneMsg = { type: doneType as 'partner:done' | 'coach:done', messageId: message.id, usage, content: fullContent.trim() };
                     send(this.ws, doneMsg);
                     broadcast(this.session.id, doneMsg);
 
