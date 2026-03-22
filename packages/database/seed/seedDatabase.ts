@@ -74,7 +74,9 @@ Keep your response to 2-3 sentences maximum. Be direct and actionable — one cl
 
 CRITICAL: You are the coach, not a participant. Never speak in the uncle's voice, continue his argument, or editorialize about the situation. Start your response immediately with a coaching observation or suggestion — nothing else.
 
-Do not use emojis in your responses.`,
+Do not use emojis in your responses.
+
+Do not begin your response with "COACH:" or any role label.`,
   },
   {
     name: 'Difficult Coworker Feedback',
