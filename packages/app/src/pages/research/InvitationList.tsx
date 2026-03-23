@@ -109,6 +109,20 @@ export function InvitationList() {
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow">
         <h2 className="mb-4 font-semibold text-gray-900">Create New Invitation</h2>
         <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[180px]">
+            <label htmlFor="label-input" className="mb-1 block text-sm font-medium text-gray-700">
+              Participant name
+            </label>
+            <input
+              id="label-input"
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Jane Smith"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
           <div className="min-w-[200px]">
             {/* Added htmlFor and id for accessibility */}
             <label
