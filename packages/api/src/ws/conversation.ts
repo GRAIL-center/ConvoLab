@@ -365,11 +365,52 @@ export class ConversationManager {
           content: m.content.trim(),
         })) as LLMMessage[];
     }
-    return messages.map((m) => {
-      if (m.role === 'user') return { role: 'user' as const, content: m.content.trim() };
-      const prefix = m.role === 'partner' ? '[Partner]' : '[Your previous advice]';
-      return { role: 'assistant' as const, content: `${prefix} ${m.content.trim()}` };
-    });
+
+    // For coach: group messages into exchanges (user + partner + optional coach)
+    // and emit proper alternating user/assistant pairs.
+    // This avoids consecutive assistant messages that confuse the model into
+    // reproducing the partner's content.
+    type Exchange = { user: string; partner: string; coach?: string };
+    const exchanges: Exchange[] = [];
+    let i = 0;
+    while (i < messages.length) {
+      const m = messages[i];
+      if (m.role === 'user') {
+        const exchange: Exchange = { user: m.content.trim(), partner: '' };
+        i++;
+        if (i < messages.length && messages[i].role === 'partner') {
+          exchange.partner = messages[i].content.trim();
+          i++;
+        }
+        if (i < messages.length && messages[i].role === 'coach') {
+          exchange.coach = messages[i].content.trim();
+          i++;
+        }
+        exchanges.push(exchange);
+      } else {
+        i++;
+      }
+    }
+
+    const result: LLMMessage[] = [];
+    for (let j = 0; j < exchanges.length; j++) {
+      const ex = exchanges[j];
+      const isLast = j === exchanges.length - 1;
+      const userContent = isLast
+        ? `The user said: "${ex.user}"\nThe uncle responded: "${ex.partner}"`
+        : `The user said: "${ex.user}"\nThe uncle responded: "${ex.partner}"`;
+      result.push({ role: 'user' as const, content: userContent });
+      if (ex.coach) {
+        result.push({ role: 'assistant' as const, content: ex.coach });
+      } else if (!isLast) {
+        // First exchange had no coach — insert placeholder to maintain alternation
+        result.push({
+          role: 'assistant' as const,
+          content: '[No feedback given for this exchange]',
+        });
+      }
+    }
+    return result;
   }
 
   private async persistMessage(
