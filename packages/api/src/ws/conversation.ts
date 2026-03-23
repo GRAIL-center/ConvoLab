@@ -1,15 +1,17 @@
 import type {
-    ConversationSession,
-    Invitation,
-    Message,
-    Prisma,
-    PrismaClient,
-    Scenario,
+  ConversationSession,
+  Invitation,
+  Message,
+  Prisma,
+  PrismaClient,
+  Scenario,
 } from '@workspace/database';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
+
 //import { DEFAULT_MODEL } from '../lib/constants.js';
 const DEFAULT_MODEL = 'gpt-4o';
+
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
@@ -31,516 +33,549 @@ When responding to an aside question (marked with [ASIDE QUESTION]):
 
 // Added missing fields to the interface to resolve TS2339 and TS2551
 interface SessionWithScenario extends ConversationSession {
-    scenario: Scenario | null;
-    invitation: Invitation | null;
-    messages: Message[];
-    invitationId: string | null;
-    userId: string | null;
-    customPartnerPersona: string | null;
-    customScenarioName: string | null;
-    customDescription: string | null;
-    customPartnerPrompt: string | null;
-    customCoachPrompt: string | null;
+  scenario: Scenario | null;
+  invitation: Invitation | null;
+  messages: Message[];
+  invitationId: string | null;
+  userId: string | null;
+  customPartnerPersona: string | null;
+  customScenarioName: string | null;
+  customDescription: string | null;
+  customPartnerPrompt: string | null;
+  customCoachPrompt: string | null;
 }
 
 export class ConversationManager {
-    private ws: WebSocket;
-    private prisma: PrismaClient;
-    private session: SessionWithScenario;
-    private logger: FastifyBaseLogger;
-    private isProcessing = false;
-    private activeAsideController: AbortController | null = null;
-    private activeAsideThreadId: string | null = null;
+  private ws: WebSocket;
+  private prisma: PrismaClient;
+  private session: SessionWithScenario;
+  private logger: FastifyBaseLogger;
+  private isProcessing = false;
+  private activeAsideController: AbortController | null = null;
+  private activeAsideThreadId: string | null = null;
 
-    constructor(
-        ws: WebSocket,
-        prisma: PrismaClient,
-        session: SessionWithScenario,
-        logger: FastifyBaseLogger
-    ) {
-        this.ws = ws;
-        this.prisma = prisma;
-        this.session = session;
-        this.logger = logger;
+  constructor(
+    ws: WebSocket,
+    prisma: PrismaClient,
+    session: SessionWithScenario,
+    logger: FastifyBaseLogger
+  ) {
+    this.ws = ws;
+    this.prisma = prisma;
+    this.session = session;
+    this.logger = logger;
+  }
+
+  async initialize(): Promise<void> {
+    const scenario = this.session.scenario;
+
+    let scenarioInfo: ScenarioInfo;
+    if (scenario) {
+      scenarioInfo = {
+        id: scenario.id,
+        name: scenario.name,
+        description: scenario.description,
+        partnerPersona: scenario.partnerPersona,
+      };
+    } else if (this.session.customPartnerPersona) {
+      scenarioInfo = {
+        id: 0,
+        name: this.session.customScenarioName ?? 'Custom Scenario',
+        description: this.session.customDescription ?? 'User-defined conversation partner',
+        partnerPersona: this.session.customPartnerPersona,
+        isCustom: true,
+      };
+    } else {
+      throw new Error('Session has neither scenario nor custom prompts');
     }
 
-    async initialize(): Promise<void> {
-        const scenario = this.session.scenario;
+    send(this.ws, { type: 'connected', sessionId: this.session.id, scenario: scenarioInfo });
 
-        let scenarioInfo: ScenarioInfo;
-        if (scenario) {
-            scenarioInfo = {
-                id: scenario.id,
-                name: scenario.name,
-                description: scenario.description,
-                partnerPersona: scenario.partnerPersona,
-            };
-        } else if (this.session.customPartnerPersona) {
-            scenarioInfo = {
-                id: 0,
-                name: this.session.customScenarioName ?? 'Custom Scenario',
-                description: this.session.customDescription ?? 'User-defined conversation partner',
-                partnerPersona: this.session.customPartnerPersona,
-                isCustom: true,
-            };
-        } else {
-            throw new Error('Session has neither scenario nor custom prompts');
-        }
+    const historyMessages: HistoryMessage[] = this.session.messages.map((m) => ({
+      id: m.id,
+      role: m.role as 'user' | 'partner' | 'coach',
+      content: m.content,
+      timestamp: m.timestamp.toISOString(),
+      messageType: (m.messageType as 'main' | 'aside') ?? 'main',
+      asideThreadId: m.asideThreadId ?? undefined,
+    }));
 
-        send(this.ws, { type: 'connected', sessionId: this.session.id, scenario: scenarioInfo });
+    send(this.ws, { type: 'history', messages: historyMessages });
+  }
 
-        const historyMessages: HistoryMessage[] = this.session.messages.map((m) => ({
-            id: m.id,
-            role: m.role as 'user' | 'partner' | 'coach',
-            content: m.content,
-            timestamp: m.timestamp.toISOString(),
-            messageType: (m.messageType as 'main' | 'aside') ?? 'main',
-            asideThreadId: m.asideThreadId ?? undefined,
-        }));
-
-        send(this.ws, { type: 'history', messages: historyMessages });
+  async handleUserMessage(content: string): Promise<void> {
+    if (this.isProcessing) {
+      send(this.ws, {
+        type: 'error',
+        code: 'RATE_LIMITED',
+        message: 'Please wait for the current response to complete',
+        recoverable: true,
+      });
+      return;
     }
 
-    async handleUserMessage(content: string): Promise<void> {
-        if (this.isProcessing) {
-            send(this.ws, {
-                type: 'error',
-                code: 'RATE_LIMITED',
-                message: 'Please wait for the current response to complete',
-                recoverable: true,
-            });
-            return;
+    this.isProcessing = true;
+
+    try {
+      if (this.session.invitationId) {
+        const hasQuota = await this.checkQuotaAllowed();
+        if (!hasQuota) {
+          send(this.ws, { type: 'quota:exhausted' });
+          return;
         }
+      }
 
-        this.isProcessing = true;
+      const userMsg = await this.persistMessage('user', content);
+      this.session.messages.push(userMsg);
 
+      broadcast(this.session.id, {
+        type: 'history',
+        messages: [
+          {
+            id: userMsg.id,
+            role: 'user',
+            content: userMsg.content,
+            timestamp: userMsg.timestamp.toISOString(),
+          },
+        ],
+      });
+
+      const partnerResult = await this.streamResponse('partner');
+      if (!partnerResult) {
+        this.isProcessing = false;
+        return;
+      }
+
+      // Skip coach on the first exchange — let the user form their own response first.
+      const isFirstExchange = this.session.messages.filter((m) => m.role === 'user').length === 1;
+
+      if (isFirstExchange) {
+        await this.logUsage(partnerResult.usage, null);
+        await this.checkQuotaWarning();
+        await this.prisma.conversationSession.update({
+          where: { id: this.session.id },
+          data: { totalMessages: { increment: 2 } },
+        });
+      } else {
+        const coachResult = await this.streamResponse('coach');
+        if (!coachResult) {
+          this.isProcessing = false;
+          return;
+        }
+        await this.logUsage(partnerResult.usage, coachResult.usage);
+        await this.checkQuotaWarning();
+        await this.prisma.conversationSession.update({
+          where: { id: this.session.id },
+          data: { totalMessages: { increment: 3 } },
+        });
+      }
+    } catch (error) {
+      this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
+      send(this.ws, {
+        type: 'error',
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred',
+        recoverable: true,
+      });
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  async handleResume(afterMessageId?: number): Promise<void> {
+    const messages = await this.prisma.message.findMany({
+      where: {
+        sessionId: this.session.id,
+        ...(afterMessageId ? { id: { gt: afterMessageId } } : {}),
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    const historyMessages: HistoryMessage[] = messages.map((m) => ({
+      id: m.id,
+      role: m.role as 'user' | 'partner' | 'coach',
+      content: m.content,
+      timestamp: m.timestamp.toISOString(),
+      messageType: (m.messageType as 'main' | 'aside') ?? 'main',
+      asideThreadId: m.asideThreadId ?? undefined,
+    }));
+
+    send(this.ws, { type: 'history', messages: historyMessages });
+  }
+
+  private async streamResponse(
+    role: 'partner' | 'coach'
+  ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
+    const scenario = this.session.scenario;
+
+    let modelString: string;
+    let systemPrompt: string;
+
+    if (scenario) {
+      modelString = role === 'partner' ? scenario.partnerModel : scenario.coachModel;
+      systemPrompt = role === 'partner' ? scenario.partnerSystemPrompt : scenario.coachSystemPrompt;
+    } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
+      modelString = role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL;
+      systemPrompt =
+        role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
+    } else {
+      throw new Error('Session has neither scenario nor custom prompts');
+    }
+
+    if (role === 'partner') {
+      systemPrompt += '\n\nIMPORTANT: Keep your responses SHORT - 1-3 sentences maximum.';
+    }
+
+    const context = this.buildContext(role);
+    const useWebSearch =
+      role === 'partner'
+        ? (this.session.scenario?.partnerUseWebSearch ?? false)
+        : (this.session.scenario?.coachUseWebSearch ?? false);
+    return await this.tryStreamWithFallback(role, modelString, systemPrompt, context, useWebSearch);
+  }
+
+  private async tryStreamWithFallback(
+    role: 'partner' | 'coach',
+    modelString: string,
+    systemPrompt: string,
+    context: LLMMessage[],
+    useWebSearch = false
+  ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
+    const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
+    let currentModel = modelString;
+    let usedFallback = false;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      // On fallback attempt, signal frontend to clear partial content from first attempt
+      if (attempt === 1 && role === 'partner') {
+        send(this.ws, { type: 'partner:retry' });
+      }
+      let fullContent = '';
+      let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+      let retries = 0;
+      const maxRetries = 2;
+
+      while (retries <= maxRetries) {
         try {
-            if (this.session.invitationId) {
-                const hasQuota = await this.checkQuotaAllowed();
-                if (!hasQuota) {
-                    send(this.ws, { type: 'quota:exhausted' });
-                    return;
-                }
+          fullContent = '';
+          const maxTokens = 1024;
+
+          for await (const chunk of streamCompletion(currentModel, {
+            systemPrompt,
+            messages: context,
+            maxTokens,
+            useWebSearch,
+          })) {
+            if (chunk.type === 'delta' && chunk.content) {
+              fullContent += chunk.content;
+              const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
+              send(this.ws, { type: deltaType, content: chunk.content });
+              broadcast(this.session.id, { type: deltaType, content: chunk.content });
+            } else if (chunk.type === 'done' && chunk.usage) {
+              usage = chunk.usage;
+            } else if (chunk.type === 'error' && chunk.error) {
+              const isQuotaError =
+                chunk.error.code === 'HTTP_429' || chunk.error.message?.includes('quota');
+              if (isGeminiModel && isQuotaError && !usedFallback) {
+                currentModel = FALLBACK_PARTNER_MODEL;
+                useWebSearch = false;
+                usedFallback = true;
+                break;
+              }
+              if (chunk.error.retryable && retries < maxRetries) {
+                retries++;
+                await sleep(1000 * retries);
+                continue;
+              }
+              throw new Error(chunk.error.message);
             }
+          }
 
-            const userMsg = await this.persistMessage('user', content);
-            this.session.messages.push(userMsg);
+          if (usedFallback && attempt === 0) break; // break while loop so for loop advances to attempt=1
 
-            broadcast(this.session.id, {
-                type: 'history',
-                messages: [
-                    {
-                        id: userMsg.id,
-                        role: 'user',
-                        content: userMsg.content,
-                        timestamp: userMsg.timestamp.toISOString(),
-                    },
-                ],
-            });
+          const message = await this.persistMessage(role, fullContent.trim());
+          this.session.messages.push(message);
 
-            const partnerResult = await this.streamResponse('partner');
-            if (!partnerResult) {
-                this.isProcessing = false;
-                return;
-            }
+          const doneType = role === 'partner' ? 'partner:done' : 'coach:done';
+          // Fix lint: noExplicitAny
+          const doneMsg = {
+            type: doneType as 'partner:done' | 'coach:done',
+            messageId: message.id,
+            usage,
+            content: fullContent.trim(),
+          };
+          send(this.ws, doneMsg);
+          broadcast(this.session.id, doneMsg);
 
-            const coachResult = await this.streamResponse('coach');
-            if (!coachResult) {
-                this.isProcessing = false;
-                return;
-            }
-
-            await this.logUsage(partnerResult.usage, coachResult.usage);
-            await this.checkQuotaWarning();
-
-            await this.prisma.conversationSession.update({
-                where: { id: this.session.id },
-                data: { totalMessages: { increment: 3 } },
-            });
+          return { content: fullContent, messageId: message.id, usage };
         } catch (error) {
-            this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
-            send(this.ws, {
-                type: 'error',
-                code: 'INTERNAL_ERROR',
-                message: 'An unexpected error occurred',
-                recoverable: true,
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            { sessionId: this.session.id, role, model: currentModel, errorMsg },
+            'Provider error in tryStreamWithFallback'
+          );
+          if (
+            isGeminiModel &&
+            (errorMsg.includes('429') || errorMsg.includes('quota')) &&
+            !usedFallback
+          ) {
+            currentModel = FALLBACK_PARTNER_MODEL;
+            useWebSearch = false;
+            usedFallback = true;
+            break;
+          }
+
+          if (retries < maxRetries) {
+            retries++;
+            await sleep(1000 * retries);
+            continue;
+          }
+
+          // Fixed the incorrect object literal syntax here (TS2353)
+          if (fullContent.length > 0) {
+            await this.persistMessage(role, fullContent, {
+              metadata: {
+                complete: false,
+                error: 'PROVIDER_ERROR',
+              },
             });
-        } finally {
-            this.isProcessing = false;
+          }
+
+          send(this.ws, {
+            type: 'error',
+            code: 'PROVIDER_ERROR',
+            message: 'AI service temporarily unavailable',
+            recoverable: true,
+          });
+          return null;
         }
+      }
+    }
+    return null;
+  }
+
+  private buildContext(role: 'partner' | 'coach'): LLMMessage[] {
+    const messages = this.session.messages;
+    if (role === 'partner') {
+      return messages
+        .filter((m) => m.role === 'user' || m.role === 'partner')
+        .map((m) => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content.trim(),
+        })) as LLMMessage[];
+    }
+    return messages.map((m) => {
+      if (m.role === 'user') return { role: 'user' as const, content: m.content.trim() };
+      const prefix = m.role === 'partner' ? '[Partner]' : '[Your previous advice]';
+      return { role: 'assistant' as const, content: `${prefix} ${m.content.trim()}` };
+    });
+  }
+
+  private async persistMessage(
+    role: string,
+    content: string,
+    options?: {
+      metadata?: Record<string, unknown>;
+      messageType?: 'main' | 'aside';
+      asideThreadId?: string;
+    }
+  ): Promise<Message> {
+    return this.prisma.message.create({
+      data: {
+        sessionId: this.session.id,
+        role,
+        content,
+        metadata: options?.metadata as Prisma.InputJsonValue | undefined,
+        messageType: options?.messageType ?? 'main',
+        asideThreadId: options?.asideThreadId,
+      },
+    });
+  }
+
+  private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage | null): Promise<void> {
+    const scenario = this.session.scenario;
+    const partnerModel = scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL;
+    const coachModel = scenario?.coachModel ?? DEFAULT_COACH_MODEL;
+
+    const partnerEntry = {
+      sessionId: this.session.id,
+      userId: this.session.userId,
+      invitationId: this.session.invitationId,
+      model: partnerModel,
+      streamType: 'partner',
+      inputTokens: partnerUsage.inputTokens,
+      outputTokens: partnerUsage.outputTokens,
+    };
+
+    if (!coachUsage) {
+      await this.prisma.usageLog.create({ data: partnerEntry });
+      return;
     }
 
-    async handleResume(afterMessageId?: number): Promise<void> {
-        const messages = await this.prisma.message.findMany({
-            where: {
-                sessionId: this.session.id,
-                ...(afterMessageId ? { id: { gt: afterMessageId } } : {}),
-            },
-            orderBy: { id: 'asc' },
-        });
+    await this.prisma.usageLog.createMany({
+      data: [
+        partnerEntry,
+        {
+          sessionId: this.session.id,
+          userId: this.session.userId,
+          invitationId: this.session.invitationId,
+          model: coachModel,
+          streamType: 'coach',
+          inputTokens: coachUsage.inputTokens,
+          outputTokens: coachUsage.outputTokens,
+        },
+      ],
+    });
+  }
 
-        const historyMessages: HistoryMessage[] = messages.map((m) => ({
-            id: m.id,
-            role: m.role as 'user' | 'partner' | 'coach',
-            content: m.content,
-            timestamp: m.timestamp.toISOString(),
-            messageType: (m.messageType as 'main' | 'aside') ?? 'main',
-            asideThreadId: m.asideThreadId ?? undefined,
-        }));
+  private async checkQuotaAllowed(): Promise<boolean> {
+    if (!this.session.invitationId) return true;
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: this.session.invitationId },
+    });
+    if (!invitation) return false;
+    const quota = invitation.quota as unknown as Quota;
+    const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
+    return status.allowed;
+  }
 
-        send(this.ws, { type: 'history', messages: historyMessages });
+  private async checkQuotaWarning(): Promise<void> {
+    if (!this.session.invitationId) return;
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: this.session.invitationId },
+    });
+    if (!invitation) return;
+    const quota = invitation.quota as unknown as Quota;
+    if (!quota?.tokens) return;
+    const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
+    if (!status.allowed) {
+      send(this.ws, { type: 'quota:exhausted' });
+    } else if (status.remaining < quota.tokens * 0.2) {
+      send(this.ws, {
+        type: 'quota:warning',
+        remaining: status.remaining,
+        total: status.total,
+      });
     }
+  }
 
-    private async streamResponse(
-        role: 'partner' | 'coach'
-    ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
-        const scenario = this.session.scenario;
+  async handleAsideStart(threadId: string, question: string): Promise<void> {
+    if (this.isProcessing || this.activeAsideThreadId) {
+      send(this.ws, { type: 'aside:error', threadId, error: 'Response in progress' });
+      return;
+    }
+    this.isProcessing = true;
+    this.activeAsideThreadId = threadId;
+    this.activeAsideController = new AbortController();
 
-        let modelString: string;
-        let systemPrompt: string;
+    try {
+      const userMsg = await this.persistMessage('user', question, {
+        messageType: 'aside',
+        asideThreadId: threadId,
+      });
+      this.session.messages.push(userMsg);
+      broadcast(this.session.id, {
+        type: 'history',
+        messages: [
+          {
+            id: userMsg.id,
+            role: 'user',
+            content: userMsg.content,
+            timestamp: userMsg.timestamp.toISOString(),
+            messageType: 'aside',
+            asideThreadId: threadId,
+          },
+        ],
+      });
 
-        if (scenario) {
-            modelString = role === 'partner' ? scenario.partnerModel : scenario.coachModel;
-            systemPrompt = role === 'partner' ? scenario.partnerSystemPrompt : scenario.coachSystemPrompt;
-        } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
-            modelString = role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL;
-            systemPrompt =
-                role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
-        } else {
-            throw new Error('Session has neither scenario nor custom prompts');
+      const context = this.buildAsideContext(question);
+      const result = await this.streamAsideResponse(threadId, context);
+      if (result) {
+        await this.logAsideUsage(result.usage);
+        await this.checkQuotaWarning();
+      }
+    } catch (error) {
+      this.logger.error({ sessionId: this.session.id, threadId, error }, 'Error aside');
+    } finally {
+      this.isProcessing = false;
+      this.activeAsideThreadId = null;
+    }
+  }
+
+  handleAsideCancel(threadId: string): void {
+    if (this.activeAsideThreadId === threadId && this.activeAsideController) {
+      this.activeAsideController.abort();
+    }
+  }
+
+  private buildAsideContext(question: string): LLMMessage[] {
+    return [
+      ...this.session.messages
+        .filter((m) => m.messageType === 'main' || m.messageType === null)
+        .map((m) => ({
+          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+          content: m.content,
+        })),
+      { role: 'user' as const, content: `[ASIDE QUESTION]: ${question}` },
+    ];
+  }
+
+  private async streamAsideResponse(
+    threadId: string,
+    context: LLMMessage[]
+  ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
+    const scenario = this.session.scenario;
+    const modelString = scenario?.coachModel ?? DEFAULT_MODEL;
+    const systemPrompt =
+      (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
+
+    let fullContent = '';
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+
+    try {
+      for await (const chunk of streamCompletion(modelString, {
+        systemPrompt,
+        messages: context,
+        maxTokens: 1024,
+        signal: this.activeAsideController?.signal,
+      })) {
+        if (chunk.type === 'delta' && chunk.content) {
+          fullContent += chunk.content;
+          send(this.ws, { type: 'aside:delta', threadId, content: chunk.content });
+          broadcast(this.session.id, { type: 'aside:delta', threadId, content: chunk.content });
+        } else if (chunk.type === 'done' && chunk.usage) {
+          usage = chunk.usage;
         }
+      }
 
-        if (role === 'partner') {
-            systemPrompt +=
-                '\n\nIMPORTANT: Keep your responses SHORT - 1-3 sentences maximum.';
-        }
-
-        const context = this.buildContext(role);
-        const useWebSearch = role === 'partner'
-            ? (this.session.scenario?.partnerUseWebSearch ?? false)
-            : (this.session.scenario?.coachUseWebSearch ?? false);
-        return await this.tryStreamWithFallback(role, modelString, systemPrompt, context, useWebSearch);
+      const message = await this.persistMessage('coach', fullContent, {
+        messageType: 'aside',
+        asideThreadId: threadId,
+      });
+      this.session.messages.push(message);
+      send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
+      return { content: fullContent, messageId: message.id, usage };
+    } catch (_error) {
+      return null;
     }
+  }
 
-    private async tryStreamWithFallback(
-        role: 'partner' | 'coach',
-        modelString: string,
-        systemPrompt: string,
-        context: LLMMessage[],
-        useWebSearch = false
-    ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
-        const isGeminiModel = modelString.startsWith('google:') || modelString.includes('gemini');
-        let currentModel = modelString;
-        let usedFallback = false;
-
-        for (let attempt = 0; attempt < 2; attempt++) {
-            // On fallback attempt, signal frontend to clear partial content from first attempt
-            if (attempt === 1 && role === 'partner') {
-                send(this.ws, { type: 'partner:retry' });
-            }
-            let fullContent = '';
-            let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
-            let retries = 0;
-            const maxRetries = 2;
-
-            while (retries <= maxRetries) {
-                try {
-                    fullContent = '';
-                    const maxTokens = 1024;
-
-                    for await (const chunk of streamCompletion(currentModel, {
-                        systemPrompt,
-                        messages: context,
-                        maxTokens,
-                        useWebSearch,
-                    })) {
-                        if (chunk.type === 'delta' && chunk.content) {
-                            fullContent += chunk.content;
-                            const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
-                            send(this.ws, { type: deltaType, content: chunk.content });
-                            broadcast(this.session.id, { type: deltaType, content: chunk.content });
-                        } else if (chunk.type === 'done' && chunk.usage) {
-                            usage = chunk.usage;
-                        } else if (chunk.type === 'error' && chunk.error) {
-                            const isQuotaError = chunk.error.code === 'HTTP_429' || chunk.error.message?.includes('quota');
-                            if (isGeminiModel && isQuotaError && !usedFallback) {
-                                currentModel = FALLBACK_PARTNER_MODEL;
-                                useWebSearch = false;
-                                usedFallback = true;
-                                break;
-                            }
-                            if (chunk.error.retryable && retries < maxRetries) {
-                                retries++;
-                                await sleep(1000 * retries);
-                                continue;
-                            }
-                            throw new Error(chunk.error.message);
-                        }
-                    }
-
-                    if (usedFallback && attempt === 0) break; // break while loop so for loop advances to attempt=1
-
-                    const message = await this.persistMessage(role, fullContent.trim());
-                    this.session.messages.push(message);
-
-                    const doneType = role === 'partner' ? 'partner:done' : 'coach:done';
-                    // Fix lint: noExplicitAny
-                    const doneMsg = { type: doneType as 'partner:done' | 'coach:done', messageId: message.id, usage, content: fullContent.trim() };
-                    send(this.ws, doneMsg);
-                    broadcast(this.session.id, doneMsg);
-
-                    return { content: fullContent, messageId: message.id, usage };
-                } catch (error) {
-                    const errorMsg = error instanceof Error ? error.message : String(error);
-                    this.logger.error({ sessionId: this.session.id, role, model: currentModel, errorMsg }, 'Provider error in tryStreamWithFallback');
-                    if (isGeminiModel && (errorMsg.includes('429') || errorMsg.includes('quota')) && !usedFallback) {
-                        currentModel = FALLBACK_PARTNER_MODEL;
-                        useWebSearch = false;
-                        usedFallback = true;
-                        break;
-                    }
-
-                    if (retries < maxRetries) {
-                        retries++;
-                        await sleep(1000 * retries);
-                        continue;
-                    }
-
-                    // Fixed the incorrect object literal syntax here (TS2353)
-                    if (fullContent.length > 0) {
-                        await this.persistMessage(role, fullContent, {
-                            metadata: {
-                                complete: false,
-                                error: 'PROVIDER_ERROR',
-                            }
-                        });
-                    }
-
-                    send(this.ws, {
-                        type: 'error',
-                        code: 'PROVIDER_ERROR',
-                        message: 'AI service temporarily unavailable',
-                        recoverable: true,
-                    });
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
-
-    private buildContext(role: 'partner' | 'coach'): LLMMessage[] {
-        const messages = this.session.messages;
-        if (role === 'partner') {
-            return messages
-                .filter((m) => m.role === 'user' || m.role === 'partner')
-                .map((m) => ({
-                    role: m.role === 'user' ? 'user' : 'assistant',
-                    content: m.content.trim(),
-                })) as LLMMessage[];
-        }
-        return messages.map((m) => {
-            if (m.role === 'user') return { role: 'user' as const, content: m.content.trim() };
-            const prefix = m.role === 'partner' ? '[Partner]' : '[Your previous advice]';
-            return { role: 'assistant' as const, content: `${prefix} ${m.content.trim()}` };
-        });
-    }
-
-    private async persistMessage(
-        role: string,
-        content: string,
-        options?: {
-            metadata?: Record<string, unknown>;
-            messageType?: 'main' | 'aside';
-            asideThreadId?: string;
-        }
-    ): Promise<Message> {
-        return this.prisma.message.create({
-            data: {
-                sessionId: this.session.id,
-                role,
-                content,
-                metadata: options?.metadata as Prisma.InputJsonValue | undefined,
-                messageType: options?.messageType ?? 'main',
-                asideThreadId: options?.asideThreadId,
-            },
-        });
-    }
-
-    private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage): Promise<void> {
-        const scenario = this.session.scenario;
-        const partnerModel = scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL;
-        const coachModel = scenario?.coachModel ?? DEFAULT_COACH_MODEL;
-
-        await this.prisma.usageLog.createMany({
-            data: [
-                {
-                    sessionId: this.session.id,
-                    userId: this.session.userId,
-                    invitationId: this.session.invitationId,
-                    model: partnerModel,
-                    streamType: 'partner',
-                    inputTokens: partnerUsage.inputTokens,
-                    outputTokens: partnerUsage.outputTokens,
-                },
-                {
-                    sessionId: this.session.id,
-                    userId: this.session.userId,
-                    invitationId: this.session.invitationId,
-                    model: coachModel,
-                    streamType: 'coach',
-                    inputTokens: coachUsage.inputTokens,
-                    outputTokens: coachUsage.outputTokens,
-                },
-            ],
-        });
-    }
-
-    private async checkQuotaAllowed(): Promise<boolean> {
-        if (!this.session.invitationId) return true;
-        const invitation = await this.prisma.invitation.findUnique({
-            where: { id: this.session.invitationId },
-        });
-        if (!invitation) return false;
-        const quota = invitation.quota as unknown as Quota;
-        const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
-        return status.allowed;
-    }
-
-    private async checkQuotaWarning(): Promise<void> {
-        if (!this.session.invitationId) return;
-        const invitation = await this.prisma.invitation.findUnique({
-            where: { id: this.session.invitationId },
-        });
-        if (!invitation) return;
-        const quota = invitation.quota as unknown as Quota;
-        if (!quota?.tokens) return;
-        const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
-        if (!status.allowed) {
-            send(this.ws, { type: 'quota:exhausted' });
-        } else if (status.remaining < quota.tokens * 0.2) {
-            send(this.ws, {
-                type: 'quota:warning',
-                remaining: status.remaining,
-                total: status.total,
-            });
-        }
-    }
-
-    async handleAsideStart(threadId: string, question: string): Promise<void> {
-        if (this.isProcessing || this.activeAsideThreadId) {
-            send(this.ws, { type: 'aside:error', threadId, error: 'Response in progress' });
-            return;
-        }
-        this.isProcessing = true;
-        this.activeAsideThreadId = threadId;
-        this.activeAsideController = new AbortController();
-
-        try {
-            const userMsg = await this.persistMessage('user', question, {
-                messageType: 'aside',
-                asideThreadId: threadId,
-            });
-            this.session.messages.push(userMsg);
-            broadcast(this.session.id, {
-                type: 'history',
-                messages: [{
-                    id: userMsg.id,
-                    role: 'user',
-                    content: userMsg.content,
-                    timestamp: userMsg.timestamp.toISOString(),
-                    messageType: 'aside',
-                    asideThreadId: threadId,
-                }],
-            });
-
-            const context = this.buildAsideContext(question);
-            const result = await this.streamAsideResponse(threadId, context);
-            if (result) {
-                await this.logAsideUsage(result.usage);
-                await this.checkQuotaWarning();
-            }
-        } catch (error) {
-            this.logger.error({ sessionId: this.session.id, threadId, error }, 'Error aside');
-        } finally {
-            this.isProcessing = false;
-            this.activeAsideThreadId = null;
-        }
-    }
-
-    handleAsideCancel(threadId: string): void {
-        if (this.activeAsideThreadId === threadId && this.activeAsideController) {
-            this.activeAsideController.abort();
-        }
-    }
-
-    private buildAsideContext(question: string): LLMMessage[] {
-        return [
-            ...this.session.messages
-                .filter((m) => m.messageType === 'main' || m.messageType === null)
-                .map((m) => ({
-                    role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
-                    content: m.content,
-                })),
-            { role: 'user' as const, content: `[ASIDE QUESTION]: ${question}` }
-        ];
-    }
-
-    private async streamAsideResponse(
-        threadId: string,
-        context: LLMMessage[]
-    ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
-        const scenario = this.session.scenario;
-        const modelString = scenario?.coachModel ?? DEFAULT_MODEL;
-        const systemPrompt = (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
-
-        let fullContent = '';
-        let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
-
-        try {
-            for await (const chunk of streamCompletion(modelString, {
-                systemPrompt,
-                messages: context,
-                maxTokens: 1024,
-                signal: this.activeAsideController?.signal,
-            })) {
-                if (chunk.type === 'delta' && chunk.content) {
-                    fullContent += chunk.content;
-                    send(this.ws, { type: 'aside:delta', threadId, content: chunk.content });
-                    broadcast(this.session.id, { type: 'aside:delta', threadId, content: chunk.content });
-                } else if (chunk.type === 'done' && chunk.usage) {
-                    usage = chunk.usage;
-                }
-            }
-
-            const message = await this.persistMessage('coach', fullContent, {
-                messageType: 'aside',
-                asideThreadId: threadId,
-            });
-            this.session.messages.push(message);
-            send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
-            return { content: fullContent, messageId: message.id, usage };
-        } catch (_error) {
-            return null;
-        }
-    }
-
-    private async logAsideUsage(usage: TokenUsage): Promise<void> {
-        const coachModel = this.session.scenario?.coachModel ?? DEFAULT_MODEL;
-        await this.prisma.usageLog.create({
-            data: {
-                sessionId: this.session.id,
-                userId: this.session.userId,
-                invitationId: this.session.invitationId,
-                model: coachModel,
-                streamType: 'aside',
-                inputTokens: usage.inputTokens,
-                outputTokens: usage.outputTokens,
-            },
-        });
-    }
+  private async logAsideUsage(usage: TokenUsage): Promise<void> {
+    const coachModel = this.session.scenario?.coachModel ?? DEFAULT_MODEL;
+    await this.prisma.usageLog.create({
+      data: {
+        sessionId: this.session.id,
+        userId: this.session.userId,
+        invitationId: this.session.invitationId,
+        model: coachModel,
+        streamType: 'aside',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      },
+    });
+  }
 }
 
 function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
