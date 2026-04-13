@@ -294,6 +294,20 @@ export class ConversationManager {
 
           if (usedFallback && attempt === 0) break; // break while loop so for loop advances to attempt=1
 
+          if (fullContent.trim().length === 0) {
+            this.logger.warn(
+              { sessionId: this.session.id, role, model: currentModel },
+              'LLM stream completed with empty content'
+            );
+            send(this.ws, {
+              type: 'error',
+              code: 'PROVIDER_ERROR',
+              message: 'AI service returned an empty response. Please try again.',
+              recoverable: true,
+            });
+            return null;
+          }
+
           const message = await this.persistMessage(role, fullContent.trim());
           this.session.messages.push(message);
 
@@ -359,7 +373,7 @@ export class ConversationManager {
     const messages = this.session.messages;
     if (role === 'partner') {
       return messages
-        .filter((m) => m.role === 'user' || m.role === 'partner')
+        .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
         .map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.content.trim(),
@@ -385,6 +399,10 @@ export class ConversationManager {
         if (i < messages.length && messages[i].role === 'coach') {
           exchange.coach = messages[i].content.trim();
           i++;
+        }
+        // Skip exchanges where the partner response is empty (e.g. from a previous failed stream)
+        if (!exchange.partner) {
+          continue;
         }
         exchanges.push(exchange);
       } else {
@@ -590,14 +608,22 @@ export class ConversationManager {
         }
       }
 
-      const message = await this.persistMessage('coach', fullContent, {
+      if (fullContent.trim().length === 0) {
+        this.logger.warn({ sessionId: this.session.id, threadId }, 'Aside stream returned empty content');
+        send(this.ws, { type: 'aside:error', threadId, error: 'AI service returned an empty response. Please try again.' });
+        return null;
+      }
+
+      const message = await this.persistMessage('coach', fullContent.trim(), {
         messageType: 'aside',
         asideThreadId: threadId,
       });
       this.session.messages.push(message);
       send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
       return { content: fullContent, messageId: message.id, usage };
-    } catch (_error) {
+    } catch (error) {
+      this.logger.error({ sessionId: this.session.id, threadId, error }, 'Aside stream error');
+      send(this.ws, { type: 'aside:error', threadId, error: 'AI service temporarily unavailable.' });
       return null;
     }
   }
