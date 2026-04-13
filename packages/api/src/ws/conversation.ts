@@ -261,6 +261,11 @@ export class ConversationManager {
           fullContent = '';
           const maxTokens = 1024;
 
+          this.logger.info(
+            { sessionId: this.session.id, role, model: currentModel, attempt, retries },
+            '[stream] Starting LLM stream'
+          );
+
           for await (const chunk of streamCompletion(currentModel, {
             systemPrompt,
             messages: context,
@@ -274,10 +279,36 @@ export class ConversationManager {
               broadcast(this.session.id, { type: deltaType, content: chunk.content });
             } else if (chunk.type === 'done' && chunk.usage) {
               usage = chunk.usage;
+              this.logger.info(
+                {
+                  sessionId: this.session.id,
+                  role,
+                  model: currentModel,
+                  inputTokens: chunk.usage.inputTokens,
+                  outputTokens: chunk.usage.outputTokens,
+                  contentLength: fullContent.length,
+                },
+                '[stream] LLM stream done'
+              );
             } else if (chunk.type === 'error' && chunk.error) {
+              this.logger.warn(
+                {
+                  sessionId: this.session.id,
+                  role,
+                  model: currentModel,
+                  errorCode: chunk.error.code,
+                  errorMsg: chunk.error.message,
+                  retryable: chunk.error.retryable,
+                },
+                '[stream] LLM chunk error'
+              );
               const isQuotaError =
                 chunk.error.code === 'HTTP_429' || chunk.error.message?.includes('quota');
               if (isGeminiModel && isQuotaError && !usedFallback) {
+                this.logger.info(
+                  { sessionId: this.session.id, role, fallbackModel: FALLBACK_PARTNER_MODEL },
+                  '[stream] Quota error — switching to fallback model'
+                );
                 currentModel = FALLBACK_PARTNER_MODEL;
                 useWebSearch = false;
                 usedFallback = true;
@@ -285,6 +316,10 @@ export class ConversationManager {
               }
               if (chunk.error.retryable && retries < maxRetries) {
                 retries++;
+                this.logger.info(
+                  { sessionId: this.session.id, role, model: currentModel, retries },
+                  '[stream] Retryable error — retrying'
+                );
                 await sleep(1000 * retries);
                 continue;
               }
@@ -296,8 +331,8 @@ export class ConversationManager {
 
           if (fullContent.trim().length === 0) {
             this.logger.warn(
-              { sessionId: this.session.id, role, model: currentModel },
-              'LLM stream completed with empty content'
+              { sessionId: this.session.id, role, model: currentModel, attempt, retries },
+              '[stream] LLM stream completed with empty content'
             );
             send(this.ws, {
               type: 'error',
@@ -310,6 +345,11 @@ export class ConversationManager {
 
           const message = await this.persistMessage(role, fullContent.trim());
           this.session.messages.push(message);
+
+          this.logger.info(
+            { sessionId: this.session.id, role, model: currentModel, messageId: message.id, contentLength: fullContent.trim().length },
+            '[stream] Response persisted and sent'
+          );
 
           const doneType = role === 'partner' ? 'partner:done' : 'coach:done';
           // Fix lint: noExplicitAny
@@ -326,8 +366,8 @@ export class ConversationManager {
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
           this.logger.error(
-            { sessionId: this.session.id, role, model: currentModel, errorMsg },
-            'Provider error in tryStreamWithFallback'
+            { sessionId: this.session.id, role, model: currentModel, attempt, retries, errorMsg },
+            '[stream] Provider error in tryStreamWithFallback'
           );
           if (
             isGeminiModel &&
@@ -592,6 +632,11 @@ export class ConversationManager {
     let fullContent = '';
     let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
+    this.logger.info(
+      { sessionId: this.session.id, threadId, model: modelString },
+      '[aside] Starting aside stream'
+    );
+
     try {
       for await (const chunk of streamCompletion(modelString, {
         systemPrompt,
@@ -605,6 +650,22 @@ export class ConversationManager {
           broadcast(this.session.id, { type: 'aside:delta', threadId, content: chunk.content });
         } else if (chunk.type === 'done' && chunk.usage) {
           usage = chunk.usage;
+          this.logger.info(
+            {
+              sessionId: this.session.id,
+              threadId,
+              model: modelString,
+              inputTokens: chunk.usage.inputTokens,
+              outputTokens: chunk.usage.outputTokens,
+              contentLength: fullContent.length,
+            },
+            '[aside] Aside stream done'
+          );
+        } else if (chunk.type === 'error' && chunk.error) {
+          this.logger.warn(
+            { sessionId: this.session.id, threadId, errorCode: chunk.error.code, errorMsg: chunk.error.message },
+            '[aside] Chunk error'
+          );
         }
       }
 
