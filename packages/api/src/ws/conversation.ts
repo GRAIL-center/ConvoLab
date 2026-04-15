@@ -334,6 +334,17 @@ export class ConversationManager {
               { sessionId: this.session.id, role, model: currentModel, attempt, retries },
               '[stream] LLM stream completed with empty content'
             );
+            // If Gemini returned empty and we haven't tried the fallback yet, switch to Claude
+            if (isGeminiModel && !usedFallback) {
+              this.logger.info(
+                { sessionId: this.session.id, role, fallbackModel: FALLBACK_PARTNER_MODEL },
+                '[stream] Empty response from Gemini — switching to fallback model'
+              );
+              currentModel = FALLBACK_PARTNER_MODEL;
+              useWebSearch = false;
+              usedFallback = true;
+              break; // break while loop so for loop advances to attempt=1
+            }
             send(this.ws, {
               type: 'error',
               code: 'PROVIDER_ERROR',
