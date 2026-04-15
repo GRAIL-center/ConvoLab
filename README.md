@@ -124,9 +124,9 @@ Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for 
 - [x] Research tools (QR codes, live observation, notes, admin UI, telemetry)
 
 ### Roadmap
-- [ ] Coach aside (private Q&A with coach mid-conversation)
+- [x] Coach aside (private Q&A with coach mid-conversation)
 - [ ] Prompt Mangement and Opacity
-- [ ] Consolidate landing page into React app
+- [x] Consolidate landing page into React app
 - [ ] Runtime model discovery (dynamic model selection)
 
 ## Contributing
