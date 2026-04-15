@@ -25,6 +25,7 @@
     "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.2.0",
     "@google/genai": "^1.37.0",
+    "@sentry/node": "^10.48.0",
     "@trpc/server": "^11.8.1",
     "@workspace/database": "workspace:*",
     "dotenv": "^17.2.3",

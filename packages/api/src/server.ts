@@ -1,3 +1,14 @@
+import * as Sentry from '@sentry/node';
+
+// Sentry must be initialized before anything else
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? 'development',
+    tracesSampleRate: 0.2, // capture 20% of transactions for performance monitoring
+  });
+}
+
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
@@ -27,6 +38,10 @@ const fastify = Fastify({
     level: isDev ? 'debug' : 'info',
   },
 });
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupFastifyErrorHandler(fastify);
+}
 
 // Run startup diagnostics (will exit if critical config missing)
 logStartupDiagnostics(fastify.log);

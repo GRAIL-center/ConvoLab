@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import type {
   ConversationSession,
   Invitation,
@@ -172,6 +173,7 @@ export class ConversationManager {
       }
     } catch (error) {
       this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
+      Sentry.captureException(error, { extra: { sessionId: this.session.id } });
       send(this.ws, {
         type: 'error',
         code: 'INTERNAL_ERROR',
@@ -380,6 +382,9 @@ export class ConversationManager {
             { sessionId: this.session.id, role, model: currentModel, attempt, retries, errorMsg },
             '[stream] Provider error in tryStreamWithFallback'
           );
+          Sentry.captureException(error, {
+            extra: { sessionId: this.session.id, role, model: currentModel, attempt, retries },
+          });
           if (
             isGeminiModel &&
             (errorMsg.includes('429') || errorMsg.includes('quota')) &&
