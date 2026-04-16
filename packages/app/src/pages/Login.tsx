@@ -1,8 +1,8 @@
+import { Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Moon, Sun } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 import { Button } from '../components/ui/Button';
+import { useTheme } from '../contexts/ThemeContext';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -32,12 +32,8 @@ function LoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-text-primary mb-2">
-            Conversation Coach
-          </h1>
-          <p className="text-text-secondary">
-            Practice difficult conversations with AI
-          </p>
+          <h1 className="text-3xl font-bold text-text-primary mb-2">Conversation Coach</h1>
+          <p className="text-text-secondary">Practice difficult conversations with AI</p>
         </div>
 
         {/* Login form */}
@@ -72,11 +68,7 @@ function LoginPage() {
             />
           </div>
 
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full py-4 text-lg"
-          >
+          <Button type="submit" variant="primary" className="w-full py-4 text-lg">
             Sign In
           </Button>
 

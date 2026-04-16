@@ -169,6 +169,10 @@ export class ConversationManager {
           where: { id: this.session.id },
           data: { totalMessages: { increment: 3 } },
         });
+
+        // Fire-and-forget LAPP scorer (does not block the next exchange)
+        const turnNumber = this.session.messages.filter((m) => m.role === 'user').length;
+        this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch(() => {});
       }
     } catch (error) {
       this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
@@ -353,6 +357,89 @@ export class ConversationManager {
       }
     }
     return null;
+  }
+
+  private async runLappScorer(
+    userMessageId: number,
+    userMessage: string,
+    partnerMessage: string,
+    turnNumber: number
+  ): Promise<void> {
+    const scorerModel = 'claude-haiku-4-5-20251001';
+    const systemPrompt = `You are a LAPP dialogue scoring system. Score the user message on four dimensions and classify its tone. Respond ONLY with valid JSON — no explanation, no markdown, no other text.`;
+
+    const userPrompt = `Turn number: ${turnNumber}
+
+Partner's previous message:
+"${partnerMessage.trim()}"
+
+User's message to score:
+"${userMessage.trim()}"
+
+Score each dimension 1–5:
+L (Listen): Does the response engage with what the partner said, including emotional register?
+  1=Ignores/misrepresents  2=Minimal/selective  3=Surface only  4=Main point+tone  5=Full content+emotional subtext
+
+A (Acknowledge): Does the user validate the partner's experience without necessarily agreeing?
+  1=Dismisses/mocks  2=Performative ("I hear you, but")  3=Brief/formulaic  4=Clear validation  5=Names specific experience, no adversative
+
+P (Pivot): Does the user redirect toward open-ended inquiry?
+  1=No pivot/escalates  2=Rhetorical/leading  3=Abrupt or leading  4=Open, slightly leading OK  5=Genuinely open inquiry
+
+Pe (Perspective): Does the user share their own view in a personal, non-absolutist way?
+  1=Lectures/attacks  2=Opinion as fact  3=Stated but impersonal  4=First-person, mostly hedged  5=Personal, hedged, inviting
+
+Tone:
+  "tense"=escalatory/adversarial  "neutral"=matter-of-fact  "warm"=acknowledging/curious  "constructive"=full LAPP, collaborative
+
+Note: In turns 1–2, if P or Pe are clearly absent, score them 0 (N/A).
+
+Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
+
+    let fullContent = '';
+    try {
+      for await (const chunk of streamCompletion(scorerModel, {
+        systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        maxTokens: 80,
+      })) {
+        if (chunk.type === 'delta' && chunk.content) {
+          fullContent += chunk.content;
+        }
+      }
+
+      // Extract JSON from response (handle any wrapping text)
+      const jsonMatch = fullContent.match(/\{[^}]+\}/);
+      if (!jsonMatch) return;
+
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        l: number;
+        a: number;
+        p: number;
+        pe: number;
+        tone: string;
+      };
+
+      const validTones = ['constructive', 'warm', 'neutral', 'tense'] as const;
+      const tone = validTones.includes(parsed.tone as (typeof validTones)[number])
+        ? (parsed.tone as (typeof validTones)[number])
+        : 'neutral';
+
+      send(this.ws, {
+        type: 'score:update',
+        userMessageId,
+        turnNumber,
+        scores: {
+          l: Math.min(5, Math.max(0, Math.round(parsed.l))),
+          a: Math.min(5, Math.max(0, Math.round(parsed.a))),
+          p: Math.min(5, Math.max(0, Math.round(parsed.p))),
+          pe: Math.min(5, Math.max(0, Math.round(parsed.pe))),
+        },
+        tone,
+      });
+    } catch {
+      // Scoring failure is non-critical — silently ignore
+    }
   }
 
   private buildContext(role: 'partner' | 'coach'): LLMMessage[] {

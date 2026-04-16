@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel';
+import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -15,7 +16,6 @@ const ArrowLeftIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-5 h-5"
-    aria-hidden="true"
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
   </svg>
@@ -29,7 +29,6 @@ const MessageSquareIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-4 h-4"
-    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -47,7 +46,6 @@ const LightbulbIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-4 h-4"
-    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -65,7 +63,6 @@ const SendIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-5 h-5"
-    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -97,33 +94,16 @@ function FullScreenMessage({
   );
 }
 
-// Extract short name from scenario
 // "Angry Uncle at Thanksgiving" → "Angry Uncle"
-// "Difficult Coworker Feedback" → "Difficult Coworker"
 function getShortName(
   scenario: { name?: string; partnerPersona?: string } | null | undefined
 ): string {
-  if (!scenario?.name) return 'Partner';
-
-  // Split on " at " and take first part
-  const beforeAt = scenario.name.split(/\s+at\s+/i)[0].trim();
-  if (beforeAt && beforeAt !== scenario.name) {
-    return beforeAt; // "Angry Uncle at Thanksgiving" → "Angry Uncle"
+  if (!scenario) return 'Partner';
+  if (scenario.name) {
+    const beforeAt = scenario.name.split(/\s+at\s+/i)[0].trim();
+    if (beforeAt) return beforeAt;
   }
-
-  // For names without " at ", take first 2-3 words
-  // "Difficult Coworker Feedback" → "Difficult Coworker"
-  const words = scenario.name.split(/\s+/);
-  if (
-    words.length > 2 &&
-    (words[words.length - 1].toLowerCase() === 'feedback' ||
-      words[words.length - 1].toLowerCase() === 'conversation' ||
-      words[words.length - 1].toLowerCase() === 'discussion')
-  ) {
-    return words.slice(0, -1).join(' ');
-  }
-
-  return scenario.name;
+  return scenario.partnerPersona?.split(' ').slice(0, 3).join(' ') ?? 'Partner';
 }
 
 export function Conversation() {
@@ -170,13 +150,13 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     isStreaming,
     quota,
     error,
+    lappScores,
     asideMessages,
     isAsideStreaming,
     startAside,
   } = useConversationSocket(sessionId);
 
   // Auto-scroll main messages
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -283,17 +263,27 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
         <ThemeToggle />
       </header>
 
-      {/* Main content - TWO COLUMN LAYOUT (desktop) */}
+      {/* Main content - THREE COLUMN LAYOUT (desktop) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT: Main conversation */}
+        {/* FAR LEFT: LAPP Metrics Panel (xl+) */}
+        <div
+          className="hidden xl:flex xl:w-[190px] flex-col overflow-hidden flex-shrink-0
+                        bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(28,28,28,0.95)]
+                        border-r border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
+        >
+          <LappMetricsPanel lappScores={lappScores} />
+        </div>
+
+        {/* CENTER: Main conversation */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
             <div className="mx-auto max-w-4xl">
               <MessageList
                 messages={mainMessages}
-                partnerName={shortName}
+                partnerName={scenario?.partnerPersona}
                 isStreaming={isStreaming}
+                lappScores={lappScores}
               />
               <div ref={messagesEndRef} />
             </div>
@@ -402,11 +392,15 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
 
         {/* RIGHT: Desktop Coach Panel */}
         <div
-          className="hidden lg:block lg:w-[400px] xl:w-[450px] p-4 overflow-hidden
+          className="hidden lg:block lg:w-[380px] xl:w-[400px] p-4 overflow-hidden
                         bg-[#F8F8F8] dark:bg-[#1A1A1A]
                         border-l border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
         >
-          <DesktopCoachPanel coachMessages={coachMessages} asideMessages={asideMessages} />
+          <DesktopCoachPanel
+            coachMessages={coachMessages}
+            asideMessages={asideMessages}
+            lappScores={lappScores}
+          />
         </div>
       </div>
     </div>

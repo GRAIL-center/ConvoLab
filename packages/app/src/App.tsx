@@ -3,8 +3,8 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
-import { UserMenu } from './components/UserMenu';
 import { ThemeToggle } from './components/ThemeToggle';
+import { UserMenu } from './components/UserMenu';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ResearchLayout } from './layouts/ResearchLayout';
 import { Telemetry } from './pages/admin/Telemetry';
@@ -16,7 +16,6 @@ import { Invite } from './pages/Invite';
 import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
 import { ObserveSession } from './pages/research/ObserveSession';
-
 
 function makeQueryClient() {
   return new QueryClient({
@@ -101,9 +100,11 @@ export function App() {
                       dangerouslySetInnerHTML={{ __html: siteBanner }}
                     />
                   )}
-                  <header className="bg-white/95 dark:bg-[rgba(30,30,30,0.95)] backdrop-blur-sm
+                  <header
+                    className="bg-white/95 dark:bg-[rgba(30,30,30,0.95)] backdrop-blur-sm
                                      border-b border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.08)]
-                                     sticky top-0 z-10">
+                                     sticky top-0 z-10"
+                  >
                     {/*
                       ── HEADER HEIGHT ──────────────────────────────
                       py-4 = top/bottom padding → increase to py-5/py-6 to make taller

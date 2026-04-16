@@ -20,7 +20,7 @@ export const anthropicProvider: LLMProvider = {
   async *streamCompletion(params: StreamParams): AsyncIterable<StreamChunk> {
     try {
       const tools = params.useWebSearch
-        ? ([{ type: 'web_search_20250305' as const, name: 'web_search' as const }])
+        ? [{ type: 'web_search_20250305' as const, name: 'web_search' as const }]
         : undefined;
 
       const stream = getClient().messages.stream({

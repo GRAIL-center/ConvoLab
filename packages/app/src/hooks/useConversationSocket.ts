@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+// LAPP score for a single user message
+export interface LappScore {
+  userMessageId: number;
+  turnNumber: number;
+  scores: { l: number; a: number; p: number; pe: number };
+  tone: 'constructive' | 'warm' | 'neutral' | 'tense';
+}
+
 // Mirror types from API protocol (no shared package yet)
 export interface ScenarioInfo {
   id: number;
@@ -36,6 +44,13 @@ interface TokenUsage {
 type ServerMessage =
   | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
   | { type: 'history'; messages: Message[] }
+  | {
+      type: 'score:update';
+      userMessageId: number;
+      turnNumber: number;
+      scores: { l: number; a: number; p: number; pe: number };
+      tone: 'constructive' | 'warm' | 'neutral' | 'tense';
+    }
   | { type: 'partner:delta'; content: string }
   | { type: 'partner:retry' }
   | { type: 'partner:done'; messageId: number; usage: TokenUsage; content: string }
@@ -84,6 +99,8 @@ interface UseConversationSocketResult {
   streamingRole: 'partner' | 'coach' | null;
   quota: QuotaState | null;
   error: ConversationError | null;
+  // LAPP scores keyed by userMessageId
+  lappScores: Map<number, LappScore>;
   // Aside state
   asideMessages: AsideMessage[];
   isAsideStreaming: boolean;
@@ -105,6 +122,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
   const [streamingRole, setStreamingRole] = useState<'partner' | 'coach' | null>(null);
   const [quota, setQuota] = useState<QuotaState | null>(null);
   const [error, setError] = useState<ConversationError | null>(null);
+  const [lappScores, setLappScores] = useState<Map<number, LappScore>>(new Map());
 
   // Aside state
   const [asideMessages, setAsideMessages] = useState<AsideMessage[]>([]);
@@ -450,6 +468,19 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setActiveAsideThreadId(null);
             break;
 
+          case 'score:update':
+            setLappScores((prev) => {
+              const next = new Map(prev);
+              next.set(msg.userMessageId, {
+                userMessageId: msg.userMessageId,
+                turnNumber: msg.turnNumber,
+                scores: msg.scores,
+                tone: msg.tone,
+              });
+              return next;
+            });
+            break;
+
           case 'error':
             setError({ code: msg.code, message: msg.message, recoverable: msg.recoverable });
             if (!msg.recoverable) {
@@ -500,6 +531,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
     streamingRole,
     quota,
     error,
+    lappScores,
     // Aside state
     asideMessages,
     isAsideStreaming,

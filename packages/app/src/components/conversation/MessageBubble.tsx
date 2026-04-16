@@ -1,25 +1,36 @@
 import Markdown from 'react-markdown';
 import type { Message } from '../../hooks/useConversationSocket';
 
+type MessageTone = 'constructive' | 'warm' | 'neutral' | 'tense' | null;
+
+const TONE_BORDER: Record<NonNullable<MessageTone>, string> = {
+  constructive: 'border-[rgba(34,197,94,0.7)] dark:border-[rgba(80,200,120,0.5)]',
+  warm: 'border-[rgba(100,180,175,0.7)] dark:border-[rgba(134,199,194,0.5)]',
+  neutral: 'border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.05)]',
+  tense: 'border-[rgba(234,88,12,0.7)] dark:border-[rgba(200,100,40,0.6)]',
+};
+
 interface MessageBubbleProps {
   message: Message;
   partnerName?: string;
+  tone?: MessageTone;
 }
 
-export function MessageBubble({ message, partnerName }: MessageBubbleProps) {
+export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isPartner = message.role === 'partner';
   const isCoach = message.role === 'coach';
 
-  // User message - right-aligned, gray
+  // User message - right-aligned, gray, tone-colored border
   if (isUser) {
+    const borderClass = tone ? TONE_BORDER[tone] : TONE_BORDER.neutral;
     return (
       <div className="flex justify-end mb-4">
         <div
-          className="max-w-[75%] rounded-xl rounded-tr-sm px-5 py-3.5
+          className={`max-w-[75%] rounded-xl rounded-tr-sm px-5 py-3.5
                         bg-[rgba(230,230,230,1)] dark:bg-[rgba(60,60,60,0.8)]
                         text-[#1A1A1A] dark:text-[#EBEBEB]
-                        border border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.05)]"
+                        border ${borderClass}`}
         >
           <div className="text-base leading-relaxed whitespace-pre-wrap">{message.content}</div>
         </div>

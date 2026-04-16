@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react';
-import type { Message } from '../../hooks/useConversationSocket';
+import type { LappScore, Message } from '../../hooks/useConversationSocket';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
   partnerName?: string;
+  lappScores?: Map<number, LappScore>;
 }
 
-export function MessageList({ messages, isStreaming, partnerName }: MessageListProps) {
+export function MessageList({ messages, isStreaming, partnerName, lappScores }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on messages change
@@ -21,7 +22,9 @@ export function MessageList({ messages, isStreaming, partnerName }: MessageListP
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-gray-400 dark:text-[#6B6B6B] text-sm">Send a message to start the conversation</p>
+        <p className="text-gray-400 dark:text-[#6B6B6B] text-sm">
+          Send a message to start the conversation
+        </p>
       </div>
     );
   }
@@ -32,13 +35,18 @@ export function MessageList({ messages, isStreaming, partnerName }: MessageListP
       role="log"
       aria-label="Conversation messages"
     >
-      {messages.map((message, index) => (
-        <MessageBubble
-          key={message.id !== -1 ? message.id : `streaming-${index}`}
-          message={message}
-          partnerName={partnerName}
-        />
-      ))}
+      {messages.map((message, index) => {
+        const tone =
+          message.role === 'user' && lappScores ? (lappScores.get(message.id)?.tone ?? null) : null;
+        return (
+          <MessageBubble
+            key={message.id !== -1 ? message.id : `streaming-${index}`}
+            message={message}
+            partnerName={partnerName}
+            tone={tone}
+          />
+        );
+      })}
       <div ref={bottomRef} />
     </div>
   );

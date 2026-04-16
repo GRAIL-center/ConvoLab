@@ -43,9 +43,11 @@ export function YourSessions() {
 
   if (!isLoading && !authData?.user) {
     return (
-      <div className="mb-8 rounded-2xl p-6
+      <div
+        className="mb-8 rounded-2xl p-6
                       bg-white dark:bg-[rgba(40,40,40,0.9)]
-                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]">
+                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]"
+      >
         <h2 className="text-base font-medium text-gray-900 dark:text-[#EBEBEB] mb-2">Welcome</h2>
         <p className="text-gray-500 dark:text-[#A0A0A0]">
           Sign in or use an invitation link to start practicing conversations.
@@ -56,14 +58,24 @@ export function YourSessions() {
 
   if (isLoading || !sessions || !Array.isArray(sessions) || sessions.length === 0) {
     // Show empty state when not loading and authenticated but no sessions
-    if (!isLoading && authData?.user && (!sessions || (sessions as unknown as Session[]).length === 0)) {
+    if (
+      !isLoading &&
+      authData?.user &&
+      (!sessions || (sessions as unknown as Session[]).length === 0)
+    ) {
       return (
         <div className="mb-8">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">Your Conversations</h2>
-          <div className="rounded-2xl p-6 text-center
+          <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">
+            Your Conversations
+          </h2>
+          <div
+            className="rounded-2xl p-6 text-center
                           bg-white dark:bg-[rgba(40,40,40,0.9)]
-                          border border-[rgba(130,167,161,0.15)] dark:border-[rgba(212,232,229,0.08)]">
-            <p className="text-gray-400 dark:text-[#6B6B6B]">No conversations yet. Start one below!</p>
+                          border border-[rgba(130,167,161,0.15)] dark:border-[rgba(212,232,229,0.08)]"
+          >
+            <p className="text-gray-400 dark:text-[#6B6B6B]">
+              No conversations yet. Start one below!
+            </p>
           </div>
         </div>
       );
@@ -73,7 +85,9 @@ export function YourSessions() {
 
   return (
     <div className="mb-8">
-      <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">Your Conversations</h2>
+      <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB] mb-4">
+        Your Conversations
+      </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(sessions as Session[]).map((session) => (
           <button
