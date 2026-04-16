@@ -101,6 +101,25 @@ export class ConversationManager {
     }));
 
     send(this.ws, { type: 'history', messages: historyMessages });
+
+    // Replay persisted LAPP scores so the panel restores on re-open
+    const existingScores = await this.prisma.lappScore.findMany({
+      where: { sessionId: this.session.id },
+      orderBy: { turnNumber: 'asc' },
+    });
+    for (const score of existingScores) {
+      const validTones = ['constructive', 'warm', 'neutral', 'tense'] as const;
+      const tone = validTones.includes(score.tone as (typeof validTones)[number])
+        ? (score.tone as (typeof validTones)[number])
+        : ('neutral' as const);
+      send(this.ws, {
+        type: 'score:update',
+        userMessageId: score.userMessageId,
+        turnNumber: score.turnNumber,
+        scores: { l: score.l, a: score.a, p: score.p, pe: score.pe },
+        tone,
+      });
+    }
   }
 
   async handleUserMessage(content: string): Promise<void> {
@@ -425,18 +444,20 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
         ? (parsed.tone as (typeof validTones)[number])
         : 'neutral';
 
-      send(this.ws, {
-        type: 'score:update',
-        userMessageId,
-        turnNumber,
-        scores: {
-          l: Math.min(5, Math.max(0, Math.round(parsed.l))),
-          a: Math.min(5, Math.max(0, Math.round(parsed.a))),
-          p: Math.min(5, Math.max(0, Math.round(parsed.p))),
-          pe: Math.min(5, Math.max(0, Math.round(parsed.pe))),
-        },
-        tone,
+      const scores = {
+        l: Math.min(5, Math.max(0, Math.round(parsed.l))),
+        a: Math.min(5, Math.max(0, Math.round(parsed.a))),
+        p: Math.min(5, Math.max(0, Math.round(parsed.p))),
+        pe: Math.min(5, Math.max(0, Math.round(parsed.pe))),
+      };
+
+      await this.prisma.lappScore.upsert({
+        where: { userMessageId },
+        create: { userMessageId, sessionId: this.session.id, turnNumber, ...scores, tone },
+        update: { ...scores, tone },
       });
+
+      send(this.ws, { type: 'score:update', userMessageId, turnNumber, scores, tone });
     } catch {
       // Scoring failure is non-critical — silently ignore
     }
