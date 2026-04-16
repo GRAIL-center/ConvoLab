@@ -16,6 +16,7 @@ const ArrowLeftIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-5 h-5"
+    aria-hidden="true"
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
   </svg>
@@ -29,6 +30,7 @@ const MessageSquareIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-4 h-4"
+    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -46,6 +48,7 @@ const LightbulbIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-4 h-4"
+    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -63,6 +66,7 @@ const SendIcon = () => (
     strokeWidth={1.5}
     stroke="currentColor"
     className="w-5 h-5"
+    aria-hidden="true"
   >
     <path
       strokeLinecap="round"
@@ -157,6 +161,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   } = useConversationSocket(sessionId);
 
   // Auto-scroll main messages
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll, not consumed in body
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
