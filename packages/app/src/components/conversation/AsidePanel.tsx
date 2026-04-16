@@ -121,9 +121,10 @@ export function AsidePanel({
         className={`fixed z-50 bg-white dark:bg-gray-800 shadow-xl flex flex-col transform transition-transform duration-300 ease-out
           bottom-0 left-0 w-full h-[85vh] rounded-t-2xl md:rounded-none
           md:top-0 md:right-0 md:h-full md:w-[400px] md:bottom-auto md:left-auto
-          ${isOpen
-            ? 'translate-y-0 md:translate-x-0'
-            : 'translate-y-full md:translate-x-full md:translate-y-0'
+          ${
+            isOpen
+              ? 'translate-y-0 md:translate-x-0'
+              : 'translate-y-full md:translate-x-full md:translate-y-0'
           }`}
         role="dialog"
         aria-label="Ask Coach"
@@ -147,8 +148,18 @@ export function AsidePanel({
               className="h-6 w-6"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" className="md:hidden" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" className="hidden md:block" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 9l-7 7-7-7"
+                className="md:hidden"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+                className="hidden md:block"
+              />
             </svg>
           </button>
         </div>
@@ -177,7 +188,10 @@ export function AsidePanel({
         )}
 
         {/* Input form */}
-        <form onSubmit={handleSubmit} className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+        <form
+          onSubmit={handleSubmit}
+          className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3"
+        >
           <div className="flex gap-2">
             <textarea
               ref={inputRef}

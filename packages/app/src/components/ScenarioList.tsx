@@ -76,37 +76,48 @@ function PresetModal({ scenario, onClose }: PresetModalProps) {
       aria-labelledby="modal-title"
       tabIndex={-1}
     >
-      <div className="rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6
+      <div
+        className="rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6
                       bg-white dark:bg-[rgba(40,40,40,0.98)]
-                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.12)]">
-        <h3 id="modal-title" className="text-lg font-semibold text-gray-900 dark:text-[#EBEBEB] mb-1">
+                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.12)]"
+      >
+        <h3
+          id="modal-title"
+          className="text-lg font-semibold text-gray-900 dark:text-[#EBEBEB] mb-1"
+        >
           {scenario.name}
         </h3>
-        <p className="text-sm text-gray-500 dark:text-[#A0A0A0] mb-4">Choose a token quota for this conversation:</p>
+        <p className="text-sm text-gray-500 dark:text-[#A0A0A0] mb-4">
+          Choose a token quota for this conversation:
+        </p>
 
         {presetsLoading ? (
           <p className="text-[#A0A0A0] text-sm">Loading presets...</p>
         ) : (
           <div className="space-y-2 mb-4">
-            {presets && Array.isArray(presets) && (presets as Preset[]).map((preset) => (
-              <button
-                key={preset.name}
-                type="button"
-                aria-pressed={selectedPreset === preset.name}
-                onClick={() => setSelectedPreset(preset.name)}
-                className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                  selectedPreset === preset.name
-                    ? 'border-[rgba(130,167,161,0.6)] dark:border-[rgba(134,199,194,0.5)] bg-[rgba(130,167,161,0.1)] dark:bg-[rgba(134,199,194,0.1)]'
-                    : 'border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)] hover:border-[rgba(130,167,161,0.4)] dark:hover:border-[rgba(212,232,229,0.2)] hover:bg-[rgba(130,167,161,0.05)] dark:hover:bg-[rgba(212,232,229,0.04)]'
-                }`}
-              >
-                <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">{preset.label}</div>
-                <div className="text-sm text-gray-500 dark:text-[#A0A0A0]">
-                  {preset.quota.tokens.toLocaleString()} tokens
-                  {preset.description && ` — ${preset.description}`}
-                </div>
-              </button>
-            ))}
+            {presets &&
+              Array.isArray(presets) &&
+              (presets as Preset[]).map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  aria-pressed={selectedPreset === preset.name}
+                  onClick={() => setSelectedPreset(preset.name)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                    selectedPreset === preset.name
+                      ? 'border-[rgba(130,167,161,0.6)] dark:border-[rgba(134,199,194,0.5)] bg-[rgba(130,167,161,0.1)] dark:bg-[rgba(134,199,194,0.1)]'
+                      : 'border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)] hover:border-[rgba(130,167,161,0.4)] dark:hover:border-[rgba(212,232,229,0.2)] hover:bg-[rgba(130,167,161,0.05)] dark:hover:bg-[rgba(212,232,229,0.04)]'
+                  }`}
+                >
+                  <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">
+                    {preset.label}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-[#A0A0A0]">
+                    {preset.quota.tokens.toLocaleString()} tokens
+                    {preset.description && ` — ${preset.description}`}
+                  </div>
+                </button>
+              ))}
           </div>
         )}
 
@@ -214,9 +225,11 @@ function CustomScenarioModal({ onClose }: CustomScenarioModalProps) {
       aria-labelledby="custom-modal-title"
       tabIndex={-1}
     >
-      <div className="rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6
+      <div
+        className="rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6
                       bg-white dark:bg-[rgba(40,40,40,0.98)]
-                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.12)]">
+                      border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.12)]"
+      >
         {!confirmedScenario ? (
           <CustomScenarioForm
             onConfirm={handleConfirm}
@@ -226,13 +239,19 @@ function CustomScenarioModal({ onClose }: CustomScenarioModalProps) {
           />
         ) : (
           <>
-            <div className="mb-4 rounded-xl bg-[rgba(134,199,194,0.1)] dark:bg-[rgba(134,199,194,0.08)]
-                            border border-[rgba(134,199,194,0.3)] dark:border-[rgba(134,199,194,0.2)] p-4">
-              <p className="text-xs text-[rgba(60,140,130,1)] dark:text-[rgba(134,199,194,0.8)] font-medium mb-1">Your conversation partner:</p>
+            <div
+              className="mb-4 rounded-xl bg-[rgba(134,199,194,0.1)] dark:bg-[rgba(134,199,194,0.08)]
+                            border border-[rgba(134,199,194,0.3)] dark:border-[rgba(134,199,194,0.2)] p-4"
+            >
+              <p className="text-xs text-[rgba(60,140,130,1)] dark:text-[rgba(134,199,194,0.8)] font-medium mb-1">
+                Your conversation partner:
+              </p>
               <p className="text-sm font-semibold text-gray-900 dark:text-[#EBEBEB]">
                 {confirmedScenario.elaborated.name}
               </p>
-              <p className="text-sm text-gray-600 dark:text-[#B5B5B5] mt-1">{confirmedScenario.elaborated.persona}</p>
+              <p className="text-sm text-gray-600 dark:text-[#B5B5B5] mt-1">
+                {confirmedScenario.elaborated.persona}
+              </p>
               <button
                 type="button"
                 onClick={handleBack}
@@ -247,25 +266,29 @@ function CustomScenarioModal({ onClose }: CustomScenarioModalProps) {
               <p className="text-[#A0A0A0] text-sm">Loading presets...</p>
             ) : (
               <div className="space-y-2 mb-4">
-                {presets && Array.isArray(presets) && (presets as Preset[]).map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    aria-pressed={selectedPreset === preset.name}
-                    onClick={() => setSelectedPreset(preset.name)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                      selectedPreset === preset.name
-                        ? 'border-[rgba(130,167,161,0.6)] dark:border-[rgba(134,199,194,0.5)] bg-[rgba(130,167,161,0.1)] dark:bg-[rgba(134,199,194,0.1)]'
-                        : 'border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)] hover:border-[rgba(130,167,161,0.4)] dark:hover:border-[rgba(212,232,229,0.2)] hover:bg-[rgba(130,167,161,0.05)] dark:hover:bg-[rgba(212,232,229,0.04)]'
-                    }`}
-                  >
-                    <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">{preset.label}</div>
-                    <div className="text-sm text-gray-500 dark:text-[#A0A0A0]">
-                      {preset.quota.tokens.toLocaleString()} tokens
-                      {preset.description && ` — ${preset.description}`}
-                    </div>
-                  </button>
-                ))}
+                {presets &&
+                  Array.isArray(presets) &&
+                  (presets as Preset[]).map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      aria-pressed={selectedPreset === preset.name}
+                      onClick={() => setSelectedPreset(preset.name)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                        selectedPreset === preset.name
+                          ? 'border-[rgba(130,167,161,0.6)] dark:border-[rgba(134,199,194,0.5)] bg-[rgba(130,167,161,0.1)] dark:bg-[rgba(134,199,194,0.1)]'
+                          : 'border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)] hover:border-[rgba(130,167,161,0.4)] dark:hover:border-[rgba(212,232,229,0.2)] hover:bg-[rgba(130,167,161,0.05)] dark:hover:bg-[rgba(212,232,229,0.04)]'
+                      }`}
+                    >
+                      <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">
+                        {preset.label}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-[#A0A0A0]">
+                        {preset.quota.tokens.toLocaleString()} tokens
+                        {preset.description && ` — ${preset.description}`}
+                      </div>
+                    </button>
+                  ))}
               </div>
             )}
 
@@ -313,7 +336,11 @@ export function ScenarioList() {
   }
 
   if (isError) {
-    return <p className="text-red-500 dark:text-[#FCA5A5]">Error loading scenarios. Please try again later.</p>;
+    return (
+      <p className="text-red-500 dark:text-[#FCA5A5]">
+        Error loading scenarios. Please try again later.
+      </p>
+    );
   }
 
   if (!scenarios || !Array.isArray(scenarios) || scenarios.length === 0) {
@@ -335,11 +362,19 @@ export function ScenarioList() {
                        hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)]
                        shadow-sm"
           >
-            <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB]">{scenario.name}</h2>
-            <p className="mt-2 text-sm text-gray-500 dark:text-[#A0A0A0] line-clamp-2 leading-relaxed">{scenario.description}</p>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-[#EBEBEB]">
+              {scenario.name}
+            </h2>
+            <p className="mt-2 text-sm text-gray-500 dark:text-[#A0A0A0] line-clamp-2 leading-relaxed">
+              {scenario.description}
+            </p>
             <div className="mt-4 flex items-baseline gap-2 text-sm">
-              <span className="text-gray-400 dark:text-[#6B6B6B] whitespace-nowrap">You'll talk with:</span>
-              <span className="font-semibold text-gray-700 dark:text-[#B5B5B5]">{scenario.partnerPersona}</span>
+              <span className="text-gray-400 dark:text-[#6B6B6B] whitespace-nowrap">
+                You'll talk with:
+              </span>
+              <span className="font-semibold text-gray-700 dark:text-[#B5B5B5]">
+                {scenario.partnerPersona}
+              </span>
             </div>
           </button>
         ))}
@@ -355,13 +390,19 @@ export function ScenarioList() {
                      hover:bg-[rgba(130,167,161,0.12)] dark:hover:bg-[rgba(212,232,229,0.08)]
                      shadow-sm"
         >
-          <h2 className="text-base font-semibold text-gray-800 dark:text-[#EBEBEB]">Create Your Own</h2>
+          <h2 className="text-base font-semibold text-gray-800 dark:text-[#EBEBEB]">
+            Create Your Own
+          </h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-[#A0A0A0] leading-relaxed">
             Describe any conversation partner you want to practice with.
           </p>
           <div className="mt-4 flex items-baseline gap-2 text-sm">
-            <span className="text-gray-400 dark:text-[#6B6B6B] whitespace-nowrap">You'll talk with:</span>
-            <span className="font-semibold text-gray-700 dark:text-[#B5B5B5]">Anyone you need to talk to</span>
+            <span className="text-gray-400 dark:text-[#6B6B6B] whitespace-nowrap">
+              You'll talk with:
+            </span>
+            <span className="font-semibold text-gray-700 dark:text-[#B5B5B5]">
+              Anyone you need to talk to
+            </span>
           </div>
         </button>
       </div>

@@ -22,7 +22,14 @@ export type ServerMessage =
   | { type: 'aside:error'; threadId: string; error: string }
   | { type: 'error'; code: ErrorCode; message: string; recoverable: boolean }
   | { type: 'quota:warning'; remaining: number; total: number }
-  | { type: 'quota:exhausted' };
+  | { type: 'quota:exhausted' }
+  | {
+      type: 'score:update';
+      userMessageId: number;
+      turnNumber: number;
+      scores: { l: number; a: number; p: number; pe: number };
+      tone: 'constructive' | 'warm' | 'neutral' | 'tense';
+    };
 
 // Client -> Server messages
 export type ClientMessage =
