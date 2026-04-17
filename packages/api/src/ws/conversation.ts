@@ -32,6 +32,25 @@ When responding to an aside question (marked with [ASIDE QUESTION]):
 - Do not continue the main coaching narrative
 `;
 
+function shouldFallbackFromGemini(errorMessage?: string, errorCode?: string): boolean {
+  if (!errorMessage && !errorCode) return false;
+
+  const normalizedMessage = errorMessage?.toLowerCase() ?? '';
+  const normalizedCode = errorCode?.toUpperCase() ?? '';
+
+  return (
+    normalizedCode === 'HTTP_429' ||
+    normalizedMessage.includes('quota') ||
+    normalizedMessage.includes('google_ai_api_key') ||
+    normalizedMessage.includes('api key') ||
+    normalizedMessage.includes('api_key') ||
+    normalizedMessage.includes('authentication') ||
+    normalizedMessage.includes('permission denied') ||
+    normalizedMessage.includes('forbidden') ||
+    normalizedMessage.includes('unauthorized')
+  );
+}
+
 // Added missing fields to the interface to resolve TS2339 and TS2551
 interface SessionWithScenario extends ConversationSession {
   scenario: Scenario | null;
@@ -327,12 +346,14 @@ export class ConversationManager {
                 },
                 '[stream] LLM chunk error'
               );
-              const isQuotaError =
-                chunk.error.code === 'HTTP_429' || chunk.error.message?.includes('quota');
-              if (isGeminiModel && isQuotaError && !usedFallback) {
+              if (
+                isGeminiModel &&
+                shouldFallbackFromGemini(chunk.error.message, chunk.error.code) &&
+                !usedFallback
+              ) {
                 this.logger.info(
                   { sessionId: this.session.id, role, fallbackModel: FALLBACK_PARTNER_MODEL },
-                  '[stream] Quota error — switching to fallback model'
+                  '[stream] Gemini unavailable — switching to fallback model'
                 );
                 currentModel = FALLBACK_PARTNER_MODEL;
                 useWebSearch = false;
@@ -383,7 +404,13 @@ export class ConversationManager {
           this.session.messages.push(message);
 
           this.logger.info(
-            { sessionId: this.session.id, role, model: currentModel, messageId: message.id, contentLength: fullContent.trim().length },
+            {
+              sessionId: this.session.id,
+              role,
+              model: currentModel,
+              messageId: message.id,
+              contentLength: fullContent.trim().length,
+            },
             '[stream] Response persisted and sent'
           );
 
@@ -408,11 +435,7 @@ export class ConversationManager {
           Sentry.captureException(error, {
             extra: { sessionId: this.session.id, role, model: currentModel, attempt, retries },
           });
-          if (
-            isGeminiModel &&
-            (errorMsg.includes('429') || errorMsg.includes('quota')) &&
-            !usedFallback
-          ) {
+          if (isGeminiModel && shouldFallbackFromGemini(errorMsg) && !usedFallback) {
             currentModel = FALLBACK_PARTNER_MODEL;
             useWebSearch = false;
             usedFallback = true;
@@ -578,9 +601,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     for (let j = 0; j < exchanges.length; j++) {
       const ex = exchanges[j];
       const isLast = j === exchanges.length - 1;
-      const userContent = isLast
-        ? `The user said: "${ex.user}"\nThe uncle responded: "${ex.partner}"`
-        : `The user said: "${ex.user}"\nThe uncle responded: "${ex.partner}"`;
+      const userContent = `The user said: "${ex.user}"\nThe partner responded: "${ex.partner}"`;
       result.push({ role: 'user' as const, content: userContent });
       if (ex.coach) {
         result.push({ role: 'assistant' as const, content: ex.coach });
@@ -787,15 +808,27 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
           );
         } else if (chunk.type === 'error' && chunk.error) {
           this.logger.warn(
-            { sessionId: this.session.id, threadId, errorCode: chunk.error.code, errorMsg: chunk.error.message },
+            {
+              sessionId: this.session.id,
+              threadId,
+              errorCode: chunk.error.code,
+              errorMsg: chunk.error.message,
+            },
             '[aside] Chunk error'
           );
         }
       }
 
       if (fullContent.trim().length === 0) {
-        this.logger.warn({ sessionId: this.session.id, threadId }, 'Aside stream returned empty content');
-        send(this.ws, { type: 'aside:error', threadId, error: 'AI service returned an empty response. Please try again.' });
+        this.logger.warn(
+          { sessionId: this.session.id, threadId },
+          'Aside stream returned empty content'
+        );
+        send(this.ws, {
+          type: 'aside:error',
+          threadId,
+          error: 'AI service returned an empty response. Please try again.',
+        });
         return null;
       }
 
@@ -808,7 +841,11 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
       return { content: fullContent, messageId: message.id, usage };
     } catch (error) {
       this.logger.error({ sessionId: this.session.id, threadId, error }, 'Aside stream error');
-      send(this.ws, { type: 'aside:error', threadId, error: 'AI service temporarily unavailable.' });
+      send(this.ws, {
+        type: 'aside:error',
+        threadId,
+        error: 'AI service temporarily unavailable.',
+      });
       return null;
     }
   }
