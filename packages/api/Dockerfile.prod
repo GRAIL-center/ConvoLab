@@ -6,8 +6,8 @@ WORKDIR /app
 # Install system dependencies (OpenSSL for Prisma)
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm (pinned to match pnpm-lock.yaml version)
+RUN npm install -g pnpm@10.28.2
 
 # Copy workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
@@ -18,7 +18,7 @@ COPY packages/app/package.json ./packages/app/
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source code (node_modules excluded via .dockerignore)
 COPY packages/database ./packages/database
 COPY packages/api ./packages/api
 COPY packages/app ./packages/app
@@ -48,8 +48,8 @@ WORKDIR /app
 # Install system dependencies (OpenSSL for Prisma runtime)
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm for running the app
-RUN npm install -g pnpm
+# Install pnpm (pinned to match pnpm-lock.yaml version)
+RUN npm install -g pnpm@10.28.2
 
 # Copy package files
 COPY package.json pnpm-workspace.yaml ./
