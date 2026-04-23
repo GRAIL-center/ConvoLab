@@ -2,18 +2,18 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { parseQuota } from '../../lib/quota.js';
 import { generateToken } from '../../lib/tokens.js';
-import { publicProcedure, router, staffProcedure } from '../procedures.js';
+import { protectedProcedure, publicProcedure, router } from '../procedures.js';
 
 export const sessionRouter = router({
   /**
-   * Start a new conversation session (staff+ only).
+   * Start a new conversation session (any authenticated user).
    * Creates an auto-assigned invitation and session in one step.
    *
    * Supports two modes:
    * 1. Predefined scenario: provide scenarioId
    * 2. Custom scenario: provide customDescription + elaborated prompts
    */
-  startNew: staffProcedure
+  startNew: protectedProcedure
     .input(
       z
         .object({
