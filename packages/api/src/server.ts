@@ -1,3 +1,4 @@
+import './load-env.js';
 import * as Sentry from '@sentry/node';
 
 // Sentry must be initialized before anything else

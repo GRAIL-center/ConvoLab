@@ -122,7 +122,12 @@ function LappRadar({ l, a, p, pe }: { l: number; a: number; p: number; pe: numbe
   });
 
   return (
-    <svg viewBox="0 0 104 104" className="w-full h-full" role="img" aria-labelledby="lapp-radar-title">
+    <svg
+      viewBox="0 0 104 104"
+      className="w-full h-full"
+      role="img"
+      aria-labelledby="lapp-radar-title"
+    >
       <title id="lapp-radar-title">LAPP skill radar</title>
       {/* Grid diamonds */}
       {gridRings.map((pts) => (

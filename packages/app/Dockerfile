@@ -2,8 +2,8 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm (pinned to match pnpm-lock.yaml version)
+RUN npm install -g pnpm@10.28.2
 
 # Copy workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
@@ -16,9 +16,6 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY packages/database ./packages/database
 COPY packages/app ./packages/app
-
-# Generate Prisma Client
-RUN pnpm -F @workspace/database generate
 
 # Expose port
 EXPOSE 5173

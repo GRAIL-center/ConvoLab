@@ -5,8 +5,8 @@ WORKDIR /app
 # Install system dependencies (OpenSSL for Prisma)
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm (pinned to match pnpm-lock.yaml version)
+RUN npm install -g pnpm@10.28.2
 
 # Copy workspace config and all package sources (needed for proper workspace linking)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
