@@ -6,7 +6,7 @@ import { elaborateDescription } from '../../lib/elaborate.js';
 import { getInvitationQuotaStatus, parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
-import { publicProcedure, router, staffProcedure } from '../procedures.js';
+import { protectedProcedure, publicProcedure, router, staffProcedure } from '../procedures.js';
 
 // Base64url token format (32 bytes = 43 chars, no padding)
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Invalid token format');
@@ -434,9 +434,9 @@ export const invitationRouter = router({
   }),
 
   /**
-   * Get available quota presets (staff+).
+   * Get available quota presets (any authenticated user).
    */
-  getPresets: staffProcedure.query(async ({ ctx }) => {
+  getPresets: protectedProcedure.query(async ({ ctx }) => {
     const presets = await ctx.prisma.quotaPreset.findMany({
       orderBy: { sortOrder: 'asc' },
     });

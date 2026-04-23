@@ -179,8 +179,7 @@ function LandingPage() {
   );
 }
 
-function AuthenticatedHome({ role }: { role: string }) {
-  const isStaffOrAdmin = role === 'STAFF' || role === 'ADMIN';
+function AuthenticatedHome() {
   /*
    * ── HOME PAGE SIDE PADDING ───────────────────────────────────────────────
    * px-6 / px-10 / px-16 = side padding at sm/lg breakpoints
@@ -190,15 +189,13 @@ function AuthenticatedHome({ role }: { role: string }) {
     <div className="w-full py-10 px-6 sm:px-10 lg:px-16">
       <SetupGuide />
       <YourSessions />
-      {isStaffOrAdmin && (
-        <>
-          {/* SECTION HEADING SIZE → text-2xl, try text-3xl to go bigger */}
-          <h2 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-[#EBEBEB]">
-            Start a New Conversation
-          </h2>
-          <ScenarioList />
-        </>
-      )}
+      <>
+        {/* SECTION HEADING SIZE → text-2xl, try text-3xl to go bigger */}
+        <h2 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-[#EBEBEB]">
+          Start a New Conversation
+        </h2>
+        <ScenarioList />
+      </>
     </div>
   );
 }
@@ -220,5 +217,5 @@ export function Home() {
   }
 
   if (!authData?.user) return <LandingPage />;
-  return <AuthenticatedHome role={authData.user.role} />;
+  return <AuthenticatedHome />;
 }
