@@ -161,6 +161,7 @@ export class ConversationManager {
         const hasQuota = await this.checkQuotaAllowed();
         if (!hasQuota) {
           send(this.ws, { type: 'quota:exhausted' });
+          await this.onClose('completed');
           return;
         }
       }
@@ -717,6 +718,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
     if (!status.allowed) {
       send(this.ws, { type: 'quota:exhausted' });
+      await this.onClose('completed');
     } else if (status.remaining < quota.tokens * 0.2) {
       send(this.ws, {
         type: 'quota:warning',
@@ -726,7 +728,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     }
   }
 
-  async onClose(reason: 'idle_timeout' | 'disconnect'): Promise<void> {
+  async onClose(reason: 'completed' | 'idle_timeout' | 'disconnect'): Promise<void> {
     // Idempotent: only the first close transitions the session to ended.
     const now = new Date();
     const durationMs = now.getTime() - this.session.startedAt.getTime();
