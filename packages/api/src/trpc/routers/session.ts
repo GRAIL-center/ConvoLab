@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { parseQuota } from '../../lib/quota.js';
+import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
 import { protectedProcedure, publicProcedure, router } from '../procedures.js';
 
@@ -51,7 +52,7 @@ export const sessionRouter = router({
       if (input.scenarioId) {
         const scenario = await ctx.prisma.scenario.findUnique({
           where: { id: input.scenarioId },
-          select: { id: true, name: true },
+          select: { id: true, name: true, slug: true },
         });
 
         if (!scenario) {
@@ -81,6 +82,18 @@ export const sessionRouter = router({
             },
           });
         });
+
+        await track(
+          ctx.prisma,
+          TelemetryEvents.CONVERSATION_STARTED,
+          {
+            scenarioId: scenario.id,
+            scenarioSlug: scenario.slug,
+            isCustom: false,
+            source: 'staff_quickstart',
+          },
+          { userId: ctx.user.id, sessionId: session.id }
+        );
 
         return { sessionId: session.id };
       }
@@ -121,6 +134,17 @@ export const sessionRouter = router({
           },
         });
       });
+
+      await track(
+        ctx.prisma,
+        TelemetryEvents.CONVERSATION_STARTED,
+        {
+          scenarioSlug: 'custom',
+          isCustom: true,
+          source: 'staff_quickstart',
+        },
+        { userId: ctx.user.id, sessionId: session.id }
+      );
 
       return { sessionId: session.id };
     }),

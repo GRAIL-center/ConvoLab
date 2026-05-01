@@ -246,6 +246,18 @@ export const invitationRouter = router({
             },
           });
           sessionId = newSession.id;
+          await track(
+            ctx.prisma,
+            TelemetryEvents.CONVERSATION_STARTED,
+            {
+              scenarioId: invitation.scenarioId,
+              scenarioSlug: invitation.scenario?.slug,
+              isCustom: false,
+              source: 'invitation',
+              invitationId: invitation.id,
+            },
+            { userId, sessionId }
+          );
         }
       } else {
         // Create new session for first-time claim
@@ -273,6 +285,18 @@ export const invitationRouter = router({
           },
         });
         sessionId = newSession.id;
+        await track(
+          ctx.prisma,
+          TelemetryEvents.CONVERSATION_STARTED,
+          {
+            scenarioId: invitation.scenarioId ?? null,
+            scenarioSlug: invitation.scenario?.slug ?? (elaborationResult ? 'custom' : null),
+            isCustom: !!elaborationResult,
+            source: 'invitation',
+            invitationId: invitation.id,
+          },
+          { userId, sessionId }
+        );
       }
 
       // Get user info

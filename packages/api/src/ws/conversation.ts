@@ -14,6 +14,7 @@ import type { WebSocket } from 'ws';
 const DEFAULT_MODEL = 'gpt-4o';
 
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
+import { TelemetryEvents, track } from '../lib/telemetry.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
 import { broadcast } from './broadcaster.js';
@@ -167,6 +168,14 @@ export class ConversationManager {
       const userMsg = await this.persistMessage('user', content);
       this.session.messages.push(userMsg);
 
+      const turnNumber = this.session.messages.filter((m) => m.role === 'user').length;
+      await track(
+        this.prisma,
+        TelemetryEvents.MESSAGE_SENT,
+        { length: content.length, turnNumber },
+        { userId: this.session.userId ?? undefined, sessionId: this.session.id }
+      );
+
       broadcast(this.session.id, {
         type: 'history',
         messages: [
@@ -210,7 +219,6 @@ export class ConversationManager {
         });
 
         // Fire-and-forget LAPP scorer (does not block the next exchange)
-        const turnNumber = this.session.messages.filter((m) => m.role === 'user').length;
         this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch(() => {});
       }
     } catch (error) {
@@ -424,6 +432,20 @@ export class ConversationManager {
           };
           send(this.ws, doneMsg);
           broadcast(this.session.id, doneMsg);
+
+          await track(
+            this.prisma,
+            TelemetryEvents.STREAM_COMPLETED,
+            {
+              role,
+              model: currentModel,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              contentLength: fullContent.trim().length,
+              usedFallback,
+            },
+            { userId: this.session.userId ?? undefined, sessionId: this.session.id }
+          );
 
           return { content: fullContent, messageId: message.id, usage };
         } catch (error) {
@@ -704,6 +726,34 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     }
   }
 
+  async onClose(reason: 'idle_timeout' | 'disconnect'): Promise<void> {
+    // Idempotent: only the first close transitions the session to ended.
+    const now = new Date();
+    const durationMs = now.getTime() - this.session.startedAt.getTime();
+    const result = await this.prisma.conversationSession.updateMany({
+      where: { id: this.session.id, endedAt: null },
+      data: {
+        endedAt: now,
+        durationSeconds: Math.round(durationMs / 1000),
+        status: 'COMPLETED',
+      },
+    });
+    if (result.count === 0) return;
+
+    await track(
+      this.prisma,
+      TelemetryEvents.CONVERSATION_ENDED,
+      {
+        reason,
+        durationMs,
+        totalMessages: this.session.messages.length,
+        scenarioSlug:
+          this.session.scenario?.slug ?? (this.session.customPartnerPersona ? 'custom' : null),
+      },
+      { userId: this.session.userId ?? undefined, sessionId: this.session.id }
+    );
+  }
+
   async handleAsideStart(threadId: string, question: string): Promise<void> {
     if (this.isProcessing || this.activeAsideThreadId) {
       send(this.ws, { type: 'aside:error', threadId, error: 'Response in progress' });
@@ -838,6 +888,20 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
       });
       this.session.messages.push(message);
       send(this.ws, { type: 'aside:done', threadId, messageId: message.id, usage });
+
+      await track(
+        this.prisma,
+        TelemetryEvents.STREAM_COMPLETED,
+        {
+          role: 'aside',
+          model: modelString,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          contentLength: fullContent.trim().length,
+        },
+        { userId: this.session.userId ?? undefined, sessionId: this.session.id }
+      );
+
       return { content: fullContent, messageId: message.id, usage };
     } catch (error) {
       this.logger.error({ sessionId: this.session.id, threadId, error }, 'Aside stream error');

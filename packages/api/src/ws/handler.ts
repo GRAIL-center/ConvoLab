@@ -92,13 +92,16 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       await manager.initialize();
 
       // Set up idle timeout
+      let wasIdleTimeout = false;
       let idleTimer = setTimeout(() => {
+        wasIdleTimeout = true;
         socket.close(1000, 'Idle timeout');
       }, IDLE_TIMEOUT_MS);
 
       const resetIdleTimer = () => {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
+          wasIdleTimeout = true;
           socket.close(1000, 'Idle timeout');
         }, IDLE_TIMEOUT_MS);
       };
@@ -178,6 +181,9 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
 
       socket.on('close', () => {
         clearTimeout(idleTimer);
+        manager.onClose(wasIdleTimeout ? 'idle_timeout' : 'disconnect').catch((err) => {
+          fastify.log.error({ sessionId, err }, 'Failed to record session close');
+        });
         fastify.log.info({ sessionId }, 'WebSocket closed');
       });
 
