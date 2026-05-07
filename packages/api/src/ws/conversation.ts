@@ -364,6 +364,7 @@ export class ConversationManager {
                   '[stream] Gemini unavailable — switching to fallback model'
                 );
                 currentModel = FALLBACK_PARTNER_MODEL;
+                useWebSearch = false;
                 usedFallback = true;
                 break;
               }
@@ -394,6 +395,7 @@ export class ConversationManager {
                 '[stream] Empty response from Gemini — switching to fallback model'
               );
               currentModel = FALLBACK_PARTNER_MODEL;
+              useWebSearch = false;
               usedFallback = true;
               break; // break while loop so for loop advances to attempt=1
             }
@@ -457,6 +459,7 @@ export class ConversationManager {
           });
           if (isGeminiModel && shouldFallbackFromGemini(errorMsg) && !usedFallback) {
             currentModel = FALLBACK_PARTNER_MODEL;
+            useWebSearch = false;
             usedFallback = true;
             break;
           }
