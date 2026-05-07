@@ -5,11 +5,20 @@ let genAI: GoogleGenAI | null = null;
 
 function getClient(): GoogleGenAI {
   if (!genAI) {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_AI_API_KEY is not set');
+    const project = process.env.GOOGLE_CLOUD_PROJECT;
+    const location = process.env.GOOGLE_CLOUD_LOCATION ?? 'us-central1';
+
+    if (project) {
+      // Vertex AI mode — uses Application Default Credentials (ADC) automatically on Cloud Run
+      genAI = new GoogleGenAI({ vertexai: true, project, location });
+    } else {
+      // Google AI Studio mode — requires API key
+      const apiKey = process.env.GOOGLE_AI_API_KEY;
+      if (!apiKey) {
+        throw new Error('Either GOOGLE_CLOUD_PROJECT (Vertex AI) or GOOGLE_AI_API_KEY (AI Studio) must be set');
+      }
+      genAI = new GoogleGenAI({ apiKey });
     }
-    genAI = new GoogleGenAI({ apiKey });
   }
   return genAI;
 }
