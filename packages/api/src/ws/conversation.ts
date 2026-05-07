@@ -41,7 +41,9 @@ function shouldFallbackFromGemini(errorMessage?: string, errorCode?: string): bo
 
   return (
     normalizedCode === 'HTTP_429' ||
+    normalizedCode === 'HTTP_404' ||
     normalizedMessage.includes('quota') ||
+    normalizedMessage.includes('not found') ||
     normalizedMessage.includes('google_ai_api_key') ||
     normalizedMessage.includes('api key') ||
     normalizedMessage.includes('api_key') ||
