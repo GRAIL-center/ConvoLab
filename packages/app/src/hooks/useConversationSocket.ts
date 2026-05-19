@@ -133,6 +133,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const lastMessageIdRef = useRef<number | null>(null);
+  const hasLoadedHistoryRef = useRef(false);
   const streamingContentRef = useRef<string>('');
   const asideStreamingContentRef = useRef<string>('');
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -298,7 +299,23 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
                 threadId: m.asideThreadId ?? '',
               }));
 
-            setMessages(mainMessages);
+            if (!hasLoadedHistoryRef.current) {
+              // Initial load: replace empty state with full history from DB
+              hasLoadedHistoryRef.current = true;
+              setMessages(mainMessages);
+            } else {
+              // Resume after reconnect: merge new messages into existing confirmed state.
+              // The server only sends messages after lastMessageIdRef, so we keep
+              // confirmed DB messages (small sequential IDs) and append the new batch.
+              setMessages((prev) => {
+                const serverIds = new Set(mainMessages.map((m) => m.id));
+                // DB IDs are small sequential integers; optimistic IDs are Date.now() (~1.7e12)
+                const confirmed = prev.filter(
+                  (m) => m.id > 0 && m.id < 1_000_000_000 && !serverIds.has(m.id)
+                );
+                return [...confirmed, ...mainMessages];
+              });
+            }
             if (newAsideMessages.length > 0) {
               setAsideMessages((prev) => [...prev, ...newAsideMessages]);
             }
