@@ -3,7 +3,7 @@ import { Role } from '@prisma/client';
 
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
-  partnerModel: 'google:gemini-2.0-flash-001',
+  partnerModel: 'google:gemini-2.5-flash',
   partnerUseWebSearch: true,
   coachUseWebSearch: false,
 } as const;
@@ -702,7 +702,7 @@ NOTES:
   {
     name: 'Difficult Coworker Feedback',
     slug: 'difficult-coworker',
-    partnerModel: 'google:gemini-2.0-flash-001',
+    partnerModel: 'google:gemini-2.5-flash',
     partnerUseWebSearch: true,
     coachUseWebSearch: false,
     description:
@@ -797,10 +797,10 @@ export async function seedTestData(prisma: PrismaClient, options: SeedOptions = 
   if (firstScenario) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
     await prisma.invitation.upsert({
-      where: { token: 'test-invitation-token' },
-      update: { expiresAt },
+      where: { token: 'dev-test-invitation-token-00000000000000000' },
+      update: { expiresAt, claimedAt: null, linkedUserId: null },
       create: {
-        token: 'test-invitation-token',
+        token: 'dev-test-invitation-token-00000000000000000',
         label: 'Dev test invitation',
         scenarioId: firstScenario.id,
         quota: { tokens: 25000, label: 'Short conversation' },
@@ -808,7 +808,7 @@ export async function seedTestData(prisma: PrismaClient, options: SeedOptions = 
         createdById: adminUser.id,
       },
     });
-    log('Seeded test invitation: test-invitation-token');
+    log('Seeded test invitation: dev-test-invitation-token-00000000000000000');
   }
 }
 

@@ -232,12 +232,21 @@ function LappRadar({ l, a, p, pe }: { l: number; a: number; p: number; pe: numbe
   );
 }
 
-function SkillBar({ label, score }: { label: string; score: number }) {
+function SkillBar({ label, score, tooltip }: { label: string; score: number; tooltip?: string }) {
   const pct = scoreToPercent(score);
   return (
     <div className="space-y-0.5">
       <div className="flex justify-between items-center">
-        <span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0]">{label}</span>
+        <div className="relative group">
+          <span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0] cursor-help underline decoration-dotted decoration-[#9CA3AF]">
+            {label}
+          </span>
+          {tooltip && (
+            <div className="absolute bottom-full left-0 mb-1.5 w-52 rounded-lg px-2.5 py-2 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+              {tooltip}
+            </div>
+          )}
+        </div>
         <span className="text-[11px] font-medium text-[#4A4A4A] dark:text-[#A0A0A0]">{pct}%</span>
       </div>
       <div className="h-1 rounded-full bg-[rgba(200,220,215,0.4)] dark:bg-[rgba(255,255,255,0.07)]">
@@ -263,27 +272,35 @@ export function LappMetricsPanel({ lappScores }: LappMetricsPanelProps) {
     >
       {/* Header */}
       <div className="px-1">
-        <div className="flex items-center gap-2 mb-0.5">
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center
-                          bg-[rgba(134,199,194,0.4)] dark:bg-[rgba(134,199,194,0.2)]"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="w-3.5 h-3.5 text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.9)]"
-              aria-hidden="true"
+        <div className="relative group w-fit">
+          <div className="flex items-center gap-2 mb-0.5 cursor-help">
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center
+                            bg-[rgba(134,199,194,0.4)] dark:bg-[rgba(134,199,194,0.2)]"
             >
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="w-3.5 h-3.5 text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.9)]"
+                aria-hidden="true"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold underline decoration-dotted decoration-[#9CA3AF]">LAPP Metrics</span>
           </div>
-          <span className="text-sm font-semibold">LAPP Metrics</span>
+          <p className="text-[11px] text-[#6B6B6B] dark:text-[#858585] pl-8">Live session</p>
+          <div className="absolute top-full left-0 mt-1.5 w-64 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg space-y-1">
+            <p><span className="font-semibold">L</span>isten – really listen</p>
+            <p><span className="font-semibold">A</span>cknowledge – show you heard them</p>
+            <p><span className="font-semibold">P</span>ivot – ask for your turn: "can I share my take on this?"</p>
+            <p><span className="font-semibold">P</span>erspective – share your view</p>
+          </div>
         </div>
-        <p className="text-[11px] text-[#6B6B6B] dark:text-[#858585] pl-8">Live session</p>
       </div>
 
       <div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
@@ -340,10 +357,10 @@ export function LappMetricsPanel({ lappScores }: LappMetricsPanelProps) {
           Skill Balance
         </p>
         <div className="space-y-2">
-          <SkillBar label="Listen" score={avg.l} />
-          <SkillBar label="Acknowledge" score={avg.a} />
-          <SkillBar label="Pivot" score={avg.p} />
-          <SkillBar label="Perspective" score={avg.pe} />
+          <SkillBar label="Listen" score={avg.l} tooltip="Listen – really listen" />
+          <SkillBar label="Acknowledge" score={avg.a} tooltip="Acknowledge – show you heard them" />
+          <SkillBar label="Pivot" score={avg.p} tooltip='Pivot – ask for your turn: "can I share my take on this?"' />
+          <SkillBar label="Perspective" score={avg.pe} tooltip="Perspective – share your view" />
         </div>
       </div>
 

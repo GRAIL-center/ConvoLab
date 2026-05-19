@@ -9,7 +9,7 @@ interface MessageInputProps {
 export function MessageInput({
   onSend,
   disabled,
-  placeholder = 'Type a message...',
+  placeholder = "What's on your mind?",
 }: MessageInputProps) {
   const [content, setContent] = useState('');
 

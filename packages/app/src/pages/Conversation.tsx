@@ -346,7 +346,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     inputMode === 'partner'
-                      ? `Type your response to ${shortName}...`
+                      ? "What's on your mind?"
                       : 'Ask the coach for guidance...'
                   }
                   className={`flex-1 rounded-3xl px-6 py-4 text-base resize-none
