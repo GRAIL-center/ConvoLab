@@ -242,7 +242,7 @@ function SkillBar({ label, score, tooltip }: { label: string; score: number; too
             {label}
           </span>
           {tooltip && (
-            <div className="absolute bottom-full left-0 mb-1.5 w-52 rounded-lg px-2.5 py-2 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+            <div className="absolute bottom-full left-0 mb-1.5 w-32 rounded-lg px-2.5 py-2 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
               {tooltip}
             </div>
           )}
@@ -294,7 +294,7 @@ export function LappMetricsPanel({ lappScores }: LappMetricsPanelProps) {
             <span className="text-sm font-semibold underline decoration-dotted decoration-[#9CA3AF]">LAPP Metrics</span>
           </div>
           <p className="text-[11px] text-[#6B6B6B] dark:text-[#858585] pl-8">Live session</p>
-          <div className="absolute top-full left-0 mt-1.5 w-64 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg space-y-1">
+          <div className="absolute top-full left-0 mt-1.5 w-40 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg space-y-1">
             <p><span className="font-semibold">L</span>isten – really listen</p>
             <p><span className="font-semibold">A</span>cknowledge – show you heard them</p>
             <p><span className="font-semibold">P</span>ivot – ask for your turn: "can I share my take on this?"</p>

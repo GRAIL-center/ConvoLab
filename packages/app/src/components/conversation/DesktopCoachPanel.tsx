@@ -113,8 +113,8 @@ function AsideQuestionCard({ message }: { message: AsideMessage }) {
     <div className="flex justify-end">
       <div
         className="max-w-[90%] rounded-xl rounded-tr-sm px-4 py-3 text-sm
-                      bg-white dark:bg-[rgba(60,60,60,0.8)]
-                      border border-[rgba(200,220,210,0.6)] dark:border-[rgba(212,232,229,0.1)]
+                      bg-gray-200 dark:bg-[rgba(60,60,60,0.8)]
+                      border border-gray-300 dark:border-[rgba(212,232,229,0.1)]
                       text-[#1A1A1A] dark:text-[#EBEBEB]"
       >
         {message.content}

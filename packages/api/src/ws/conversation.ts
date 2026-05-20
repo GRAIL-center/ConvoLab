@@ -278,7 +278,10 @@ export class ConversationManager {
     }
 
     if (role === 'partner') {
-      systemPrompt += '\n\nIMPORTANT: Keep your responses SHORT - 1-3 sentences maximum.';
+      systemPrompt += '\n\nKeep responses to 2-3 sentences. Do not ask follow-up questions.';
+    }
+    if (role === 'coach') {
+      systemPrompt += '\n\nIMPORTANT: Keep your coaching feedback SHORT — 2-3 sentences maximum. Be direct and actionable.';
     }
 
     const context = this.buildContext(role);
@@ -313,7 +316,7 @@ export class ConversationManager {
       while (retries <= maxRetries) {
         try {
           fullContent = '';
-          const maxTokens = 1024;
+          const maxTokens = role === 'coach' ? 350 : 600;
 
           this.logger.info(
             { sessionId: this.session.id, role, model: currentModel, attempt, retries },

@@ -58,6 +58,7 @@ export const googleProvider: LLMProvider = {
 
       let inputTokens = 0;
       let outputTokens = 0;
+      let firstResponseDone = false;
 
       for await (const chunk of response) {
         // Check if aborted before yielding
@@ -72,12 +73,21 @@ export const googleProvider: LLMProvider = {
           };
           return;
         }
-        const text = chunk.text;
-        if (text) {
-          yield { type: 'delta', content: text };
+
+        // With googleSearch grounding, Gemini may stream two full passes.
+        // Stop emitting text after the first STOP to avoid duplicate content.
+        if (!firstResponseDone) {
+          const text = chunk.text;
+          if (text) {
+            yield { type: 'delta', content: text };
+          }
+          const finishReason = chunk.candidates?.[0]?.finishReason;
+          if (finishReason === 'STOP' || finishReason === 'MAX_TOKENS') {
+            firstResponseDone = true;
+          }
         }
 
-        // Usage metadata comes with chunks
+        // Usage metadata comes with chunks (may arrive after STOP)
         if (chunk.usageMetadata) {
           inputTokens = chunk.usageMetadata.promptTokenCount ?? 0;
           outputTokens = chunk.usageMetadata.candidatesTokenCount ?? 0;

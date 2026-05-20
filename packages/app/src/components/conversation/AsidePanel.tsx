@@ -33,7 +33,7 @@ function AsideMessageBubble({ message }: { message: AsideMessage }) {
     return (
       <div className="flex justify-end">
         <div
-          className={`max-w-[85%] rounded-lg px-3 py-2 bg-amber-500 dark:bg-amber-600 text-white ${markdownClasses}`}
+          className={`max-w-[85%] rounded-lg px-3 py-2 bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 text-[#1A1A1A] dark:text-[#EBEBEB] ${markdownClasses}`}
         >
           <Markdown>{content}</Markdown>
         </div>
@@ -165,7 +165,7 @@ export function AsidePanel({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-gray-800">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
           {messages.length === 0 && !isStreaming && (
             <div className="text-center text-gray-500 dark:text-gray-400 text-sm py-8">
               <p>Ask the coach a private question.</p>

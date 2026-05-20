@@ -346,7 +346,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     inputMode === 'partner'
-                      ? "What's on your mind?"
+                      ? mainMessages.length > 0
+                        ? `Reply to ${shortName}...`
+                        : "What's on your mind?"
                       : 'Ask the coach for guidance...'
                   }
                   className={`flex-1 rounded-3xl px-6 py-4 text-base resize-none
