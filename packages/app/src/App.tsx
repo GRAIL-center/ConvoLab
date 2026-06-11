@@ -3,10 +3,12 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
+import { FeedbackButton } from './components/FeedbackButton';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import { AdminLayout } from './layouts/AdminLayout';
 import { ResearchLayout } from './layouts/ResearchLayout';
+import { Feedback } from './pages/admin/Feedback';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
 import { UserList } from './pages/admin/UserList';
@@ -78,6 +80,7 @@ export function App() {
               <Route path="users" element={<UserList />} />
               <Route path="users/:id" element={<UserDetail />} />
               <Route path="telemetry" element={<Telemetry />} />
+              <Route path="feedback" element={<Feedback />} />
             </Route>
 
             {/* Research area with sidebar layout */}
@@ -133,6 +136,7 @@ export function App() {
                       <Route path="/invite/:token" element={<Invite />} />
                     </Routes>
                   </main>
+                  <FeedbackButton />
                 </div>
               }
             />
