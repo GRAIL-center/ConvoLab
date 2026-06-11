@@ -226,6 +226,16 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
         setError(null);
         reconnectAttemptsRef.current = 0;
 
+        // Reset streaming content refs on (re)connect — stale content from a
+        // dropped connection would otherwise get prepended to the next stream.
+        streamingContentRef.current = '';
+        asideStreamingContentRef.current = '';
+
+        // Clear any in-progress streaming state left over from a dropped connection
+        setIsStreaming(false);
+        setStreamingRole(null);
+        setIsAsideStreaming(false);
+
         // If reconnecting, request messages since last known
         if (lastMessageIdRef.current !== null) {
           send({ type: 'resume', afterMessageId: lastMessageIdRef.current });
@@ -337,27 +347,29 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             });
             break;
 
-          case 'partner:delta':
+          case 'partner:delta': {
             setIsStreaming(true);
             setStreamingRole('partner');
             streamingContentRef.current += msg.content;
+            const partnerAccumulated = streamingContentRef.current;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+                return [...prev.slice(0, -1), { ...last, content: partnerAccumulated }];
               }
               return [
                 ...prev,
                 {
                   id: -1, // Temporary
                   role: 'partner',
-                  content: streamingContentRef.current,
+                  content: partnerAccumulated,
                   timestamp: new Date().toISOString(),
                   isStreaming: true,
                 },
               ];
             });
             break;
+          }
 
           case 'exchange:complete':
             setIsStreaming(false);
@@ -368,7 +380,10 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+                // Prefer the accumulated streaming content; fall back to the server's
+                // confirmed content (e.g. after a partner:retry that cleared the bubble).
+                const finalContent = last.content || msg.content;
+                return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message (e.g. Gemini search chunks had null text) — create from content
               if (msg.content) {
@@ -391,33 +406,37 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             // Don't set isStreaming false yet - coach will follow
             break;
 
-          case 'coach:delta':
+          case 'coach:delta': {
             setIsStreaming(true);
             setStreamingRole('coach');
             streamingContentRef.current += msg.content;
+            const coachAccumulated = streamingContentRef.current;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'coach' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+                return [...prev.slice(0, -1), { ...last, content: coachAccumulated }];
               }
               return [
                 ...prev,
                 {
                   id: -1,
                   role: 'coach',
-                  content: streamingContentRef.current,
+                  content: coachAccumulated,
                   timestamp: new Date().toISOString(),
                   isStreaming: true,
                 },
               ];
             });
             break;
+          }
 
           case 'coach:done':
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'coach' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+                // Same fallback as partner:done — use server content if bubble was cleared.
+                const finalContent = last.content || msg.content;
+                return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message — create from content
               if (msg.content) {

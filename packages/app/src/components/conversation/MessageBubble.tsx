@@ -76,9 +76,17 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
                           border-l-4 border-[rgba(180,210,205,0.8)] dark:border-[rgba(212,232,229,0.4)]
                           text-[#1A1A1A] dark:text-[#EBEBEB]"
           >
-            <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0">
-              <Markdown>{message.content}</Markdown>
-            </div>
+            {message.isStreaming && !message.content ? (
+              <div className="flex gap-1 items-center h-6">
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:300ms]" />
+              </div>
+            ) : (
+              <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0">
+                <Markdown>{message.content}</Markdown>
+              </div>
+            )}
             {message.action && (
               <div
                 className="mt-3 pt-3 text-sm italic
@@ -132,9 +140,17 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
                           border-l-4 border-[rgba(100,180,175,0.8)] dark:border-[rgba(134,199,194,0.5)]
                           text-[#1A1A1A] dark:text-[#D4D4D4]"
           >
-            <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-[#1A1A1A] dark:[&_strong]:text-[#EBEBEB]">
-              <Markdown>{message.content}</Markdown>
-            </div>
+            {message.isStreaming && !message.content ? (
+              <div className="flex gap-1 items-center h-6">
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:300ms]" />
+              </div>
+            ) : (
+              <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-[#1A1A1A] dark:[&_strong]:text-[#EBEBEB]">
+                <Markdown>{message.content}</Markdown>
+              </div>
+            )}
           </div>
         </div>
       </div>
