@@ -524,6 +524,16 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             }
             setIsStreaming(false);
             setStreamingRole(null);
+            streamingContentRef.current = '';
+            // Remove any dangling streaming bubble — e.g. after partner:retry if the
+            // fallback model also fails, leaving an empty isStreaming:true message.
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.isStreaming) {
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
             break;
 
           case 'quota:warning':
