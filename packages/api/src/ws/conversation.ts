@@ -281,7 +281,7 @@ export class ConversationManager {
       systemPrompt += '\n\nKeep responses to 2-3 sentences. Do not ask follow-up questions.';
     }
     if (role === 'coach') {
-      systemPrompt += '\n\nIMPORTANT: Keep your coaching feedback SHORT — 2-3 sentences maximum. Be direct and actionable.';
+      systemPrompt += '\n\nIMPORTANT: Keep coaching feedback SHORT. When the user is doing the right thing, give ONE brief sentence of acknowledgment and nothing else — no next steps, no examples, no elaboration. Only add a suggestion or example when the user makes a specific mistake or is clearly stuck. Two sentences absolute maximum in any case.';
     }
 
     const context = this.buildContext(role);
@@ -316,7 +316,7 @@ export class ConversationManager {
       while (retries <= maxRetries) {
         try {
           fullContent = '';
-          const maxTokens = role === 'coach' ? 350 : 600;
+          const maxTokens = role === 'coach' ? 120 : 600;
 
           this.logger.info(
             { sessionId: this.session.id, role, model: currentModel, attempt, retries },
