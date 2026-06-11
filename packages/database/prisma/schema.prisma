@@ -47,6 +47,7 @@ model User {
   invitationsLinked  Invitation[]          @relation("LinkedInvitations")
   observationNotes   ObservationNote[]
   telemetryEvents    TelemetryEvent[]
+  feedback           Feedback[]
 }
 
 model ContactMethod {
@@ -262,6 +263,24 @@ model ObservationNote {
 
   @@index([invitationId])
   @@index([researcherId])
+}
+
+// ============================================
+// FEEDBACK
+// ============================================
+
+model Feedback {
+  id      String @id @default(cuid())
+  rating  Int    // 1-5
+  comment String? @db.Text
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 // ============================================
