@@ -1,0 +1,59 @@
+# Cloud Build pipeline for the combined API + React Cloud Run service.
+#
+# This builds packages/api/Dockerfile.prod, pushes the image to Artifact Registry,
+# then deploys that image to Cloud Run. Configure the substitution values in the
+# Cloud Build trigger, not in this file.
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE_NAME: convolab-api
+  _REPOSITORY: cloud-run-source-deploy
+  _IMAGE_NAME: convolab-api
+  _CLOUD_SQL_INSTANCE: convolab-490517:us-central1:convolab-db
+  _VITE_SITE_BANNER: ''
+
+steps:
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - packages/api/Dockerfile.prod
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+      - --build-arg
+      - VITE_SITE_BANNER=${_VITE_SITE_BANNER}
+      - .
+
+  - id: push-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    args:
+      - gcloud
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --add-cloudsql-instances
+      - ${_CLOUD_SQL_INSTANCE}
+      - --set-env-vars
+      - NODE_ENV=production,HOST=0.0.0.0,PORT=3000
+      - --set-secrets
+      - DATABASE_URL=DATABASE_URL:latest,SESSION_KEY=SESSION_KEY:latest,FRONTEND_URL=FRONTEND_URL:latest,ADMIN_EMAILS=ADMIN_EMAILS:latest,GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
