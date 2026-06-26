@@ -29,21 +29,25 @@ ConvoLab includes features specifically designed for research contexts:
 - **Custom scenarios** – Define your own conversation setups (roles, contexts, goals)
 - **Observation mode** – Researchers can watch sessions in real time
 - **QR code access** – Easily onboard study participants
-- **Session data & telemetry** – Collect interaction data for analysis
+- **LAPP skill scoring** – Real-time per-exchange scores on Listen, Acknowledge, Pivot, Perspective
+- **Session data & telemetry** – Collect interaction data and conversation lifecycle events for analysis
 - **Token quotas** – Control usage per participant
+- **Feedback collection** – In-app 5-star ratings with admin view
 - **Admin dashboard** – Manage users, scenarios, and access
 
 ## How It Works
 
+The current focus is on **cross-partisan political conversations** — practicing how to talk with someone who holds opposing political views. The AI partner plays an out-partisan (e.g., a MAGA-aligned relative, a progressive colleague) and responds the way a real person in that role might.
+
 When you start a practice session:
 
-1. You choose or create a **scenario** (e.g., "Give constructive feedback to an underperforming team member")
-2. The AI partner takes on the role you've defined
-3. You converse naturally via text (voice coming soon)
-4. The AI coach watches and offers guidance—either in real time or at key moments
-5. After the session, you can review the conversation
+1. You pick a **scenario** — a specific person and political context to practice with
+2. The AI partner takes on that role and responds authentically
+3. You converse naturally via text
+4. The **coach watches in real time** and offers guidance after each of your messages — noticing when you're getting defensive, missing a chance to connect, or doing something well
+5. Your **LAPP score** (Listen, Acknowledge, Pivot, Perspective) updates live, showing how your communication skills are developing across the conversation
 
-The AI uses large language models (like those from Anthropic, OpenAI, or Google) to generate realistic, context-aware responses.
+The AI uses large language models (Anthropic, Google, OpenAI) with automatic fallback between providers.
 
 ## Quick Start
 
@@ -93,6 +97,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 - **Frontend:** Vite 7 + React 19 + TanStack Query 5
 - **Landing:** Astro 5
 - **Auth:** Google OAuth + invitation links
+- **Monitoring:** Sentry error tracking
 - **Monorepo:** pnpm workspaces
 - **Linting:** Biome
 
@@ -118,15 +123,18 @@ Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for 
 
 ### Done
 - [x] Full-stack foundation (Docker, Prisma, tRPC, Google OAuth, auto-migrations)
-- [x] Multi-provider LLM streaming (Anthropic, OpenAI, Google via WebSocket)
+- [x] Multi-provider LLM streaming (Anthropic, OpenAI, Google AI Studio + Vertex AI via WebSocket)
 - [x] Invitation system (magic links with token quotas)
 - [x] Conversation practice (dual AI partner + coach, custom scenarios)
 - [x] Research tools (QR codes, live observation, notes, admin UI, telemetry)
+- [x] LAPP real-time skill scoring panel (Listen, Acknowledge, Pivot, Perspective)
+- [x] In-app feedback collection (5-star rating + admin view)
+- [x] Coach aside (private Q&A with coach mid-conversation)
+- [x] Consolidate landing page into React app
+- [x] Sentry error monitoring
 
 ### Roadmap
-- [x] Coach aside (private Q&A with coach mid-conversation)
-- [ ] Prompt Mangement and Opacity
-- [x] Consolidate landing page into React app
+- [ ] Prompt management and opacity (researcher-configurable prompts)
 - [ ] Runtime model discovery (dynamic model selection)
 
 ## Contributing
