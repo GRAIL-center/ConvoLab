@@ -10,8 +10,6 @@ import type {
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 
-//import { DEFAULT_MODEL } from '../lib/constants.js';
-const DEFAULT_MODEL = 'gpt-4o';
 
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
