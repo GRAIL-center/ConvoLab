@@ -135,8 +135,8 @@ model Scenario {
   partnerPersona      String
   partnerSystemPrompt String @db.Text
   coachSystemPrompt   String @db.Text
-  partnerModel        String  @default("claude-sonnet-4-20250514")
-  coachModel          String  @default("claude-sonnet-4-20250514")
+  partnerModel        String  @default("google:gemini-2.5-flash")
+  coachModel          String  @default("claude-sonnet-4-6")
   partnerUseWebSearch Boolean @default(false)
   coachUseWebSearch   Boolean @default(false)
 

@@ -44,7 +44,11 @@ export function broadcast(sessionId: number, message: ServerMessage): void {
   const data = JSON.stringify(message);
   for (const ws of sockets) {
     if (ws.readyState === ws.OPEN) {
-      ws.send(data);
+      try {
+        ws.send(data);
+      } catch {
+        sockets.delete(ws);
+      }
     }
   }
 }

@@ -40,8 +40,12 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
     volumes:
+      # Mount Google ADC credentials for Vertex AI
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
       # Mount source for hot reloading
       - ./packages/api/src:/app/packages/api/src
       - ./packages/database:/app/packages/database

@@ -4,6 +4,7 @@ import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel'
 import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
+import { QuotaProgressBar } from '../components/conversation/QuotaProgressBar';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 
@@ -154,6 +155,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
     isStreaming,
     quota,
     error,
+    clearError,
     lappScores,
     asideMessages,
     isAsideStreaming,
@@ -165,6 +167,13 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (error?.recoverable) {
+      const timer = setTimeout(() => clearError(), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
 
   const handleSend = () => {
     if (!inputRef.current?.value.trim()) return;
@@ -301,6 +310,25 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                           border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
           >
             <div className="mx-auto max-w-4xl space-y-3">
+              {error?.recoverable && (
+                <div className="flex justify-center">
+                  <div role="alert" className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm
+                                  bg-amber-50 dark:bg-amber-900/20
+                                  text-amber-700 dark:text-amber-300
+                                  border border-amber-200 dark:border-amber-800/40">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
+                      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+                    </svg>
+                    <span>{error.message}</span>
+                    <button type="button" onClick={clearError} className="ml-1 opacity-60 hover:opacity-100" aria-label="Dismiss">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {quota && <QuotaProgressBar quota={quota} />}
               {/* Mode selection buttons */}
               <div className="flex gap-3">
                 <button
@@ -382,8 +410,28 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
             </div>
           </div>
 
-          {/* MOBILE Input (unchanged) */}
+          {/* MOBILE Input */}
           <div className="md:hidden">
+            {error?.recoverable && (
+              <div className="flex justify-center px-4 py-2 border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]">
+                <div role="alert" className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs
+                                bg-amber-50 dark:bg-amber-900/20
+                                text-amber-700 dark:text-amber-300
+                                border border-amber-200 dark:border-amber-800/40">
+                  <span>{error.message}</span>
+                  <button type="button" onClick={clearError} className="opacity-60 hover:opacity-100" aria-label="Dismiss">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
+                      <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            {quota && (
+              <div className="px-4 pt-2 border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]">
+                <QuotaProgressBar quota={quota} />
+              </div>
+            )}
             <MobileMessageInput
               onSendPartner={(content) => sendMessage(content)}
               onSendCoach={(content) => startAside(content)}

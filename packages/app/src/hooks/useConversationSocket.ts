@@ -99,6 +99,7 @@ interface UseConversationSocketResult {
   streamingRole: 'partner' | 'coach' | null;
   quota: QuotaState | null;
   error: ConversationError | null;
+  clearError: () => void;
   // LAPP scores keyed by userMessageId
   lappScores: Map<number, LappScore>;
   // Aside state
@@ -155,6 +156,8 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
       wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const sendMessage = useCallback(
     (content: string) => {
@@ -380,9 +383,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'partner' && last.isStreaming) {
-                // Prefer the accumulated streaming content; fall back to the server's
-                // confirmed content (e.g. after a partner:retry that cleared the bubble).
-                const finalContent = last.content || msg.content;
+                const finalContent = msg.content || last.content;
                 return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message (e.g. Gemini search chunks had null text) — create from content
@@ -434,8 +435,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'coach' && last.isStreaming) {
-                // Same fallback as partner:done — use server content if bubble was cleared.
-                const finalContent = last.content || msg.content;
+                const finalContent = msg.content || last.content;
                 return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message — create from content
@@ -525,11 +525,12 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setIsStreaming(false);
             setStreamingRole(null);
             streamingContentRef.current = '';
-            // Remove any dangling streaming bubble — e.g. after partner:retry if the
-            // fallback model also fails, leaving an empty isStreaming:true message.
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
                 return prev.slice(0, -1);
               }
               return prev;
@@ -577,6 +578,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
     streamingRole,
     quota,
     error,
+    clearError,
     lappScores,
     // Aside state
     asideMessages,
