@@ -69,7 +69,11 @@ export type ErrorCode =
  * Helper to send a message to WebSocket.
  */
 export function send(ws: { send: (data: string) => void }, message: ServerMessage): void {
-  ws.send(JSON.stringify(message));
+  try {
+    ws.send(JSON.stringify(message));
+  } catch {
+    // Connection likely closed between readyState check and send
+  }
 }
 
 /**

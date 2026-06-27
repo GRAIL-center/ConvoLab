@@ -54,6 +54,11 @@ await fastify.register(cors, {
   credentials: true,
 });
 
+fastify.addHook('onSend', async (_request, reply) => {
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-Frame-Options', 'DENY');
+});
+
 await fastify.register(websocket);
 
 // WebSocket routes for real-time streaming
@@ -187,6 +192,14 @@ const start = async () => {
 
     await fastify.listen({ port, host });
     fastify.log.info(`API server listening on http://${host}:${port}`);
+
+    for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+      process.on(signal, async () => {
+        fastify.log.info({ signal }, 'Shutting down gracefully');
+        await fastify.close();
+        process.exit(0);
+      });
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
