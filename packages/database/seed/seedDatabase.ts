@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@workspace/database';
 
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
