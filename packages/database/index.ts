@@ -1,4 +1,4 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, WithFieldValue, DocumentData } from '@google-cloud/firestore';
 
 // Initialize Firestore client using env var
 const projectId = process.env.FIRESTORE_PROJECT_ID;
@@ -30,7 +30,7 @@ async function findMany<T>(model: string, args?: any): Promise<T[]> {
 async function create<T>(model: string, args: { data: T & { id?: string } }): Promise<T> {
   const data = args.data;
   const ref = data.id ? col(model).doc(data.id) : col(model).doc();
-  await ref.set(data);
+  await ref.set(data as WithFieldValue<DocumentData>);
   return { id: ref.id, ...(data as any) } as T;
 }
 
@@ -47,7 +47,7 @@ async function upsert<T>(model: string, args: { where: { id: string }; create: T
   if (doc.exists) {
     await ref.update(args.update);
   } else {
-    await ref.set(args.create);
+    await ref.set(args.create as WithFieldValue<DocumentData>);
   }
   const finalDoc = await ref.get();
   return { id: finalDoc.id, ...(finalDoc.data() as T) } as T;
@@ -66,80 +66,67 @@ async function aggregate<T>(model: string, args: any): Promise<any> {
 }
 
 /** Export a Prisma‑like object with model namespaces */
+/* Helper to build a model proxy with common CRUD operations */
+function modelProxy<T>(model: string) {
+  return {
+    findUnique: (args: any) => findUnique<T>(model, args),
+    findMany: (args?: any) => findMany<T>(model, args),
+    create: (args: any) => create<T>(model, args),
+    update: (args: any) => update<T>(model, args),
+    upsert: (args: any) => upsert<T>(model, args),
+    delete: async (args: any) => {
+      await col(model).doc(args.where.id).delete();
+    },
+    deleteMany: (args?: any) => deleteMany(model, args),
+    findFirst: async (args?: any) => {
+      const list = await findMany<T>(model, args);
+      return list.length > 0 ? list[0] : null;
+    },
+    count: async (args?: any) => {
+      const snapshot = await col(model).get();
+      return snapshot.size;
+    },
+  } as const;
+}
+
+/** Export a Prisma‑like object with model namespaces */
 export const prisma = {
   // ConversationSession model
-  conversationSession: {
-    findUnique: (args: any) => findUnique<any>('conversationSessions', args),
-    findMany: (args?: any) => findMany<any>('conversationSessions', args),
-    create: (args: any) => create<any>('conversationSessions', args),
-    update: (args: any) => update<any>('conversationSessions', args),
-    upsert: (args: any) => upsert<any>('conversationSessions', args),
-    deleteMany: (args?: any) => deleteMany('conversationSessions', args),
-  },
+  conversationSession: modelProxy<any>('conversationSessions'),
   // Message model
-  message: {
-    findUnique: (args: any) => findUnique<any>('messages', args),
-    findMany: (args?: any) => findMany<any>('messages', args),
-    create: (args: any) => create<any>('messages', args),
-    update: (args: any) => update<any>('messages', args),
-    upsert: (args: any) => upsert<any>('messages', args),
-    deleteMany: (args?: any) => deleteMany('messages', args),
-  },
+  message: modelProxy<any>('messages'),
   // LappScore model
-  lappScore: {
-    findUnique: (args: any) => findUnique<any>('lappScores', args),
-    findMany: (args?: any) => findMany<any>('lappScores', args),
-    create: (args: any) => create<any>('lappScores', args),
-    update: (args: any) => update<any>('lappScores', args),
-    upsert: (args: any) => upsert<any>('lappScores', args),
-    deleteMany: (args?: any) => deleteMany('lappScores', args),
-  },
-  // UsageLog model
+  lappScore: modelProxy<any>('lappScores'),
+  // UsageLog model with extra createMany & aggregate
   usageLog: {
-    create: (args: any) => create<any>('usageLogs', args),
+    ...modelProxy<any>('usageLogs'),
     createMany: async (args: any) => {
       const batch = db.batch();
       for (const data of args.data) {
         const ref = col('usageLogs').doc();
-        batch.set(ref, data);
+        batch.set(ref, data as WithFieldValue<DocumentData>);
       }
       await batch.commit();
     },
     aggregate: (args: any) => aggregate<any>('usageLogs', args),
-    deleteMany: (args?: any) => deleteMany('usageLogs', args),
   },
   // User model
   user: {
-    findUnique: (args: any) => findUnique<any>('users', args),
-    create: (args: any) => create<any>('users', args),
+    ...modelProxy<any>('users'),
     delete: async (args: any) => {
       await col('users').doc(args.where.id).delete();
     },
-    deleteMany: (args?: any) => deleteMany('users', args),
   },
   // Invitation model
-  invitation: {
-    findUnique: (args: any) => findUnique<any>('invitations', args),
-    updateMany: async (args: any) => {
-      const batch = db.batch();
-      const snap = await col('invitations').get();
-      snap.forEach(doc => batch.update(doc.ref, args.data));
-      await batch.commit();
-    },
-    deleteMany: (args?: any) => deleteMany('invitations', args),
-    create: (args: any) => create<any>('invitations', args),
-    update: (args: any) => update<any>('invitations', args),
-  },
+  invitation: modelProxy<any>('invitations'),
   // TelemetryEvent model
-  telemetryEvent: {
-    create: (args: any) => create<any>('telemetryEvents', args),
-  },
+  telemetryEvent: modelProxy<any>('telemetryEvents'),
   // Additional generic models used in tests – passthrough
-  observationNote: { deleteMany: (args?: any) => deleteMany('observationNotes', args) },
-  externalIdentity: { deleteMany: (args?: any) => deleteMany('externalIdentities', args) },
-  contactMethod: { deleteMany: (args?: any) => deleteMany('contactMethods', args) },
-  scenario: { deleteMany: (args?: any) => deleteMany('scenarios', args) },
-  quotaPreset: { deleteMany: (args?: any) => deleteMany('quotaPresets', args) },
+  observationNote: modelProxy<any>('observationNotes'),
+  externalIdentity: modelProxy<any>('externalIdentities'),
+  contactMethod: modelProxy<any>('contactMethods'),
+  scenario: modelProxy<any>('scenarios'),
+  quotaPreset: modelProxy<any>('quotaPresets'),
 };
 
 // Export a Prisma‑like type for external typing
