@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@google-cloud/firestore':
+        specifier: ^8.6.0
+        version: 8.6.0
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.2.3)
