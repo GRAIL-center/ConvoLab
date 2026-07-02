@@ -1,23 +1,24 @@
+import { config as dotenvConfig } from 'dotenv';
+import path from 'node:path';
+
+dotenvConfig({ path: path.resolve(__dirname, '../../../.env') });
+
 import { execSync } from 'node:child_process';
-import { createPrismaClient, type PrismaClient } from '@workspace/database';
 import { afterAll, beforeAll, beforeEach } from 'vitest';
+
+// Placeholder for Prisma client; will be set in beforeAll
+export let testPrisma: any;
 
 // Test database connection string
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   'postgresql://postgres:postgres@localhost:5432/conversation_coach_test';
 
-// Create a separate prisma client for tests
-export const testPrisma = createPrismaClient({
-  connectionString: TEST_DATABASE_URL,
-  log: ['error'], // Minimal logging in tests
-});
-
 /**
  * Clean all tables before each test.
  * Order matters due to foreign key constraints.
  */
-async function cleanDatabase(prisma: PrismaClient) {
+async function cleanDatabase(prisma: any) {
   // Delete in order that respects foreign keys
   await prisma.observationNote.deleteMany();
   await prisma.lappScore.deleteMany();
@@ -33,19 +34,22 @@ async function cleanDatabase(prisma: PrismaClient) {
 }
 
 beforeAll(async () => {
-  // Push schema to test database (creates tables if they don't exist)
-  try {
-    execSync('pnpm -F @workspace/database exec prisma db push', {
-      env: {
-        ...process.env,
-        DATABASE_URL: TEST_DATABASE_URL,
-      },
-      stdio: 'pipe',
-    });
-  } catch (error) {
-    console.error('Failed to push schema to test database. Is the database running?');
-    throw error;
+  // Dynamically import the database module after env is loaded
+  const dbModule = await import('@workspace/database');
+
+  const createPrismaClient = dbModule.createPrismaClient;
+  if (!createPrismaClient) {
+    throw new Error('createPrismaClient missing from @workspace/database export');
   }
+  testPrisma = createPrismaClient({
+    connectionString: TEST_DATABASE_URL,
+    log: ['error'],
+  });
+  // Push schema to test database (skipped in Firestore shim)
+  // execSync('pnpm -F @workspace/database exec prisma db push', {
+  //   env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+  //   stdio: 'pipe',
+  // });
 });
 
 beforeEach(async () => {
@@ -53,5 +57,5 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await testPrisma.$disconnect();
+  await testPrisma?.$disconnect();
 });

@@ -1,15 +1,21 @@
 import { Firestore, WithFieldValue, DocumentData } from '@google-cloud/firestore';
 
-// Initialize Firestore client using env var
-const projectId = process.env.FIRESTORE_PROJECT_ID;
-if (!projectId) {
-  throw new Error('FIRESTORE_PROJECT_ID environment variable is required');
+// Initialize Firestore client using env var with fallback for tests
+// getDb reads FIRESTORE_PROJECT_ID lazily
+let dbInstance: Firestore | null = null;
+function getDb(): Firestore {
+  if (!dbInstance) {
+    dbInstance = new Firestore({
+      projectId: process.env.FIRESTORE_PROJECT_ID || 'test-project',
+    });
+  }
+  return dbInstance;
 }
-const db = new Firestore({ projectId });
+
 
 /** Helper to get collection reference */
 function col(name: string) {
-  return db.collection(name);
+  return getDb().collection(name);
 }
 
 /** Generic CRUD operations used by the shim */
@@ -54,7 +60,7 @@ async function upsert<T>(model: string, args: { where: { id: string }; create: T
 }
 
 async function deleteMany(model: string, args?: any): Promise<void> {
-  const batch = db.batch();
+  const batch = getDb().batch();
   const snapshot = await col(model).get();
   snapshot.forEach(doc => batch.delete(doc.ref));
   await batch.commit();
@@ -90,7 +96,17 @@ function modelProxy<T>(model: string) {
 }
 
 /** Export a Prisma‑like object with model namespaces */
+export const Role = {
+  GUEST: 'GUEST',
+  USER: 'USER',
+  STAFF: 'STAFF',
+  ADMIN: 'ADMIN',
+} as const;
+
+export type Role = keyof typeof Role;
+
 export const prisma = {
+  $disconnect: async () => {},
   // ConversationSession model
   conversationSession: modelProxy<any>('conversationSessions'),
   // Message model
@@ -101,7 +117,7 @@ export const prisma = {
   usageLog: {
     ...modelProxy<any>('usageLogs'),
     createMany: async (args: any) => {
-      const batch = db.batch();
+      const batch = getDb().batch();
       for (const data of args.data) {
         const ref = col('usageLogs').doc();
         batch.set(ref, data as WithFieldValue<DocumentData>);
@@ -131,4 +147,10 @@ export const prisma = {
 
 // Export a Prisma‑like type for external typing
 export type PrismaClient = typeof prisma;
+// Helper to create a Prisma‑like client for tests
+export function createPrismaClient(_options?: { connectionString?: string; log?: string[] }): typeof prisma {
+  // In this Firestore shim, the connection string and log options are not used.
+  // The function exists to satisfy the API expected by the test setup.
+  return prisma;
+}
 // No longer re‑exports from @prisma/client

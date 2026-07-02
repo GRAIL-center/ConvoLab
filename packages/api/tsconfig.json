@@ -26,13 +26,12 @@
         "../*"
       ],
       "@workspace/database": [
-        "../database/src"
+        "../database/dist"
       ]
     }
   },
   "include": [
-    "src/**/*",
-    "../database/src/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
