@@ -1,16 +1,18 @@
 import { Firestore } from '@google-cloud/firestore';
 
 // Initialize a Firestore client using the same project ID as in context.
-const firestore = new Firestore({
-  projectId: process.env.FIRESTORE_PROJECT_ID,
-});
+function getFirestore() {
+  return new Firestore({
+    projectId: process.env.FIRESTORE_PROJECT_ID || 'test-project',
+  });
+}
 
 /**
  * Get a reference to a collection.
  * @param name The collection name.
  */
 export function collection(name: string) {
-  return firestore.collection(name);
+  return getFirestore().collection(name);
 }
 
 /**
