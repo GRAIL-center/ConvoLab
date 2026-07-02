@@ -7,6 +7,7 @@ import type {
   PrismaClient,
   Scenario,
 } from '@workspace/database';
+import { db } from '../db/firestoreHelpers.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 
@@ -79,12 +80,12 @@ export class ConversationManager {
 
   constructor(
     ws: WebSocket,
-    prisma: PrismaClient,
+    db: PrismaClient,
     session: SessionWithScenario,
     logger: FastifyBaseLogger
   ) {
     this.ws = ws;
-    this.prisma = prisma;
+    this.db = db;
     this.session = session;
     this.logger = logger;
   }
@@ -126,7 +127,7 @@ export class ConversationManager {
     send(this.ws, { type: 'history', messages: historyMessages });
 
     // Replay persisted LAPP scores so the panel restores on re-open
-    const existingScores = await this.prisma.lappScore.findMany({
+    const existingScores = await this.db.lappScore.findMany({
       where: { sessionId: this.session.id },
       orderBy: { turnNumber: 'asc' },
     });
@@ -203,7 +204,7 @@ export class ConversationManager {
         send(this.ws, { type: 'exchange:complete' });
         await this.logUsage(partnerResult.usage, null);
         await this.checkQuotaWarning();
-        await this.prisma.conversationSession.update({
+        await this.db.conversationSession.update({
           where: { id: this.session.id },
           data: { totalMessages: { increment: 2 } },
         });
@@ -215,7 +216,7 @@ export class ConversationManager {
         }
         await this.logUsage(partnerResult.usage, coachResult.usage);
         await this.checkQuotaWarning();
-        await this.prisma.conversationSession.update({
+        await this.db.conversationSession.update({
           where: { id: this.session.id },
           data: { totalMessages: { increment: 3 } },
         });
@@ -571,7 +572,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
         pe: Math.min(5, Math.max(0, Math.round(parsed.pe))),
       };
 
-      await this.prisma.lappScore.upsert({
+      await this.db.lappScore.upsert({
         where: { userMessageId },
         create: { userMessageId, sessionId: this.session.id, turnNumber, ...scores, tone },
         update: { ...scores, tone },
@@ -652,7 +653,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
       asideThreadId?: string;
     }
   ): Promise<Message> {
-    return this.prisma.message.create({
+    return this.db.message.create({
       data: {
         sessionId: this.session.id,
         role,
@@ -680,11 +681,11 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     };
 
     if (!coachUsage) {
-      await this.prisma.usageLog.create({ data: partnerEntry });
+      await this.db.usageLog.create({ data: partnerEntry });
       return;
     }
 
-    await this.prisma.usageLog.createMany({
+    await this.db.usageLog.createMany({
       data: [
         partnerEntry,
         {
@@ -702,7 +703,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
   private async checkQuotaAllowed(): Promise<boolean> {
     if (!this.session.invitationId) return true;
-    const invitation = await this.prisma.invitation.findUnique({
+    const invitation = await this.db.invitation.findUnique({
       where: { id: this.session.invitationId },
     });
     if (!invitation) return false;
@@ -713,7 +714,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
   private async checkQuotaWarning(): Promise<void> {
     if (!this.session.invitationId) return;
-    const invitation = await this.prisma.invitation.findUnique({
+    const invitation = await this.db.invitation.findUnique({
       where: { id: this.session.invitationId },
     });
     if (!invitation) return;
@@ -735,7 +736,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     // Idempotent: only the first close transitions the session to ended.
     const now = new Date();
     const durationMs = now.getTime() - this.session.startedAt.getTime();
-    const result = await this.prisma.conversationSession.updateMany({
+    const result = await this.db.conversationSession.updateMany({
       where: { id: this.session.id, endedAt: null },
       data: {
         endedAt: now,

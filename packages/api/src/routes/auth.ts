@@ -1,5 +1,5 @@
 import type { OAuth2Namespace } from '@fastify/oauth2';
-import { prisma } from '@workspace/database';
+import { db as prisma } from '../db/firestoreHelpers';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { handleGoogleAuth } from '../auth/handlers.js';
 import type { GoogleUserInfo } from '../auth/types.js';

@@ -1,4 +1,4 @@
-import { prisma } from '@workspace/database';
+import { db as prisma } from '../db/firestoreHelpers';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { ConversationManager } from './conversation.js';

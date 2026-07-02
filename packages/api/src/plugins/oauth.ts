@@ -32,11 +32,19 @@ async function oauth(fastify: FastifyInstance) {
 
   // Custom auth start route that adds prompt=select_account
   fastify.get('/api/auth/google', async (request, reply) => {
-    const authUrl = await fastify.googleOAuth2!.generateAuthorizationUri(request, reply);
-    // Add prompt parameter to show account picker
-    const url = new URL(authUrl);
-    url.searchParams.set('prompt', 'select_account');
-    return reply.redirect(url.toString());
+    if (!fastify.googleOAuth2) {
+      fastify.log.error('Google OAuth2 not configured');
+      return reply.status(503).send({ error: 'OAuth not configured' });
+    }
+    try {
+      const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request);
+      const url = new URL(authUrl);
+      url.searchParams.set('prompt', 'select_account');
+      return reply.redirect(url.toString());
+    } catch (e) {
+      fastify.log.error(e, 'Failed to generate Google auth URL');
+      return reply.status(500).send({ error: 'Internal Server Error' });
+    }
   });
 }
 

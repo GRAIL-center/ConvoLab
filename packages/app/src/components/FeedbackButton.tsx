@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
+import Recaptcha from './Recaptcha';
 import { useCallback, useEffect, useState } from 'react';
 import { useTRPC } from '../api/trpc';
 
 export function FeedbackButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -39,11 +41,16 @@ export function FeedbackButton() {
       setError('Please pick a rating.');
       return;
     }
+    if (!recaptchaToken) {
+      setError('Please complete the CAPTCHA.');
+      return;
+    }
     setError(null);
     try {
       await submit.mutateAsync({
         rating,
         comment: comment.trim() || undefined,
+        recaptchaToken: recaptchaToken,
       });
       setSubmitted(true);
     } catch (err) {
@@ -246,18 +253,19 @@ export function FeedbackButton() {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={submit.isPending || rating < 1}
-                    className="flex-1 rounded-lg px-4 py-2 text-sm font-medium
-                               bg-[rgba(134,199,194,0.95)] dark:bg-[rgba(134,199,194,0.85)]
-                               text-[rgba(35,75,70,1)] dark:text-[rgba(20,40,38,1)]
-                               hover:bg-[rgba(120,190,184,1)] dark:hover:bg-[rgba(150,210,205,0.95)]
-                               disabled:opacity-50 disabled:cursor-not-allowed
-                               transition-colors"
-                  >
-                    {submit.isPending ? 'Sending...' : 'Send feedback'}
-                  </button>
+                    <Recaptcha onChange={setRecaptchaToken} />
+                    <button
+                      type="submit"
+                      disabled={submit.isPending || rating < 1 || !recaptchaToken}
+                      className="flex-1 rounded-lg px-4 py-2 text-sm font-medium
+                                 bg-[rgba(134,199,194,0.95)] dark:bg-[rgba(134,199,194,0.85)]
+                                 text-[rgba(35,75,70,1)] dark:text-[rgba(20,40,38,1)]
+                                 hover:bg-[rgba(120,190,184,1)] dark:hover:bg-[rgba(150,210,205,0.95)]
+                                 disabled:opacity-50 disabled:cursor-not-allowed
+                                 transition-colors"
+                    >
+                      {submit.isPending ? 'Sending...' : 'Send feedback'}
+                    </button>
                 </div>
               </form>
             )}

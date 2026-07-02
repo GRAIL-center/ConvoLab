@@ -16,7 +16,7 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { isDatabaseEmpty, prisma, seedReferenceData, seedTestData } from '@workspace/database';
+import { isDatabaseEmpty, db as prisma, seedReferenceData, seedTestData } from '../db/firestoreHelpers';
 import Fastify from 'fastify';
 
 import {

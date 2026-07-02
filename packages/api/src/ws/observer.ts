@@ -1,4 +1,5 @@
-import type { PrismaClient } from '@workspace/database';
+import type { PrismaClient } from '../db/firestoreHelpers';
+import { db as prisma } from '../db/firestoreHelpers';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import { subscribe, unsubscribe } from './broadcaster.js';

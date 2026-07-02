@@ -6,6 +6,7 @@ const apiHost = process.env.API_HOST ?? 'localhost:3000';
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: { include: ['react-google-recaptcha'] },
   server: {
     port: 5173,
     host: true,
