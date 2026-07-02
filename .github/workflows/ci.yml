@@ -89,6 +89,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/conversation_coach_test
 
+      - name: Setup Google Credentials
+        run: echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}' > /tmp/gcloud.json
+      - name: Set env var
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcloud.json" >> $GITHUB_ENV
       - name: Run API tests
         run: pnpm -F @workspace/api test:run
         env:
