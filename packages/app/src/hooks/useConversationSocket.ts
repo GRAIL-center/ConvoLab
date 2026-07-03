@@ -238,6 +238,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
         setIsStreaming(false);
         setStreamingRole(null);
         setIsAsideStreaming(false);
+        setActiveAsideThreadId(null);
 
         // If reconnecting, request messages since last known
         if (lastMessageIdRef.current !== null) {
@@ -462,26 +463,29 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
           case 'aside:delta':
             setIsAsideStreaming(true);
             asideStreamingContentRef.current += msg.content;
-            setAsideMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
+            {
+              const asideAccumulated = asideStreamingContentRef.current;
+              setAsideMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: asideAccumulated },
+                  ];
+                }
                 return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: asideStreamingContentRef.current },
+                  ...prev,
+                  {
+                    id: -1,
+                    role: 'coach',
+                    content: asideAccumulated,
+                    timestamp: new Date().toISOString(),
+                    threadId: msg.threadId,
+                    isStreaming: true,
+                  },
                 ];
-              }
-              return [
-                ...prev,
-                {
-                  id: -1,
-                  role: 'coach',
-                  content: asideStreamingContentRef.current,
-                  timestamp: new Date().toISOString(),
-                  threadId: msg.threadId,
-                  isStreaming: true,
-                },
-              ];
-            });
+              });
+            }
             break;
 
           case 'aside:done':
@@ -502,6 +506,16 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             asideStreamingContentRef.current = '';
             setIsAsideStreaming(false);
             setActiveAsideThreadId(null);
+            setAsideMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
             break;
 
           case 'score:update':
@@ -526,6 +540,20 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setStreamingRole(null);
             streamingContentRef.current = '';
             setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
+            // Also reset aside state in case a server error interrupts an active aside
+            setIsAsideStreaming(false);
+            setActiveAsideThreadId(null);
+            asideStreamingContentRef.current = '';
+            setAsideMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.isStreaming) {
                 if (last.content?.trim()) {

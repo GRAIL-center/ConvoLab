@@ -199,14 +199,13 @@ export function DesktopCoachPanel({
         ) : (
           <>
             {/* Automatic coach insights */}
-            {coachMessages.map((msg) => {
-              // Find the tone for the user message that preceded this coach message
-              // Coach message index in coachMessages → find corresponding score
-              const scoreEntry = [...lappScores.values()].find((_, i) => {
-                // Match by order: nth coach message corresponds to nth score
-                const coachIdx = coachMessages.indexOf(msg);
-                return i === coachIdx;
-              });
+            {coachMessages.map((msg, coachIdx) => {
+              // Match nth coach message to nth LAPP score, sorted by turn so
+              // out-of-order score:update events don't scramble the mapping.
+              const sortedScores = [...lappScores.values()].sort(
+                (a, b) => a.turnNumber - b.turnNumber
+              );
+              const scoreEntry = sortedScores[coachIdx];
               const tone = scoreEntry?.tone ?? null;
               return (
                 <CoachInsightCard

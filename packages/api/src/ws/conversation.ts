@@ -197,17 +197,22 @@ export class ConversationManager {
         { userId: this.session.userId ?? undefined, sessionId: this.session.id }
       );
 
-      broadcast(this.session.id, {
-        type: 'history',
+      const userHistoryMsg = {
+        type: 'history' as const,
         messages: [
           {
             id: userMsg.id,
-            role: 'user',
+            role: 'user' as const,
             content: userMsg.content,
             timestamp: userMsg.timestamp.toISOString(),
+            messageType: 'main' as const,
           },
         ],
-      });
+      };
+      // Send to participant so optimistic ID is reconciled before score:update arrives
+      send(this.ws, userHistoryMsg);
+      // Also broadcast to session observers (researchers watching)
+      broadcast(this.session.id, userHistoryMsg);
 
       const partnerResult = await this.streamResponse('partner');
       if (!partnerResult) {
@@ -215,8 +220,8 @@ export class ConversationManager {
         return;
       }
 
-      // Skip coach on the first exchange — let the user form their own response first.
-      const isFirstExchange = this.session.messages.filter((m) => m.role === 'user').length === 1;
+      // Skip coach on the first two exchanges — let the user establish the conversation first.
+      const isFirstExchange = turnNumber <= 2;
 
       if (isFirstExchange) {
         send(this.ws, { type: 'exchange:complete' });
@@ -229,6 +234,9 @@ export class ConversationManager {
       } else {
         const coachResult = await this.streamResponse('coach');
         if (!coachResult) {
+          // Coach failed — still deduct partner tokens so quota is accurate
+          await this.logUsage(partnerResult.usage, null);
+          await this.checkQuotaWarning();
           this.isProcessing = false;
           return;
         }
@@ -401,7 +409,7 @@ export class ConversationManager {
                   '[stream] Retryable error — retrying'
                 );
                 await sleep(1000 * retries);
-                continue;
+                break; // exit for-await so while loop creates a new stream
               }
               throw new Error(chunk.error.message);
             }
@@ -552,7 +560,7 @@ Pe (Perspective): Does the user share their own view in a personal, non-absoluti
 Tone:
   "tense"=escalatory/adversarial  "neutral"=matter-of-fact  "warm"=acknowledging/curious  "constructive"=full LAPP, collaborative
 
-Note: In turns 1–2, if P or Pe are clearly absent, score them 0 (N/A).
+Note: Scoring starts at turn 3. If P or Pe are clearly absent in this early turn, score them 0 (N/A).
 
 Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
@@ -608,7 +616,12 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     const messages = this.session.messages;
     if (role === 'partner') {
       return messages
-        .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
+        .filter(
+          (m) =>
+            (m.role === 'user' || m.role === 'partner') &&
+            m.messageType !== 'aside' &&
+            m.content.trim().length > 0
+        )
         .map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.content.trim(),

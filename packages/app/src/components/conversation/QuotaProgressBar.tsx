@@ -13,17 +13,13 @@ export function QuotaProgressBar({ quota }: QuotaProgressBarProps) {
     ? 'bg-red-400 dark:bg-red-500'
     : pct < 20
       ? 'bg-amber-400 dark:bg-amber-500'
-      : pct < 50
-        ? 'bg-amber-300 dark:bg-amber-400'
-        : 'bg-[rgba(100,180,175,0.8)] dark:bg-[rgba(134,199,194,0.7)]';
+      : 'bg-[rgba(100,180,175,0.8)] dark:bg-[rgba(134,199,194,0.7)]';
 
   const textColor = quota.exhausted
     ? 'text-red-600 dark:text-red-400'
     : pct < 20
       ? 'text-amber-600 dark:text-amber-400'
-      : pct < 50
-        ? 'text-amber-600 dark:text-amber-400'
-        : 'text-[#6B6B6B] dark:text-[#A0A0A0]';
+      : 'text-[#6B6B6B] dark:text-[#A0A0A0]';
 
   return (
     <div className="px-2 pb-2">
