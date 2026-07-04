@@ -169,6 +169,7 @@ model ConversationSession {
   status          SessionStatus @default(ACTIVE)
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
+  deletedAt       DateTime?
   totalMessages   Int       @default(0)
   durationSeconds Int?
 
@@ -180,6 +181,7 @@ model ConversationSession {
   @@index([userId])
   @@index([invitationId])
   @@index([status])
+  @@index([deletedAt])
 }
 
 model Message {
