@@ -46,7 +46,7 @@ export function YourSessions() {
     trpc.session.delete.mutationOptions({
       onSuccess: () => {
         setConfirmDeleteId(null);
-        queryClient.invalidateQueries(trpc.session.listMine.queryOptions());
+        void queryClient.invalidateQueries({ queryKey: trpc.session.listMine.queryOptions().queryKey });
       },
     })
   );
