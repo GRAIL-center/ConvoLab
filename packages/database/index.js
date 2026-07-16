@@ -19,12 +19,13 @@ async function findUnique(model, args) {
     const doc = await col(model).doc(args.where.id).get();
     return doc.exists ? { id: doc.id, ...doc.data() } : null;
 }
-async function findMany(model, args) {
+async function findMany(model, _args) {
     const snapshot = await col(model).get();
     const results = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
         results.push({ id: doc.id, ...doc.data() });
     });
+    let nextCursor;
     return results;
 }
 async function create(model, args) {
@@ -51,14 +52,14 @@ async function upsert(model, args) {
     const finalDoc = await ref.get();
     return { id: finalDoc.id, ...finalDoc.data() };
 }
-async function deleteMany(model, args) {
+async function deleteMany(model, _args) {
     const batch = getDb().batch();
     const snapshot = await col(model).get();
-    snapshot.forEach(doc => batch.delete(doc.ref));
+    snapshot.forEach(doc => { batch.delete(doc.ref); });
     await batch.commit();
 }
 /** Minimal aggregate mock – returns empty result (can be extended later) */
-async function aggregate(model, args) {
+async function aggregate(_model, args) {
     return { _sum: {}, _count: {} };
 }
 /** Export a Prisma‑like object with model namespaces */
@@ -78,7 +79,7 @@ function modelProxy(model) {
             const list = await findMany(model, args);
             return list.length > 0 ? list[0] : null;
         },
-        count: async (args) => {
+        count: async (_args) => {
             const snapshot = await col(model).get();
             return snapshot.size;
         },
