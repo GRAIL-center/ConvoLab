@@ -3,7 +3,7 @@ import { Firestore } from '@google-cloud/firestore';
 // Initialize a Firestore client using the same project ID as in context.
 function getFirestore() {
   return new Firestore({
-    projectId: process.env.FIRESTORE_PROJECT_ID || 'test-project',
+    projectId: process.env.FIRESTORE_PROJECT_ID,
   });
 }
 

@@ -5,7 +5,7 @@ let dbInstance = null;
 function getDb() {
     if (!dbInstance) {
         dbInstance = new Firestore({
-            projectId: process.env.FIRESTORE_PROJECT_ID || 'test-project',
+            projectId: process.env.FIRESTORE_PROJECT_ID,
         });
     }
     return dbInstance;

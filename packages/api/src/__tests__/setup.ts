@@ -1,7 +1,9 @@
-import { config as dotenvConfig } from 'dotenv';
-import path from 'node:path';
+import path from "path";
+import dotenv from "dotenv";
 
-dotenvConfig({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env"),
+});
 
 import { execSync } from 'node:child_process';
 import { afterAll, beforeAll, beforeEach } from 'vitest';

@@ -47,6 +47,8 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    env:
+      FIRESTORE_PROJECT_ID: convolab-490517
 
     services:
       postgres:
