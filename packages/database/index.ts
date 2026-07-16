@@ -1,9 +1,9 @@
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 import { getFirestoreClient } from './src/firestoreClient';
+
 function getDb(): Firestore {
   return getFirestoreClient();
 }
-
 
 /** Helper to get collection reference */
 function col(name: string) {
@@ -11,92 +11,215 @@ function col(name: string) {
 }
 
 /** Generic CRUD operations used by the shim */
-async function findUnique<T>(model: string, args: { where: { id: string } }): Promise<T | null> {
+async function findUnique<T>(
+  model: string,
+  args: { where: { id: string } }
+): Promise<T | null> {
   const doc = await col(model).doc(args.where.id).get();
-  return doc.exists ? ({ id: doc.id, ...(doc.data() as T) } as T) : null;
+
+  return doc.exists
+    ? ({ id: doc.id, ...(doc.data() as T) } as T)
+    : null;
 }
 
-async function findMany<T>(model: string, _args?: unknown): Promise<T[]> {
+async function findMany<T>(
+  model: string,
+  _args?: unknown
+): Promise<T[]> {
   const snapshot = await col(model).get();
+
   const results: T[] = [];
-  snapshot.forEach(doc => {
-    results.push({ id: doc.id, ...(doc.data() as T) } as T);
+
+  snapshot.forEach((doc) => {
+    results.push({
+      id: doc.id,
+      ...(doc.data() as T),
+    } as T);
   });
+
   return results;
 }
 
-async function create<T>(model: string, args: { data: T & { id?: string } }): Promise<T> {
+async function create<T>(
+  model: string,
+  args: { data: T & { id?: string } }
+): Promise<T & { id: string }> {
   const data = args.data;
-  const ref = data.id ? col(model).doc(data.id) : col(model).doc();
+
+  const ref = data.id
+    ? col(model).doc(data.id)
+    : col(model).doc();
+
   await ref.set(data as WithFieldValue<DocumentData>);
-  return Object.assign({ id: ref.id }, data) as T;
+
+  return {
+    id: ref.id,
+    ...data,
+  } as T & { id: string };
 }
 
-async function update<T>(model: string, args: { where: { id: string }; data: Partial<T> }): Promise<T> {
-  const ref = col(model).doc(args.where.id);
-  await ref.update(args.data);
-  const doc = await ref.get();
-  return { id: doc.id, ...(doc.data() as T) } as T;
-}
-
-async function upsert<T>(model: string, args: { where: { id: string }; create: T; update: Partial<T> }): Promise<T> {
-  const ref = col(model).doc(args.where.id);
-  const doc = await ref.get();
-  if (doc.exists) {
-    await ref.update(args.update);
-  } else {
-    await ref.set(args.create as WithFieldValue<DocumentData>);
+async function update<T>(
+  model: string,
+  args: {
+    where: { id: string };
+    data: Partial<T>;
   }
+): Promise<T & { id: string }> {
+  const ref = col(model).doc(args.where.id);
+
+  await ref.update(args.data as DocumentData);
+
+  const doc = await ref.get();
+
+  return {
+    id: doc.id,
+    ...(doc.data() as T),
+  } as T & { id: string };
+}
+
+async function upsert<T extends Record<string, any>>(
+  model: string,
+  args: {
+    where: Record<string, unknown>;
+    create: T;
+    update: Partial<T>;
+  }
+): Promise<T & { id: string }> {
+  const collection = col(model);
+
+  let ref;
+
+  // Use explicit ID when provided
+  if (
+    "id" in args.where &&
+    typeof args.where.id === "string"
+  ) {
+    ref = collection.doc(args.where.id);
+  } else {
+    // Otherwise search by unique fields
+    let query: FirebaseFirestore.Query = collection;
+
+    for (const [key, value] of Object.entries(args.where)) {
+      query = query.where(key, "==", value);
+    }
+
+    const snapshot = await query.limit(1).get();
+
+    ref = snapshot.empty
+      ? collection.doc()
+      : snapshot.docs[0].ref;
+  }
+
+  const doc = await ref.get();
+
+  if (doc.exists) {
+    await ref.update(args.update as DocumentData);
+  } else {
+    await ref.set(
+      args.create as WithFieldValue<DocumentData>
+    );
+  }
+
   const finalDoc = await ref.get();
-  return { id: finalDoc.id, ...(finalDoc.data() as T) } as T;
+
+  return {
+    id: finalDoc.id,
+    ...(finalDoc.data() as T),
+  } as T & { id: string };
 }
 
 async function deleteMany(model: string): Promise<void> {
   const batch = getDb().batch();
+
   const snapshot = await col(model).get();
-  snapshot.forEach(doc => { batch.delete(doc.ref); });
+
+  snapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
   await batch.commit();
 }
 
-/** Minimal aggregate mock – returns empty result (can be extended later) */
-async function aggregate(model: string, args: unknown): Promise<unknown> {
-  return { _sum: {}, _count: {} };
+/** Minimal aggregate mock */
+async function aggregate(
+  _model: string,
+  _args: unknown
+): Promise<unknown> {
+  return {
+    _sum: {},
+    _count: {},
+  };
 }
 
-/** Export a Prisma‑like object with model namespaces */
-// Helper to build a model proxy with common CRUD operations
-function modelProxy<T>(model: string) {
+
+/**
+ * Helper to build Prisma-like model proxy
+ */
+function modelProxy<T extends Record<string, any>>(model: string) {
   return {
-    // Find a unique record by ID
-    findUnique: (args: { where: { id: string } }) => findUnique<T>(model, args),
-    // Find many records (optional pagination args, currently unused)
-    findMany: (args?: unknown) => findMany<T>(model, args),
-    // Create a new record
-    create: (args: { data: T & { id?: string } }) => create<T>(model, args),
-    // Update an existing record
-    update: (args: { where: { id: string }; data: Partial<T> }) => update<T>(model, args),
-    // Upsert a record
-    upsert: (args: { where: { id: string }; create: T; update: Partial<T> }) => upsert<T>(model, args),
-    // Delete a record by ID
-    delete: async (args: { where: { id: string } }) => {
-      await col(model).doc(args.where.id).delete();
+    findUnique: (
+      args: { where: { id: string } }
+    ) =>
+      findUnique<T>(model, args),
+
+    findMany: (
+      args?: unknown
+    ) =>
+      findMany<T>(model, args),
+
+    create: (
+      args: { data: T & { id?: string } }
+    ) =>
+      create<T>(model, args),
+
+    update: (
+      args: {
+        where: { id: string };
+        data: Partial<T>;
+      }
+    ) =>
+      update<T>(model, args),
+
+    upsert: <
+      W extends Record<string, unknown>
+    >(
+      args: {
+        where: W;
+        create: T;
+        update: Partial<T>;
+      }
+    ) =>
+      upsert<T>(model, args),
+
+    delete: async (
+      args: { where: { id: string } }
+    ) => {
+      await col(model)
+        .doc(args.where.id)
+        .delete();
     },
-    // Delete many records of the model
-    deleteMany: () => deleteMany(model),
-    // Find first record (use findMany and return the first if any)
-    findFirst: async (args?: unknown) => {
+
+    deleteMany: () =>
+      deleteMany(model),
+
+    findFirst: async (
+      args?: unknown
+    ) => {
       const list = await findMany<T>(model, args);
-      return list.length > 0 ? list[0] : null;
+      return list.length > 0
+        ? list[0]
+        : null;
     },
-    // Count records in the collection
-    count: async (_args?: unknown) => {
+
+    count: async () => {
       const snapshot = await col(model).get();
       return snapshot.size;
     },
   } as const;
 }
 
-/** Export a Prisma‑like object with model namespaces */
+
+/** Roles */
 export const Role = {
   GUEST: 'GUEST',
   USER: 'USER',
@@ -106,62 +229,98 @@ export const Role = {
 
 export type Role = keyof typeof Role;
 
+
+/**
+ * Prisma-like object
+ *
+ * NOTE:
+ * Using `any` here intentionally because this shim
+ * replaces generated Prisma types.
+ */
 export const prisma = {
-  $disconnect: async () => {},
-  // ConversationSession model
-  
-  conversationSession: modelProxy<unknown>('conversationSessions'),
-  // Message model
-  
-  message: modelProxy<unknown>('messages'),
-  // LappScore model
-  
-  lappScore: modelProxy<unknown>('lappScores'),
-  // UsageLog model with extra createMany & aggregate
-  
+  $disconnect: async () => { },
+
+  conversationSession:
+    modelProxy<any>('conversationSessions'),
+
+  message:
+    modelProxy<any>('messages'),
+
+  lappScore:
+    modelProxy<any>('lappScores'),
+
   usageLog: {
-    ...modelProxy<unknown>('usageLogs'),
-    createMany: async (args: unknown) => {
+    ...modelProxy<any>('usageLogs'),
+
+    createMany: async (
+      args: unknown
+    ) => {
       const batch = getDb().batch();
-      // biome-ignore lint/suspicious/noExplicitAny: suppress any usage
-    const unknownArgs = args as any;
+
+      const unknownArgs = args as any;
+
       for (const data of unknownArgs.data) {
-        const ref = col('usageLogs').doc();
-        batch.set(ref, data as WithFieldValue<DocumentData>);
+        const ref =
+          col('usageLogs').doc();
+
+        batch.set(
+          ref,
+          data as WithFieldValue<DocumentData>
+        );
       }
+
       await batch.commit();
     },
-    
-    aggregate: (args: unknown) => aggregate<unknown>('usageLogs', args as unknown),
+
+    aggregate: (
+      args: unknown
+    ) =>
+      aggregate('usageLogs', args),
   },
-  // User model
-  
+
   user: {
-    ...modelProxy<unknown>('users'),
-    // biome-ignore lint/suspicious/noExplicitAny: suppress any usage
-    delete: async (args: { where: { id: string } }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: suppress any usage
-      await col('users').doc(args.where.id).delete();
+    ...modelProxy<any>('users'),
+
+    delete: async (
+      args: { where: { id: string } }
+    ) => {
+      await col('users')
+        .doc(args.where.id)
+        .delete();
     },
   },
-  // Invitation model
-  invitation: modelProxy<unknown>('invitations'),
-  // TelemetryEvent model
-  telemetryEvent: modelProxy<unknown>('telemetryEvents'),
-  // Additional generic models used in tests – passthrough
-  observationNote: modelProxy<unknown>('observationNotes'),
-  externalIdentity: modelProxy<unknown>('externalIdentities'),
-  contactMethod: modelProxy<unknown>('contactMethods'),
-  scenario: modelProxy<unknown>('scenarios'),
-  quotaPreset: modelProxy<unknown>('quotaPresets'),
+
+  invitation:
+    modelProxy<any>('invitations'),
+
+  telemetryEvent:
+    modelProxy<any>('telemetryEvents'),
+
+  observationNote:
+    modelProxy<any>('observationNotes'),
+
+  externalIdentity:
+    modelProxy<any>('externalIdentities'),
+
+  contactMethod:
+    modelProxy<any>('contactMethods'),
+
+  scenario:
+    modelProxy<any>('scenarios'),
+
+  quotaPreset:
+    modelProxy<any>('quotaPresets'),
 };
 
-// Export a Prisma‑like type for external typing
+
 export type PrismaClient = typeof prisma;
-// Helper to create a Prisma‑like client for tests
-export function createPrismaClient(_options?: { connectionString?: string; log?: string[] }): typeof prisma {
-  // In this Firestore shim, the connection string and log options are not used.
-  // The function exists to satisfy the API expected by the test setup.
+
+
+export function createPrismaClient(
+  _options?: {
+    connectionString?: string;
+    log?: string[];
+  }
+): typeof prisma {
   return prisma;
 }
-// No longer re‑exports from @prisma/client
