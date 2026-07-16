@@ -16,7 +16,7 @@ async function findUnique<T>(model: string, args: { where: { id: string } }): Pr
   return doc.exists ? ({ id: doc.id, ...(doc.data() as T) } as T) : null;
 }
 
-async function findMany<T>(model: string, args?: any): Promise<T[]> {
+async function findMany<T>(model: string, args?: unknown): Promise<T[]> {
   const snapshot = await col(model).get();
   const results: T[] = [];
   snapshot.forEach(doc => {
@@ -29,7 +29,7 @@ async function create<T>(model: string, args: { data: T & { id?: string } }): Pr
   const data = args.data;
   const ref = data.id ? col(model).doc(data.id) : col(model).doc();
   await ref.set(data as WithFieldValue<DocumentData>);
-  return { id: ref.id, ...(data as any) } as T;
+  return { id: ref.id, ...(data as unknown) } as T;
 }
 
 async function update<T>(model: string, args: { where: { id: string }; data: Partial<T> }): Promise<T> {
@@ -51,15 +51,15 @@ async function upsert<T>(model: string, args: { where: { id: string }; create: T
   return { id: finalDoc.id, ...(finalDoc.data() as T) } as T;
 }
 
-async function deleteMany(model: string, args?: any): Promise<void> {
+async function deleteMany(model: string): Promise<void> {
   const batch = getDb().batch();
   const snapshot = await col(model).get();
-  snapshot.forEach(doc => batch.delete(doc.ref));
+  snapshot.forEach(doc => { batch.delete(doc.ref); });
   await batch.commit();
 }
 
 /** Minimal aggregate mock – returns empty result (can be extended later) */
-async function aggregate<T>(model: string, args: any): Promise<any> {
+async function aggregate<T>(model: string, args: unknown): Promise<unknown> {
   return { _sum: {}, _count: {} };
 }
 
@@ -67,20 +67,20 @@ async function aggregate<T>(model: string, args: any): Promise<any> {
 /* Helper to build a model proxy with common CRUD operations */
 function modelProxy<T>(model: string) {
   return {
-    findUnique: (args: any) => findUnique<T>(model, args),
-    findMany: (args?: any) => findMany<T>(model, args),
-    create: (args: any) => create<T>(model, args),
-    update: (args: any) => update<T>(model, args),
-    upsert: (args: any) => upsert<T>(model, args),
-    delete: async (args: any) => {
+    findUnique: (args: unknown) => findUnique<T>(model, args as any),
+    findMany: (args?: unknown) => findMany<T>(model, args as any),
+    create: (args: unknown) => create<T>(model, args as any),
+    update: (args: unknown) => update<T>(model, args as any),
+    upsert: (args: unknown) => upsert<T>(model, args as any),
+    delete: async (args: unknown) => {
       await col(model).doc(args.where.id).delete();
     },
-    deleteMany: (args?: any) => deleteMany(model, args),
-    findFirst: async (args?: any) => {
+    deleteMany: () => deleteMany(model),
+    findFirst: async (args?: unknown) => {
       const list = await findMany<T>(model, args);
       return list.length > 0 ? list[0] : null;
     },
-    count: async (args?: any) => {
+    count: async (args?: unknown) => {
       const snapshot = await col(model).get();
       return snapshot.size;
     },
@@ -108,7 +108,7 @@ export const prisma = {
   // UsageLog model with extra createMany & aggregate
   usageLog: {
     ...modelProxy<any>('usageLogs'),
-    createMany: async (args: any) => {
+    createMany: async (args: unknown) => {
       const batch = getDb().batch();
       for (const data of args.data) {
         const ref = col('usageLogs').doc();
@@ -116,7 +116,7 @@ export const prisma = {
       }
       await batch.commit();
     },
-    aggregate: (args: any) => aggregate<any>('usageLogs', args),
+    aggregate: (args: unknown) => aggregate<any>('usageLogs', args as any),
   },
   // User model
   user: {

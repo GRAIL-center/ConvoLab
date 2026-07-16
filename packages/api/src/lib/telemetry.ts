@@ -1,7 +1,7 @@
 // Telemetry disabled – no‑op implementations
 
 export async function track(
-  _prisma: any,
+  _prisma: unknown,
   _name: string,
   _properties: Record<string, unknown> = {},
   _options: { userId?: string; sessionId?: number } = {}
