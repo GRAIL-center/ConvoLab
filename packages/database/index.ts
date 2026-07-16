@@ -1,15 +1,7 @@
-import { Firestore, WithFieldValue, DocumentData } from '@google-cloud/firestore';
-
-// Initialize Firestore client using env var with fallback for tests
-// getDb reads FIRESTORE_PROJECT_ID lazily
-let dbInstance: Firestore | null = null;
+import { Firestore } from '@google-cloud/firestore';
+import { getFirestoreClient } from './src/firestoreClient';
 function getDb(): Firestore {
-  if (!dbInstance) {
-    dbInstance = new Firestore({
-      projectId: process.env.FIRESTORE_PROJECT_ID || 'test-project',
-    });
-  }
-  return dbInstance;
+  return getFirestoreClient();
 }
 
 
