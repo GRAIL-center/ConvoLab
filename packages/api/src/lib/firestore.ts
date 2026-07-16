@@ -1,4 +1,4 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 
 // Initialize a Firestore client using the same project ID as in context.
 function getFirestore() {
@@ -27,7 +27,7 @@ export async function createDoc<T>(
   docId?: string,
 ): Promise<string> {
   const ref = docId ? collection(coll).doc(docId) : collection(coll).doc();
-  await ref.set(data as any);
+  await ref.set(data as WithFieldValue<DocumentData>);
   return ref.id;
 }
 

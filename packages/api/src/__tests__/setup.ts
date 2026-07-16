@@ -1,15 +1,15 @@
-import path from "path";
+import path from "node:path";
 import dotenv from "dotenv";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
-import { execSync } from 'node:child_process';
+
 import { afterAll, beforeAll, beforeEach } from 'vitest';
 
 // Placeholder for Prisma client; will be set in beforeAll
-export let testPrisma: any;
+export let testPrisma: unknown;
 
 // Test database connection string
 const TEST_DATABASE_URL =
@@ -20,7 +20,7 @@ const TEST_DATABASE_URL =
  * Clean all tables before each test.
  * Order matters due to foreign key constraints.
  */
-async function cleanDatabase(prisma: any) {
+async function cleanDatabase(prisma: unknown) {
   // Delete in order that respects foreign keys
   await prisma.observationNote.deleteMany();
   await prisma.lappScore.deleteMany();

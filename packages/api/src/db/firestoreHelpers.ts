@@ -9,8 +9,6 @@ import type {
   LappScore,
   User,
   Invitation,
-  QuotaPreset,
-  Scenario,
   TelemetryEvent,
 } from '@workspace/database';
 
