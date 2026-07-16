@@ -8,6 +8,151 @@ export declare const Role: {
 export type Role = keyof typeof Role;
 export declare const prisma: {
     conversationSession: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    message: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    lappScore: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    usageLog: {
+        createMany: (args: unknown) => Promise<void>;
+        aggregate: (args: unknown) => Promise<unknown>;
+        findUnique: (args: unknown) => Promise<unknown>;
+        findMany: (args?: unknown) => Promise<unknown[]>;
+        create: (args: unknown) => Promise<unknown>;
+        update: (args: unknown) => Promise<unknown>;
+        upsert: (args: unknown) => Promise<unknown>;
+        delete: (args: unknown) => Promise<void>;
+        deleteMany: (args?: unknown) => Promise<void>;
+        findFirst: (args?: unknown) => Promise<unknown>;
+        count: (args?: unknown) => Promise<number>;
+    };
+    user: {
+        delete: (args: unknown) => Promise<void>;
+        findUnique: (args: unknown) => Promise<unknown>;
+        findMany: (args?: unknown) => Promise<unknown[]>;
+        create: (args: unknown) => Promise<unknown>;
+        update: (args: unknown) => Promise<unknown>;
+        upsert: (args: unknown) => Promise<unknown>;
+        deleteMany: (args?: unknown) => Promise<void>;
+        findFirst: (args?: unknown) => Promise<unknown>;
+        count: (args?: unknown) => Promise<number>;
+    };
+    invitation: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    telemetryEvent: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    observationNote: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    externalIdentity: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    contactMethod: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    scenario: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+    quotaPreset: {
+        readonly findUnique: (args: unknown) => Promise<unknown>;
+        readonly findMany: (args?: unknown) => Promise<unknown[]>;
+        readonly create: (args: unknown) => Promise<unknown>;
+        readonly update: (args: unknown) => Promise<unknown>;
+        readonly upsert: (args: unknown) => Promise<unknown>;
+        readonly delete: (args: unknown) => Promise<void>;
+        readonly deleteMany: (args?: unknown) => Promise<void>;
+        readonly findFirst: (args?: unknown) => Promise<unknown>;
+        readonly count: (args?: unknown) => Promise<number>;
+    };
+};
+export type PrismaClient = typeof prisma;
+//# sourceMappingURL=index.d.ts.map
+export declare const Role: {
+    readonly GUEST: "GUEST";
+    readonly USER: "USER";
+    readonly STAFF: "STAFF";
+    readonly ADMIN: "ADMIN";
+};
+export type Role = keyof typeof Role;
+export declare const prisma: {
+    conversationSession: {
         readonly findUnique: (args: any) => Promise<any>;
         readonly findMany: (args?: any) => Promise<any[]>;
         readonly create: (args: any) => Promise<any>;

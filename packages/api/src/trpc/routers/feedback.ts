@@ -50,7 +50,7 @@ export const feedbackRouter = router({
       }
       const snapshot = await query.limit(limit + 1).get();
       const docs = snapshot.docs;
-      let nextCursor;
+      let nextCursor: string | undefined;
       if (docs.length > limit) {
         const nextDoc = docs.pop();
         nextCursor = nextDoc?.id;
