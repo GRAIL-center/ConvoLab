@@ -153,11 +153,35 @@ export const sessionRouter = router({
    * List all conversation sessions for the current user.
    * Returns empty array if not authenticated.
    */
+  delete: protectedProcedure
+    .input(z.object({ sessionId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.prisma.conversationSession.findUnique({
+        where: { id: input.sessionId },
+        select: { id: true, userId: true, deletedAt: true },
+      });
+
+      if (!session || session.userId !== ctx.user.id) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+      }
+
+      if (session.deletedAt) {
+        return { id: session.id };
+      }
+
+      await ctx.prisma.conversationSession.update({
+        where: { id: input.sessionId },
+        data: { deletedAt: new Date() },
+      });
+
+      return { id: input.sessionId };
+    }),
+
   listMine: publicProcedure.query(async ({ ctx }) => {
     if (!ctx.userId) return [];
 
     const sessions = await ctx.prisma.conversationSession.findMany({
-      where: { userId: ctx.userId },
+      where: { userId: ctx.userId, deletedAt: null },
       include: {
         scenario: {
           select: {

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@workspace/database';
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
   partnerModel: 'google:gemini-2.5-flash',
+  coachModel: 'claude-sonnet-4-6',
   partnerUseWebSearch: true,
   coachUseWebSearch: false,
 } as const;

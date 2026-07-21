@@ -37,6 +37,10 @@ async function authRoutes(fastify: FastifyInstance) {
       }
 
       const userInfo = (await userInfoResponse.json()) as GoogleUserInfo;
+      if (!userInfo.sub || !userInfo.email) {
+        fastify.log.error('Google returned incomplete user profile');
+        return reply.redirect(`${frontendUrl}/login?error=invalid_profile`);
+      }
       const sessionUserId = request.session.get('userId');
 
       // Handle the auth logic (extracted for testability)

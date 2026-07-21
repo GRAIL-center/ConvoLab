@@ -99,6 +99,7 @@ interface UseConversationSocketResult {
   streamingRole: 'partner' | 'coach' | null;
   quota: QuotaState | null;
   error: ConversationError | null;
+  clearError: () => void;
   // LAPP scores keyed by userMessageId
   lappScores: Map<number, LappScore>;
   // Aside state
@@ -155,6 +156,8 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
       wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const sendMessage = useCallback(
     (content: string) => {
@@ -235,6 +238,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
         setIsStreaming(false);
         setStreamingRole(null);
         setIsAsideStreaming(false);
+        setActiveAsideThreadId(null);
 
         // If reconnecting, request messages since last known
         if (lastMessageIdRef.current !== null) {
@@ -380,9 +384,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'partner' && last.isStreaming) {
-                // Prefer the accumulated streaming content; fall back to the server's
-                // confirmed content (e.g. after a partner:retry that cleared the bubble).
-                const finalContent = last.content || msg.content;
+                const finalContent = msg.content || last.content;
                 return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message (e.g. Gemini search chunks had null text) — create from content
@@ -434,8 +436,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.role === 'coach' && last.isStreaming) {
-                // Same fallback as partner:done — use server content if bubble was cleared.
-                const finalContent = last.content || msg.content;
+                const finalContent = msg.content || last.content;
                 return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
               }
               // No streaming message — create from content
@@ -462,26 +463,29 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
           case 'aside:delta':
             setIsAsideStreaming(true);
             asideStreamingContentRef.current += msg.content;
-            setAsideMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
+            {
+              const asideAccumulated = asideStreamingContentRef.current;
+              setAsideMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: asideAccumulated },
+                  ];
+                }
                 return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: asideStreamingContentRef.current },
+                  ...prev,
+                  {
+                    id: -1,
+                    role: 'coach',
+                    content: asideAccumulated,
+                    timestamp: new Date().toISOString(),
+                    threadId: msg.threadId,
+                    isStreaming: true,
+                  },
                 ];
-              }
-              return [
-                ...prev,
-                {
-                  id: -1,
-                  role: 'coach',
-                  content: asideStreamingContentRef.current,
-                  timestamp: new Date().toISOString(),
-                  threadId: msg.threadId,
-                  isStreaming: true,
-                },
-              ];
-            });
+              });
+            }
             break;
 
           case 'aside:done':
@@ -502,6 +506,16 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             asideStreamingContentRef.current = '';
             setIsAsideStreaming(false);
             setActiveAsideThreadId(null);
+            setAsideMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
             break;
 
           case 'score:update':
@@ -525,11 +539,26 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
             setIsStreaming(false);
             setStreamingRole(null);
             streamingContentRef.current = '';
-            // Remove any dangling streaming bubble — e.g. after partner:retry if the
-            // fallback model also fails, leaving an empty isStreaming:true message.
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
+                return prev.slice(0, -1);
+              }
+              return prev;
+            });
+            // Also reset aside state in case a server error interrupts an active aside
+            setIsAsideStreaming(false);
+            setActiveAsideThreadId(null);
+            asideStreamingContentRef.current = '';
+            setAsideMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.isStreaming) {
+                if (last.content?.trim()) {
+                  return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+                }
                 return prev.slice(0, -1);
               }
               return prev;
@@ -577,6 +606,7 @@ export function useConversationSocket(sessionId: number): UseConversationSocketR
     streamingRole,
     quota,
     error,
+    clearError,
     lappScores,
     // Aside state
     asideMessages,

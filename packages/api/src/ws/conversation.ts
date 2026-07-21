@@ -11,8 +11,6 @@ import { db } from '../db/firestoreHelpers.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 
-//import { DEFAULT_MODEL } from '../lib/constants.js';
-const DEFAULT_MODEL = 'gpt-4o';
 
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
@@ -23,8 +21,8 @@ import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
 // Default models for custom scenarios
 const DEFAULT_PARTNER_MODEL = 'google:gemini-2.0-flash';
-const DEFAULT_COACH_MODEL = 'claude-sonnet-4-20250514';
-const FALLBACK_PARTNER_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_COACH_MODEL = 'claude-sonnet-4-6';
+const FALLBACK_PARTNER_MODEL = 'claude-sonnet-4-6';
 
 const ASIDE_INSTRUCTIONS = `
 When responding to an aside question (marked with [ASIDE QUESTION]):
@@ -144,6 +142,27 @@ export class ConversationManager {
         tone,
       });
     }
+
+    try {
+      if (this.session.invitationId) {
+        const invitation = await this.prisma.invitation.findUnique({
+          where: { id: this.session.invitationId },
+        });
+        if (invitation) {
+          const invQuota = invitation.quota as unknown as Quota;
+          if (invQuota?.tokens) {
+            const status = await getInvitationQuotaStatus(this.prisma, invitation.id, invQuota);
+            send(this.ws, {
+              type: 'quota:warning',
+              remaining: status.remaining,
+              total: status.total,
+            });
+          }
+        }
+      }
+    } catch {
+      this.logger.warn({ sessionId: this.session.id }, 'Failed to send initial quota status');
+    }
   }
 
   async handleUserMessage(content: string): Promise<void> {
@@ -179,17 +198,22 @@ export class ConversationManager {
         { userId: this.session.userId ?? undefined, sessionId: this.session.id }
       );
 
-      broadcast(this.session.id, {
-        type: 'history',
+      const userHistoryMsg = {
+        type: 'history' as const,
         messages: [
           {
             id: userMsg.id,
-            role: 'user',
+            role: 'user' as const,
             content: userMsg.content,
             timestamp: userMsg.timestamp.toISOString(),
+            messageType: 'main' as const,
           },
         ],
-      });
+      };
+      // Send to participant so optimistic ID is reconciled before score:update arrives
+      send(this.ws, userHistoryMsg);
+      // Also broadcast to session observers (researchers watching)
+      broadcast(this.session.id, userHistoryMsg);
 
       const partnerResult = await this.streamResponse('partner');
       if (!partnerResult) {
@@ -197,8 +221,8 @@ export class ConversationManager {
         return;
       }
 
-      // Skip coach on the first exchange — let the user form their own response first.
-      const isFirstExchange = this.session.messages.filter((m) => m.role === 'user').length === 1;
+      // Skip coach on the first two exchanges — let the user establish the conversation first.
+      const isFirstExchange = turnNumber <= 2;
 
       if (isFirstExchange) {
         send(this.ws, { type: 'exchange:complete' });
@@ -211,6 +235,9 @@ export class ConversationManager {
       } else {
         const coachResult = await this.streamResponse('coach');
         if (!coachResult) {
+          // Coach failed — still deduct partner tokens so quota is accurate
+          await this.logUsage(partnerResult.usage, null);
+          await this.checkQuotaWarning();
           this.isProcessing = false;
           return;
         }
@@ -222,7 +249,9 @@ export class ConversationManager {
         });
 
         // Fire-and-forget LAPP scorer (does not block the next exchange)
-        this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch(() => {});
+        this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch((err) => {
+          this.logger.warn({ sessionId: this.session.id, error: err }, 'LAPP scoring failed');
+        });
       }
     } catch (error) {
       this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
@@ -381,7 +410,7 @@ export class ConversationManager {
                   '[stream] Retryable error — retrying'
                 );
                 await sleep(1000 * retries);
-                continue;
+                break; // exit for-await so while loop creates a new stream
               }
               throw new Error(chunk.error.message);
             }
@@ -505,7 +534,7 @@ export class ConversationManager {
     partnerMessage: string,
     turnNumber: number
   ): Promise<void> {
-    const scorerModel = 'claude-haiku-4-5-20251001';
+    const scorerModel = 'claude-haiku-4-5';
     const systemPrompt = `You are a LAPP dialogue scoring system. Score the user message on four dimensions and classify its tone. Respond ONLY with valid JSON — no explanation, no markdown, no other text.`;
 
     const userPrompt = `Turn number: ${turnNumber}
@@ -532,7 +561,7 @@ Pe (Perspective): Does the user share their own view in a personal, non-absoluti
 Tone:
   "tense"=escalatory/adversarial  "neutral"=matter-of-fact  "warm"=acknowledging/curious  "constructive"=full LAPP, collaborative
 
-Note: In turns 1–2, if P or Pe are clearly absent, score them 0 (N/A).
+Note: Scoring starts at turn 3. If P or Pe are clearly absent in this early turn, score them 0 (N/A).
 
 Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
@@ -588,7 +617,12 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     const messages = this.session.messages;
     if (role === 'partner') {
       return messages
-        .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
+        .filter(
+          (m) =>
+            (m.role === 'user' || m.role === 'partner') &&
+            m.messageType !== 'aside' &&
+            m.content.trim().length > 0
+        )
         .map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.content.trim(),
@@ -826,7 +860,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     context: LLMMessage[]
   ): Promise<{ content: string; messageId: number; usage: TokenUsage } | null> {
     const scenario = this.session.scenario;
-    const modelString = scenario?.coachModel ?? DEFAULT_MODEL;
+    const modelString = scenario?.coachModel ?? DEFAULT_COACH_MODEL;
     const systemPrompt =
       (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
@@ -921,7 +955,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
   }
 
   private async logAsideUsage(usage: TokenUsage): Promise<void> {
-    const coachModel = this.session.scenario?.coachModel ?? DEFAULT_MODEL;
+    const coachModel = this.session.scenario?.coachModel ?? DEFAULT_COACH_MODEL;
     await this.prisma.usageLog.create({
       data: {
         sessionId: this.session.id,

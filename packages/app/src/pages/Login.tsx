@@ -13,7 +13,6 @@ function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement actual authentication
-    console.log('Login:', { email, password });
     navigate('/');
   };
 
