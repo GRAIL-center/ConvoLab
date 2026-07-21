@@ -14,6 +14,7 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
+##basic script, need to add more
 
 # ----------------------------
 # SQL CONNECTION
