@@ -37,7 +37,7 @@ async function oauth(fastify: FastifyInstance) {
       return reply.status(503).send({ error: 'OAuth not configured' });
     }
     try {
-      const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request);
+      const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);
       const url = new URL(authUrl);
       url.searchParams.set('prompt', 'select_account');
       return reply.redirect(url.toString());

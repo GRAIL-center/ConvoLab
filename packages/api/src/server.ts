@@ -133,7 +133,7 @@ if (isDev) {
         googleOAuth,
         aiKeys,
         sessionKey: !!process.env.SESSION_KEY,
-        databaseUrl: !!process.env.DATABASE_URL,
+        firestoreProjectId: !!process.env.FIRESTORE_PROJECT_ID,
       },
       missing: {
         googleOAuth: !hasGoogleOAuth,

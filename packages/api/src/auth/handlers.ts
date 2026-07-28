@@ -52,7 +52,9 @@ export async function mergeUsers(
       where: { userId: targetUserId },
       select: { type: true, value: true },
     });
-    const targetKeys = new Set(targetContacts.map((c) => `${c.type}:${c.value}`));
+    const targetKeys = new Set(
+      targetContacts.map((c: { type: string; value: string }) => `${c.type}:${c.value}`)
+    );
 
     const sourceContacts = await tx.contactMethod.findMany({
       where: { userId: sourceUserId },
@@ -107,24 +109,32 @@ export async function handleGoogleAuth(
   // Look up existing identity
   const existingIdentity = await prisma.externalIdentity.findUnique({
     where: { provider_externalId: { provider: 'google', externalId: userInfo.sub } },
-    include: { user: true },
   });
 
   let user: { id: string; name: string | null; role: string };
 
   if (existingIdentity) {
-    // Identity exists - log in as that user
-    user = existingIdentity.user;
+    // Identity exists - log in as that user. The shim doesn't support
+    // `include`, so fetch the linked user explicitly instead of joining.
+    const identityUser = await prisma.user.findUnique({ where: { id: existingIdentity.userId } });
+    if (!identityUser) {
+      throw new Error(
+        `Firestore shim: ExternalIdentity ${existingIdentity.id} points at missing user ${existingIdentity.userId}`
+      );
+    }
+    user = identityUser;
 
     // Check if we need to merge an anonymous session user
     if (sessionUserId && sessionUserId !== user.id) {
       const sessionUser = await prisma.user.findUnique({
         where: { id: sessionUserId },
-        include: { externalIdentities: true },
       });
+      const sessionUserIdentities = sessionUser
+        ? await prisma.externalIdentity.findMany({ where: { userId: sessionUserId } })
+        : [];
 
       // Only merge if session user is anonymous (no external identities)
-      if (sessionUser && sessionUser.externalIdentities.length === 0) {
+      if (sessionUser && sessionUserIdentities.length === 0) {
         await mergeUsers(sessionUserId, user.id, prisma);
         mergedFrom = sessionUserId;
       }
@@ -187,20 +197,35 @@ export async function handleGoogleAuth(
         });
       }
     } else {
-      // Check if email exists as ContactMethod (link to that user)
+      // Check if email exists as ContactMethod (link to that user). The shim
+      // doesn't support nested `include`, so fetch the contact's user and
+      // that user's identities as separate follow-up lookups.
       const existingContact = await prisma.contactMethod.findUnique({
         where: { type_value: { type: 'email', value: userInfo.email } },
-        include: { user: { include: { externalIdentities: true } } },
       });
 
-      if (existingContact && existingContact.user.externalIdentities.length === 0) {
+      let existingContactUser: { id: string; name: string | null; role: string } | null = null;
+      let existingContactUserIdentityCount = 0;
+      if (existingContact) {
+        existingContactUser = await prisma.user.findUnique({
+          where: { id: existingContact.userId },
+        });
+        if (existingContactUser) {
+          const identities = await prisma.externalIdentity.findMany({
+            where: { userId: existingContactUser.id },
+          });
+          existingContactUserIdentityCount = identities.length;
+        }
+      }
+
+      if (existingContact && existingContactUser && existingContactUserIdentityCount === 0) {
         // Link Google to existing anonymous user with this email
         user = await prisma.user.update({
           where: { id: existingContact.userId },
           data: {
-            name: existingContact.user.name || userInfo.name,
+            name: existingContactUser.name || userInfo.name,
             avatarUrl: userInfo.picture,
-            role: existingContact.user.role === 'GUEST' ? 'USER' : existingContact.user.role,
+            role: existingContactUser.role === 'GUEST' ? 'USER' : existingContactUser.role,
             lastLoginAt: new Date(),
           },
         });
