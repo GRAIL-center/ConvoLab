@@ -325,6 +325,12 @@ export function createPrismaClient(
   return prisma;
 }
 
+// Re-exported so packages/api/src/server.ts can import these from
+// '@workspace/database' directly at startup (auto-seeding reference/test
+// data). They were previously only reachable via a relative cross-package
+// path that isn't part of this package's public "exports" map.
+export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase';
+
 export type {
   ConversationSession,
   Message,
