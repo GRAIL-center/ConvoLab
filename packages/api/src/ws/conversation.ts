@@ -3,12 +3,19 @@ import type {
   ConversationSession,
   Invitation,
   Message,
-  Prisma,
   PrismaClient,
   Scenario,
 } from '@workspace/database';
 import { db } from '../db/firestoreHelpers.js';
+import {
+  createMessage,
+  getMessagesForSession,
+  createLappScore,
+  getLappScoresForSession,
+  updateSession,
+} from '../data/index.js';
 import type { FastifyBaseLogger } from 'fastify';
+
 import type { WebSocket } from 'ws';
 
 //import { DEFAULT_MODEL } from '../lib/constants.js';
@@ -127,10 +134,7 @@ export class ConversationManager {
     send(this.ws, { type: 'history', messages: historyMessages });
 
     // Replay persisted LAPP scores so the panel restores on re-open
-    const existingScores = await this.db.lappScore.findMany({
-      where: { sessionId: this.session.id },
-      orderBy: { turnNumber: 'asc' },
-    });
+    const existingScores = await getLappScoresForSession(String(this.session.id));
     for (const score of existingScores) {
       const validTones = ['constructive', 'warm', 'neutral', 'tense'] as const;
       const tone = validTones.includes(score.tone as (typeof validTones)[number])
@@ -239,13 +243,10 @@ export class ConversationManager {
   }
 
   async handleResume(afterMessageId?: number): Promise<void> {
-    const messages = await this.prisma.message.findMany({
-      where: {
-        sessionId: this.session.id,
-        ...(afterMessageId ? { id: { gt: afterMessageId } } : {}),
-      },
-      orderBy: { id: 'asc' },
-    });
+    const allMessages = await getMessagesForSession(String(this.session.id));
+    const messages = afterMessageId
+      ? allMessages.filter((m: any) => m.id > afterMessageId)
+      : allMessages;
 
     const historyMessages: HistoryMessage[] = messages.map((m) => ({
       id: m.id,
@@ -572,11 +573,12 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
         pe: Math.min(5, Math.max(0, Math.round(parsed.pe))),
       };
 
-      await this.db.lappScore.upsert({
-        where: { userMessageId },
-        create: { userMessageId, sessionId: this.session.id, turnNumber, ...scores, tone },
-        update: { ...scores, tone },
-      });
+      await createLappScore(String(this.session.id), {
+        userMessageId: userMessageId as any,
+        turnNumber,
+        ...scores,
+        tone,
+      } as any);
 
       send(this.ws, { type: 'score:update', userMessageId, turnNumber, scores, tone });
     } catch {
@@ -653,16 +655,24 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
       asideThreadId?: string;
     }
   ): Promise<Message> {
-    return this.db.message.create({
-      data: {
-        sessionId: this.session.id,
-        role,
-        content,
-        metadata: options?.metadata as Prisma.InputJsonValue | undefined,
-        messageType: options?.messageType ?? 'main',
-        asideThreadId: options?.asideThreadId,
-      },
-    });
+    const id = await createMessage(String(this.session.id), {
+      role,
+      content,
+      metadata: options?.metadata as any,
+      messageType: options?.messageType ?? 'main',
+      asideThreadId: options?.asideThreadId,
+    } as any);
+    return {
+      id: id as any,
+      sessionId: this.session.id,
+      role,
+      content,
+      timestamp: new Date(),
+      metadata: options?.metadata as any,
+      messageType: options?.messageType ?? 'main',
+      asideThreadId: options?.asideThreadId ?? null,
+      audioUrl: null,
+    } as Message;
   }
 
   private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage | null): Promise<void> {

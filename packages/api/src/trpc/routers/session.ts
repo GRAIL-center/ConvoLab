@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { createSession, listSessions } from '../../data/index.js';
 import { parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
@@ -59,29 +60,25 @@ export const sessionRouter = router({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Scenario not found' });
         }
 
-        const session = await ctx.prisma.$transaction(async (tx) => {
-          const invitation = await tx.invitation.create({
-            data: {
-              token: generateToken(),
-              label: `Staff quick-start: ${scenario.name}`,
-              scenarioId: scenario.id,
-              quota: { tokens: quota.tokens, label: preset.label },
-              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-              createdById: ctx.user.id,
-              linkedUserId: ctx.user.id,
-              claimedAt: new Date(),
-            },
-          });
-
-          return tx.conversationSession.create({
-            data: {
-              scenarioId: scenario.id,
-              userId: ctx.user.id,
-              invitationId: invitation.id,
-              status: 'ACTIVE',
-            },
-          });
+        const invitation = await ctx.prisma.invitation.create({
+          data: {
+            token: generateToken(),
+            label: `Staff quick-start: ${scenario.name}`,
+            scenarioId: scenario.id,
+            quota: { tokens: quota.tokens, label: preset.label },
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+            createdById: ctx.user.id,
+            linkedUserId: ctx.user.id,
+            claimedAt: new Date(),
+          },
         });
+
+        const sessionId = await createSession({
+          scenarioId: scenario.id,
+          userId: ctx.user.id,
+          invitationId: invitation.id,
+          status: 'ACTIVE',
+        } as any);
 
         await track(
           ctx.prisma,
@@ -92,10 +89,10 @@ export const sessionRouter = router({
             isCustom: false,
             source: 'staff_quickstart',
           },
-          { userId: ctx.user.id, sessionId: session.id }
+          { userId: ctx.user.id, sessionId: sessionId as any }
         );
 
-        return { sessionId: session.id };
+        return { sessionId };
       }
 
       // Custom scenario path
@@ -107,33 +104,29 @@ export const sessionRouter = router({
         });
       }
 
-      const session = await ctx.prisma.$transaction(async (tx) => {
-        const invitation = await tx.invitation.create({
-          data: {
-            token: generateToken(),
-            label: `Staff quick-start: ${elaborated.name}`,
-            allowCustomScenario: true,
-            quota: { tokens: quota.tokens, label: preset.label },
-            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-            createdById: ctx.user.id,
-            linkedUserId: ctx.user.id,
-            claimedAt: new Date(),
-          },
-        });
-
-        return tx.conversationSession.create({
-          data: {
-            userId: ctx.user.id,
-            invitationId: invitation.id,
-            status: 'ACTIVE',
-            customDescription,
-            customScenarioName: elaborated.name,
-            customPartnerPersona: elaborated.persona,
-            customPartnerPrompt: elaborated.partnerPrompt,
-            customCoachPrompt: elaborated.coachPrompt,
-          },
-        });
+      const invitation = await ctx.prisma.invitation.create({
+        data: {
+          token: generateToken(),
+          label: `Staff quick-start: ${elaborated.name}`,
+          allowCustomScenario: true,
+          quota: { tokens: quota.tokens, label: preset.label },
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          createdById: ctx.user.id,
+          linkedUserId: ctx.user.id,
+          claimedAt: new Date(),
+        },
       });
+
+      const sessionId = await createSession({
+        userId: ctx.user.id,
+        invitationId: invitation.id,
+        status: 'ACTIVE',
+        customDescription,
+        customScenarioName: elaborated.name,
+        customPartnerPersona: elaborated.persona,
+        customPartnerPrompt: elaborated.partnerPrompt,
+        customCoachPrompt: elaborated.coachPrompt,
+      } as any);
 
       await track(
         ctx.prisma,
@@ -143,10 +136,10 @@ export const sessionRouter = router({
           isCustom: true,
           source: 'staff_quickstart',
         },
-        { userId: ctx.user.id, sessionId: session.id }
+        { userId: ctx.user.id, sessionId: sessionId as any }
       );
 
-      return { sessionId: session.id };
+      return { sessionId };
     }),
 
   /**
@@ -156,29 +149,16 @@ export const sessionRouter = router({
   listMine: publicProcedure.query(async ({ ctx }) => {
     if (!ctx.userId) return [];
 
-    const sessions = await ctx.prisma.conversationSession.findMany({
-      where: { userId: ctx.userId },
-      include: {
-        scenario: {
-          select: {
-            id: true,
-            name: true,
-            partnerPersona: true,
-          },
-        },
-        _count: {
-          select: { messages: true },
-        },
-      },
-      orderBy: { startedAt: 'desc' },
-    });
+    const allSessions = await listSessions();
+    const sessions = allSessions.filter((s: any) => String(s.userId) === String(ctx.userId));
 
-    return sessions.map((s) => ({
+    return sessions.map((s: any) => ({
       id: s.id,
       scenario: s.scenario,
       status: s.status,
-      messageCount: s._count.messages,
+      messageCount: s._count?.messages ?? (s.messages ? s.messages.length : 0),
       startedAt: s.startedAt,
     }));
   }),
 });
+

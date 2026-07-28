@@ -324,3 +324,18 @@ export function createPrismaClient(
 ): typeof prisma {
   return prisma;
 }
+
+export type {
+  ConversationSession,
+  Message,
+  LappScore,
+  User,
+  Invitation,
+  TelemetryEvent,
+  Scenario,
+  UsageLog,
+  ObservationNote,
+  ExternalIdentity,
+  ContactMethod,
+  QuotaPreset,
+} from '@prisma/client';

@@ -1,4 +1,5 @@
 import { db as prisma } from '../db/firestoreHelpers';
+import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { ConversationManager } from './conversation.js';
@@ -16,33 +17,14 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
     '/ws/conversation/:sessionId',
     { websocket: true },
     async (socket: WebSocket, request: FastifyRequest<{ Params: { sessionId: string } }>) => {
-      const sessionId = parseInt(request.params.sessionId, 10);
-
-      if (Number.isNaN(sessionId)) {
-        send(socket, {
-          type: 'error',
-          code: 'SESSION_NOT_FOUND',
-          message: 'Invalid session ID',
-          recoverable: false,
-        });
-        socket.close(1008, 'Invalid session ID');
-        return;
-      }
+      const sessionIdStr = request.params.sessionId;
+      const sessionId = parseInt(sessionIdStr, 10);
 
       // Get user from session (if authenticated)
       const userId = (request.session as { userId?: string } | undefined)?.userId;
 
       // Load session with scenario and messages
-      const session = await prisma.conversationSession.findUnique({
-        where: { id: sessionId },
-        include: {
-          scenario: true,
-          invitation: true,
-          messages: {
-            orderBy: { id: 'asc' },
-          },
-        },
-      });
+      const session = await getSession(sessionIdStr);
 
       if (!session) {
         send(socket, {
@@ -54,6 +36,11 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         socket.close(1008, 'Session not found');
         return;
       }
+
+      if (!(session as any).messages) {
+        (session as any).messages = await getMessagesForSession(sessionIdStr);
+      }
+
 
       // Auth check: must have valid session cookie and session must belong to that user
       if (!userId || session.userId !== userId) {
