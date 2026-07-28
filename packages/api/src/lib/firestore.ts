@@ -1,7 +1,7 @@
 import { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 
 // Initialize a Firestore client using the same project ID as in context.
-function getFirestore() {
+export function getFirestore() {
   return new Firestore({
     projectId: process.env.FIRESTORE_PROJECT_ID,
   });

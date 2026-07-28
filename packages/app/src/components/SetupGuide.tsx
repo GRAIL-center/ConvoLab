@@ -50,7 +50,7 @@ interface SetupStatus {
     googleOAuth: { clientId: boolean; clientSecret: boolean; callbackUrl: boolean };
     aiKeys: { anthropic: boolean; openai: boolean; googleAi: boolean };
     sessionKey: boolean;
-    databaseUrl: boolean;
+    firestoreProjectId: boolean;
   };
   missing: { googleOAuth: boolean; aiKey: boolean; sessionKey: boolean };
   errors: string[];
@@ -117,6 +117,11 @@ export function SetupGuide() {
             </li>
           )}
           <CheckItem label="Session Key" configured={checks.sessionKey} hint="needed for auth" />
+          <CheckItem
+            label="Firestore Project"
+            configured={checks.firestoreProjectId}
+            hint="FIRESTORE_PROJECT_ID needed for the database"
+          />
         </ul>
 
         {warnings.length > 0 && (

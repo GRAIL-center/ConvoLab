@@ -27,10 +27,7 @@ const scenarioSelect = {
  * Throws TRPCError if not found or expired.
  */
 async function getValidInvitation(prisma: PrismaClient, token: string) {
-  const invitation = await prisma.invitation.findUnique({
-    where: { token },
-    include: { scenario: { select: scenarioSelect } },
-  });
+  const invitation = await prisma.invitation.findUnique({ where: { token } });
 
   if (!invitation) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
@@ -40,7 +37,17 @@ async function getValidInvitation(prisma: PrismaClient, token: string) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invitation has expired' });
   }
 
-  return invitation;
+  // Firestore has no joins (the shim now throws on `include` rather than
+  // silently dropping it — see docs/plans/15-firestore-shim-gaps.md), so
+  // fetch the related scenario explicitly.
+  const scenario = invitation.scenarioId
+    ? await prisma.scenario.findUnique({
+        where: { id: invitation.scenarioId },
+        select: scenarioSelect,
+      })
+    : null;
+
+  return { ...invitation, scenario };
 }
 
 export const invitationRouter = router({
@@ -414,39 +421,65 @@ export const invitationRouter = router({
   list: staffProcedure.query(async ({ ctx }) => {
     const invitations = await ctx.prisma.invitation.findMany({
       where: { createdById: ctx.user.id },
-      include: {
-        scenario: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        linkedUser: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            sessions: true,
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
 
-    return invitations.map((inv) => ({
+    // Firestore has no joins (the shim now throws on `include` rather than
+    // silently dropping it — see docs/plans/15-firestore-shim-gaps.md), so
+    // batch-fetch the related scenarios/users/session-counts explicitly
+    // instead of one query per invitation.
+    const scenarioIds = [...new Set(invitations.map((inv: any) => inv.scenarioId).filter(Boolean))];
+    const linkedUserIds = [...new Set(invitations.map((inv: any) => inv.linkedUserId).filter(Boolean))];
+    const invitationIds = invitations.map((inv: any) => inv.id);
+
+    // Scenario/user ids are looked up by document id individually rather than
+    // a batched `where: { id: { in: [...] } } }` query — Firestore's `in`
+    // operator filters on a stored *field* value, and querying by document id
+    // that way requires the FieldPath.documentId() sentinel, which the shim
+    // doesn't wire up. Per-id findUnique is simpler and definitely correct.
+    const [scenarios, linkedUsers, sessions] = await Promise.all([
+      Promise.all(
+        scenarioIds.map((id) =>
+          ctx.prisma.scenario.findUnique({ where: { id }, select: { id: true, name: true, slug: true } })
+        )
+      ),
+      Promise.all(
+        linkedUserIds.map((id) =>
+          ctx.prisma.user.findUnique({ where: { id }, select: { id: true, name: true } })
+        )
+      ),
+      invitationIds.length
+        ? ctx.prisma.conversationSession.findMany({
+            where: { invitationId: { in: invitationIds } },
+            select: { id: true, invitationId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Map keys are normalized to strings: Scenario uses an `Int @id` in
+    // schema.prisma, but Firestore doc ids (and thus `s.id` here) are always
+    // strings, while `inv.scenarioId` still holds whatever type it was
+    // originally stored as.
+    const scenarioById = new Map(scenarios.filter(Boolean).map((s: any) => [String(s.id), s]));
+    const linkedUserById = new Map(linkedUsers.filter(Boolean).map((u: any) => [String(u.id), u]));
+    const sessionCountByInvitationId = new Map<string, number>();
+    for (const session of sessions as any[]) {
+      sessionCountByInvitationId.set(
+        session.invitationId,
+        (sessionCountByInvitationId.get(session.invitationId) ?? 0) + 1
+      );
+    }
+
+    return invitations.map((inv: any) => ({
       id: inv.id,
       token: inv.token,
       label: inv.label,
-      scenario: inv.scenario,
+      scenario: inv.scenarioId ? (scenarioById.get(String(inv.scenarioId)) ?? null) : null,
       allowCustomScenario: inv.allowCustomScenario,
       quota: parseQuota(inv.quota),
       claimedAt: inv.claimedAt,
-      linkedUser: inv.linkedUser,
-      sessionCount: inv._count.sessions,
+      linkedUser: inv.linkedUserId ? (linkedUserById.get(String(inv.linkedUserId)) ?? null) : null,
+      sessionCount: sessionCountByInvitationId.get(inv.id) ?? 0,
       expiresAt: inv.expiresAt,
       createdAt: inv.createdAt,
     }));
@@ -460,7 +493,7 @@ export const invitationRouter = router({
       orderBy: { sortOrder: 'asc' },
     });
 
-    return presets.map((p) => ({
+    return presets.map((p: any) => ({
       name: p.name,
       label: p.label,
       description: p.description,

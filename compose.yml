@@ -20,6 +20,11 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
+      # Points the Google Auth library at the ADC file mounted in below,
+      # so the Firestore client can actually authenticate from inside the
+      # container instead of crashing with "Could not load the default
+      # credentials."
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
     volumes:
       # Mount source for hot reloading
       - ./packages/api/src:/app/packages/api/src
@@ -28,6 +33,9 @@ services:
       - /app/node_modules
       - /app/packages/api/node_modules
       - /app/packages/database/node_modules
+      # Host gcloud ADC (from `gcloud auth application-default login`),
+      # read-only, so Firestore calls can authenticate.
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     # PostgreSQL service removed – DB fully migrated to Firestore
     networks:
       - conversation-coach

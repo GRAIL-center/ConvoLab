@@ -13,6 +13,10 @@ export const authRouter = router({
       return { user: null, mergedFrom: null };
     }
 
+    // The shim doesn't support Prisma's nested relation `select` or the
+    // `_count: { select: { sessions: true } }` shorthand, so fetch the
+    // scalar user fields and the two relations as separate follow-up calls
+    // instead of one nested select (same pattern used in auth/handlers.ts).
     const user = await ctx.prisma.user.findUnique({
       where: { id: ctx.userId },
       select: {
@@ -20,25 +24,6 @@ export const authRouter = router({
         name: true,
         avatarUrl: true,
         role: true,
-        externalIdentities: {
-          select: {
-            provider: true,
-            email: true,
-          },
-        },
-        contactMethods: {
-          select: {
-            type: true,
-            value: true,
-            verified: true,
-            primary: true,
-          },
-        },
-        _count: {
-          select: {
-            sessions: true,
-          },
-        },
       },
     });
 
@@ -48,10 +33,20 @@ export const authRouter = router({
       return { user: null, mergedFrom: null };
     }
 
-    // Flatten _count for cleaner API
-    const { _count, ...userData } = user;
+    const [externalIdentities, contactMethods, sessionCount] = await Promise.all([
+      ctx.prisma.externalIdentity.findMany({
+        where: { userId: user.id },
+        select: { provider: true, email: true },
+      }),
+      ctx.prisma.contactMethod.findMany({
+        where: { userId: user.id },
+        select: { type: true, value: true, verified: true, primary: true },
+      }),
+      ctx.prisma.conversationSession.count({ where: { userId: user.id } }),
+    ]);
+
     return {
-      user: { ...userData, sessionCount: _count.sessions },
+      user: { ...user, externalIdentities, contactMethods, sessionCount },
       mergedFrom,
     };
   }),
