@@ -1,5 +1,6 @@
 import type { PrismaClient } from '../db/firestoreHelpers';
 import { db as prisma } from '../db/firestoreHelpers';
+import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import { subscribe, unsubscribe } from './broadcaster.js';
@@ -30,13 +31,7 @@ export class ObserverManager {
    */
   async initialize(): Promise<void> {
     // Load session with scenario and all messages
-    const session = await this.prisma.conversationSession.findUnique({
-      where: { id: this.sessionId },
-      include: {
-        scenario: true,
-        messages: { orderBy: { id: 'asc' } },
-      },
-    });
+    const session = await getSession(String(this.sessionId));
 
     if (!session) {
       send(this.ws, {
@@ -49,13 +44,15 @@ export class ObserverManager {
       return;
     }
 
+    const messages = await getMessagesForSession(String(this.sessionId));
+
     // Build scenario info
-    const scenarioInfo = session.scenario
+    const scenarioInfo = (session as any).scenario
       ? {
-          id: session.scenario.id,
-          name: session.scenario.name,
-          description: session.scenario.description,
-          partnerPersona: session.scenario.partnerPersona,
+          id: (session as any).scenario.id,
+          name: (session as any).scenario.name,
+          description: (session as any).scenario.description,
+          partnerPersona: (session as any).scenario.partnerPersona,
         }
       : {
           id: 0,
@@ -73,14 +70,15 @@ export class ObserverManager {
     });
 
     // Send message history
-    const historyMessages: HistoryMessage[] = session.messages.map((m) => ({
+    const historyMessages: HistoryMessage[] = messages.map((m: any) => ({
       id: m.id,
       role: m.role as 'user' | 'partner' | 'coach',
       content: m.content,
-      timestamp: m.timestamp.toISOString(),
+      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
     }));
 
     send(this.ws, { type: 'history', messages: historyMessages });
+
 
     // Subscribe to live broadcasts
     subscribe(this.sessionId, this.ws);

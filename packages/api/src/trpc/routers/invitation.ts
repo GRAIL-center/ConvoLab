@@ -2,11 +2,13 @@ import { TRPCError } from '@trpc/server';
 import type { PrismaClient } from '@workspace/database';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
+import { createSession, listSessions } from '../../data/index.js';
 import { elaborateDescription } from '../../lib/elaborate.js';
 import { getInvitationQuotaStatus, parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
 import { protectedProcedure, publicProcedure, router, staffProcedure } from '../procedures.js';
+
 
 // Base64url token format (32 bytes = 43 chars, no padding)
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Invalid token format');
@@ -218,14 +220,10 @@ export const invitationRouter = router({
 
       if (alreadyClaimed && !shouldCreateNewSession) {
         // Return existing session (predefined scenario, already claimed)
-        const existingSession = await ctx.prisma.conversationSession.findFirst({
-          where: {
-            userId,
-            invitationId: invitation.id,
-          },
-          orderBy: { startedAt: 'desc' },
-          select: { id: true },
-        });
+        const allSessions = await listSessions();
+        const existingSession = allSessions.find(
+          (s: any) => String(s.userId) === String(userId) && String(s.invitationId) === String(invitation.id)
+        );
 
         if (existingSession) {
           sessionId = existingSession.id;
@@ -237,15 +235,13 @@ export const invitationRouter = router({
               message: 'Invitation has no scenario assigned',
             });
           }
-          const newSession = await ctx.prisma.conversationSession.create({
-            data: {
-              scenarioId: invitation.scenarioId,
-              userId,
-              invitationId: invitation.id,
-              status: 'ACTIVE',
-            },
-          });
-          sessionId = newSession.id;
+          const createdId = await createSession({
+            scenarioId: invitation.scenarioId,
+            userId,
+            invitationId: invitation.id,
+            status: 'ACTIVE',
+          } as any);
+          sessionId = createdId as any;
           await track(
             ctx.prisma,
             TelemetryEvents.CONVERSATION_STARTED,
@@ -269,25 +265,24 @@ export const invitationRouter = router({
           });
         }
 
-        const newSession = await ctx.prisma.conversationSession.create({
-          data: {
-            // Use scenarioId if available, otherwise null (custom scenario)
-            scenarioId: invitation.scenarioId ?? undefined,
-            userId,
-            invitationId: invitation.id,
-            status: 'ACTIVE',
-            // Custom scenario fields
-            customDescription: elaborationResult ? input.customDescription : undefined,
-            customScenarioName: elaborationResult?.name,
-            customPartnerPersona: elaborationResult?.persona,
-            customPartnerPrompt: elaborationResult?.partnerPrompt,
-            customCoachPrompt: elaborationResult?.coachPrompt,
-          },
-        });
-        sessionId = newSession.id;
+        const createdId = await createSession({
+          // Use scenarioId if available, otherwise null (custom scenario)
+          scenarioId: invitation.scenarioId ?? undefined,
+          userId,
+          invitationId: invitation.id,
+          status: 'ACTIVE',
+          // Custom scenario fields
+          customDescription: elaborationResult ? input.customDescription : undefined,
+          customScenarioName: elaborationResult?.name,
+          customPartnerPersona: elaborationResult?.persona,
+          customPartnerPrompt: elaborationResult?.partnerPrompt,
+          customCoachPrompt: elaborationResult?.coachPrompt,
+        } as any);
+        sessionId = createdId as any;
         await track(
           ctx.prisma,
           TelemetryEvents.CONVERSATION_STARTED,
+
           {
             scenarioId: invitation.scenarioId ?? null,
             scenarioSlug: invitation.scenario?.slug ?? (elaborationResult ? 'custom' : null),

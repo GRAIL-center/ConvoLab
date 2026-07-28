@@ -11,18 +11,23 @@ import type {
   Invitation,
   TelemetryEvent,
 } from '@workspace/database';
+import {
+  createSession as createSessionData,
+  getSession as getSessionData,
+  createMessage as createMessageData,
+  createLappScore as createLappScoreData,
+} from '../data';
 
 // Export the raw shim client for any advanced usage
 export const db = prisma;
 
 /** Session helpers */
 export async function createSession(data: Omit<ConversationSession, 'id'> & { id?: string }): Promise<string> {
-  const created = await prisma.conversationSession.create({ data });
-  return created.id;
+  return createSessionData(data);
 }
 
 export async function getSession(id: string): Promise<ConversationSession | null> {
-  return prisma.conversationSession.findUnique({ where: { id } });
+  return getSessionData(id);
 }
 
 /** Message helpers */
@@ -30,9 +35,7 @@ export async function createMessage(
   sessionId: string,
   data: Omit<Message, 'id' | 'conversationSessionId'> & { id?: string }
 ): Promise<string> {
-  const payload = { ...data, conversationSessionId: sessionId } as Message;
-  const created = await prisma.message.create({ data: payload });
-  return created.id;
+  return createMessageData(sessionId, data);
 }
 
 /** LAPP score helpers */
@@ -40,9 +43,7 @@ export async function createLappScore(
   sessionId: string,
   data: Omit<LappScore, 'id' | 'conversationSessionId'> & { id?: string }
 ): Promise<string> {
-  const payload = { ...data, conversationSessionId: sessionId } as LappScore;
-  const created = await prisma.lappScore.create({ data: payload });
-  return created.id;
+  return createLappScoreData(sessionId, data);
 }
 
 /** User helpers */
@@ -74,4 +75,3 @@ export async function populateQuotaPresets(): Promise<void> {
 export async function populateScenarios(): Promise<void> {
   // TODO: load static scenario data and write to Firestore.
 }
-
