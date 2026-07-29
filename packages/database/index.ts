@@ -1,3 +1,4 @@
+import { FieldPath, FieldValue } from '@google-cloud/firestore';
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 import { getFirestoreClient } from './src/firestoreClient';
 
@@ -124,6 +125,22 @@ function applyWhere(
       continue;
     }
 
+    // `id` isn't a stored field on Firestore documents — it's the document's
+    // own key. `findUnique`/`update`/`delete`/`upsert` all bypass this
+    // function entirely when `id` is the sole/primary filter (they go
+    // straight to `.doc(id)`), but `updateMany`/`deleteMany`/`findMany`/
+    // `count`/`aggregate` route *every* `where` through `applyWhere` —
+    // including compound where clauses that combine `id` with other fields
+    // (e.g. `updateMany({ where: { id, endedAt: null }, ... })` in
+    // `ConversationManager.onClose`). Without this branch, that produced
+    // `.where('id', '==', ...)` against a field that doesn't exist on any
+    // document, so the query always matched zero rows and the update
+    // silently no-opped. Route it through `FieldPath.documentId()` instead.
+    if (field === 'id' && !isPlainObject(rawValue)) {
+      query = query.where(FieldPath.documentId(), '==', toDocId(rawValue));
+      continue;
+    }
+
     if (isPlainObject(rawValue)) {
       query = applyFieldOps(query, field, rawValue);
       continue;
@@ -193,6 +210,20 @@ function toDocId(id: unknown): string {
 }
 
 /**
+ * The inverse of `toDocId()`. Firestore doc IDs are always strings, but
+ * these four Prisma models have `Int @id` — every read (`findUnique`,
+ * `findMany`, `create`, `update`, `upsert`) needs to coerce `doc.id` back to
+ * a number before returning, or callers that round-trip an id from a read
+ * into a Zod `z.number()` input (e.g. `scenario.list` → `session.create`'s
+ * `scenarioId`) get a confusing "expected number, received string" error.
+ */
+const INT_ID_COLLECTIONS = new Set(['scenarios', 'conversationSessions', 'messages', 'lappScores']);
+
+function fromDocId(model: string, docId: string): string | number {
+  return INT_ID_COLLECTIONS.has(model) ? Number(docId) : docId;
+}
+
+/**
  * Resolves a non-id unique `where` clause into a query. Handles two shapes:
  *
  * 1. Prisma's compound-unique-key wrapper, e.g.
@@ -247,7 +278,7 @@ async function findUnique<T>(
   if ('id' in where && where.id !== undefined && where.id !== null) {
     const doc = await col(model).doc(toDocId(where.id)).get();
     if (!doc.exists) return null;
-    const row = { ...(doc.data() as T), id: doc.id } as T;
+    const row = { ...(doc.data() as T), id: fromDocId(model, doc.id) } as T;
     return select ? applySelect(row as any, select) : row;
   }
 
@@ -266,7 +297,7 @@ async function findUnique<T>(
   const snapshot = await query.limit(1).get();
   if (snapshot.empty) return null;
   const doc = snapshot.docs[0];
-  const row = { ...(doc.data() as T), id: doc.id } as T;
+  const row = { ...(doc.data() as T), id: fromDocId(model, doc.id) } as T;
   return select ? applySelect(row as any, select) : row;
 }
 
@@ -290,7 +321,7 @@ async function findMany<T>(model: string, args?: FindManyArgs): Promise<T[]> {
   const snapshot = await query.get();
   let results: T[] = [];
   snapshot.forEach((doc) => {
-    results.push({ ...(doc.data() as T), id: doc.id } as T);
+    results.push({ ...(doc.data() as T), id: fromDocId(model, doc.id) } as T);
   });
 
   if (hasDistinct) {
@@ -307,23 +338,101 @@ async function findMany<T>(model: string, args?: FindManyArgs): Promise<T[]> {
   return results;
 }
 
+/**
+ * Firestore has no native auto-increment, but four models have
+ * `Int @id @default(autoincrement())` in the Prisma schema and are created
+ * without an explicit id (e.g. `createSession()` in data/sessions.ts) —
+ * relying on the old Prisma/Postgres behavior of the DB assigning the next
+ * id. Without this, `create()` would fall through to Firestore's default
+ * `.doc()` behavior: a random alphanumeric string id, which `fromDocId()`
+ * then can't parse as a number at all (`Number("aB3xY9kL2mNp")` is `NaN`) —
+ * this was the concrete bug behind "Invalid Session" on the conversation
+ * start flow.
+ *
+ * Uses a real Firestore transaction against a dedicated `_counters`
+ * collection (one doc per model) so concurrent creates can't collide.
+ * Bootstraps lazily: if no counter doc exists yet (first auto-generated
+ * create for this model), scans the collection once for the current max
+ * numeric id — needed because these collections may already have rows with
+ * explicit ids from seeding — then persists the counter so every later
+ * create is a fast increment instead of a repeated full scan.
+ */
+async function nextIntId(model: string): Promise<number> {
+  const db = getDb();
+  const counterRef = db.collection('_counters').doc(model);
+
+  return db.runTransaction(async (tx) => {
+    const counterDoc = await tx.get(counterRef);
+    let current: number;
+
+    if (counterDoc.exists) {
+      current = (counterDoc.data() as { value?: number } | undefined)?.value ?? 0;
+    } else {
+      const snapshot = await tx.get(col(model));
+      current = snapshot.docs.reduce((max: number, doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+        const n = Number(doc.id);
+        return Number.isFinite(n) && n > max ? n : max;
+      }, 0);
+    }
+
+    const next = current + 1;
+    tx.set(counterRef, { value: next });
+    return next;
+  });
+}
+
 async function create<T extends { id?: unknown }>(
   model: string,
   args: { data: T }
 ): Promise<T & { id: string }> {
   const data = args.data;
 
-  const ref =
-    data.id !== undefined && data.id !== null
-      ? col(model).doc(toDocId(data.id))
-      : col(model).doc();
+  let ref: FirebaseFirestore.DocumentReference;
+  if (data.id !== undefined && data.id !== null) {
+    ref = col(model).doc(toDocId(data.id));
+  } else if (INT_ID_COLLECTIONS.has(model)) {
+    ref = col(model).doc(String(await nextIntId(model)));
+  } else {
+    ref = col(model).doc();
+  }
 
   await ref.set(data as WithFieldValue<DocumentData>);
 
   return {
     ...data,
-    id: ref.id,
+    id: fromDocId(model, ref.id),
   } as T & { id: string };
+}
+
+/**
+ * Translates Prisma's atomic-update shorthand (`{ increment: N }`,
+ * `{ decrement: N }`, `{ multiply: N }`, `{ set: N }`) into Firestore's
+ * `FieldValue` sentinels. Without this, `update({ data: { totalMessages: {
+ * increment: 2 } } })` just writes the literal `{ increment: 2 }` object as
+ * the field's value instead of incrementing it — found in
+ * `ConversationManager.handleUserMessage`'s `totalMessages` bump.
+ */
+function translateFieldValueOps(data: DocumentData): DocumentData {
+  const result: DocumentData = {};
+  for (const [field, value] of Object.entries(data)) {
+    if (isPlainObject(value) && Object.keys(value).length === 1) {
+      const [op, opValue] = Object.entries(value)[0];
+      if (op === 'increment' && typeof opValue === 'number') {
+        result[field] = FieldValue.increment(opValue);
+        continue;
+      }
+      if (op === 'decrement' && typeof opValue === 'number') {
+        result[field] = FieldValue.increment(-opValue);
+        continue;
+      }
+      if (op === 'set') {
+        result[field] = opValue;
+        continue;
+      }
+    }
+    result[field] = value;
+  }
+  return result;
 }
 
 async function update<T>(
@@ -335,13 +444,13 @@ async function update<T>(
 ): Promise<T & { id: string }> {
   const ref = col(model).doc(toDocId(args.where.id));
 
-  await ref.update(args.data as DocumentData);
+  await ref.update(translateFieldValueOps(args.data as DocumentData));
 
   const doc = await ref.get();
 
   return {
     ...(doc.data() as T),
-    id: doc.id,
+    id: fromDocId(model, doc.id),
   } as T & { id: string };
 }
 
@@ -374,7 +483,7 @@ async function upsert<T extends Record<string, any>>(
   const doc = await ref.get();
 
   if (doc.exists) {
-    await ref.update(args.update as DocumentData);
+    await ref.update(translateFieldValueOps(args.update as DocumentData));
   } else {
     await ref.set(args.create as WithFieldValue<DocumentData>);
   }
@@ -383,7 +492,7 @@ async function upsert<T extends Record<string, any>>(
 
   return {
     ...(finalDoc.data() as T),
-    id: finalDoc.id,
+    id: fromDocId(model, finalDoc.id),
   } as T & { id: string };
 }
 
@@ -406,9 +515,10 @@ async function updateMany(
   const query = applyWhere(col(model), args.where);
   const snapshot = await query.get();
 
+  const data = translateFieldValueOps(args.data as DocumentData);
   const batch = getDb().batch();
   snapshot.forEach((doc) => {
-    batch.update(doc.ref, args.data as DocumentData);
+    batch.update(doc.ref, data);
   });
 
   await batch.commit();

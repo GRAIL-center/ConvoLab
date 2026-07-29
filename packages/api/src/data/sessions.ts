@@ -12,12 +12,29 @@ export async function createSession(
 }
 
 /**
- * Retrieves a conversation session by its ID.
+ * Retrieves a conversation session by its ID, with its scenario attached.
+ *
+ * The shim doesn't support Prisma's relational `include`, so a plain
+ * `findUnique` here returns `session.scenario` as `undefined` — for any
+ * scenario-based session (the common case), `ws/handler.ts`'s
+ * `!session.scenario && !session.customPartnerPrompt` check then always
+ * evaluates true and closes the socket with `NO_SCENARIO` immediately after
+ * every connection, which the client's reconnect logic just retries forever
+ * (this was the "keeps shifting between connected and connecting" bug).
+ * Fetch the scenario explicitly, same pattern as the other migrated routers.
  */
 export async function getSession(
   id: string
-): Promise<ConversationSession | null> {
-  return prisma.conversationSession.findUnique({ where: { id } as any });
+): Promise<(ConversationSession & { scenario?: unknown }) | null> {
+  const session = await prisma.conversationSession.findUnique({ where: { id } as any });
+  if (!session) return null;
+
+  const scenarioId = (session as any).scenarioId;
+  const scenario = scenarioId
+    ? await prisma.scenario.findUnique({ where: { id: scenarioId } })
+    : null;
+
+  return { ...session, scenario };
 }
 
 /**

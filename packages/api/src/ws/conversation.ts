@@ -92,7 +92,7 @@ export class ConversationManager {
     logger: FastifyBaseLogger
   ) {
     this.ws = ws;
-    this.db = db;
+    this.prisma = db;
     this.session = session;
     this.logger = logger;
   }
@@ -208,7 +208,7 @@ export class ConversationManager {
         send(this.ws, { type: 'exchange:complete' });
         await this.logUsage(partnerResult.usage, null);
         await this.checkQuotaWarning();
-        await this.db.conversationSession.update({
+        await this.prisma.conversationSession.update({
           where: { id: this.session.id },
           data: { totalMessages: { increment: 2 } },
         });
@@ -220,7 +220,7 @@ export class ConversationManager {
         }
         await this.logUsage(partnerResult.usage, coachResult.usage);
         await this.checkQuotaWarning();
-        await this.db.conversationSession.update({
+        await this.prisma.conversationSession.update({
           where: { id: this.session.id },
           data: { totalMessages: { increment: 3 } },
         });
@@ -229,7 +229,19 @@ export class ConversationManager {
         this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch(() => {});
       }
     } catch (error) {
-      this.logger.error({ sessionId: this.session.id, error }, 'Error handling user message');
+      // `error` (a plain Error instance) logs as `{}` under pino — `message`/
+      // `stack` aren't enumerable own properties, so JSON.stringify(error)
+      // drops them silently. Pull them out explicitly so failures are
+      // actually debuggable instead of showing up as an empty object.
+      this.logger.error(
+        {
+          sessionId: this.session.id,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          errorName: error instanceof Error ? error.name : undefined,
+        },
+        'Error handling user message'
+      );
       Sentry.captureException(error, { extra: { sessionId: this.session.id } });
       send(this.ws, {
         type: 'error',
@@ -691,11 +703,11 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     };
 
     if (!coachUsage) {
-      await this.db.usageLog.create({ data: partnerEntry });
+      await this.prisma.usageLog.create({ data: partnerEntry });
       return;
     }
 
-    await this.db.usageLog.createMany({
+    await this.prisma.usageLog.createMany({
       data: [
         partnerEntry,
         {
@@ -713,7 +725,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
   private async checkQuotaAllowed(): Promise<boolean> {
     if (!this.session.invitationId) return true;
-    const invitation = await this.db.invitation.findUnique({
+    const invitation = await this.prisma.invitation.findUnique({
       where: { id: this.session.invitationId },
     });
     if (!invitation) return false;
@@ -724,7 +736,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
 
   private async checkQuotaWarning(): Promise<void> {
     if (!this.session.invitationId) return;
-    const invitation = await this.db.invitation.findUnique({
+    const invitation = await this.prisma.invitation.findUnique({
       where: { id: this.session.invitationId },
     });
     if (!invitation) return;
@@ -746,7 +758,7 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
     // Idempotent: only the first close transitions the session to ended.
     const now = new Date();
     const durationMs = now.getTime() - this.session.startedAt.getTime();
-    const result = await this.db.conversationSession.updateMany({
+    const result = await this.prisma.conversationSession.updateMany({
       where: { id: this.session.id, endedAt: null },
       data: {
         endedAt: now,

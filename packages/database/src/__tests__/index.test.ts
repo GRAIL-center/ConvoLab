@@ -84,7 +84,7 @@ describe('findMany — where / orderBy / select / distinct', () => {
       select: { id: true, name: true },
     });
 
-    expect(scenario).toEqual({ id: '1', name: 'Alpha' });
+    expect(scenario).toEqual({ id: 1, name: 'Alpha' });
     expect(scenario.description).toBeUndefined();
   });
 
@@ -206,24 +206,41 @@ describe('findUnique — id and compound-key lookups', () => {
   });
 });
 
-describe('numeric (Int) primary keys get coerced to string doc ids', () => {
-  it('create/findUnique/update/delete all work with a numeric id', async () => {
+describe('numeric (Int) primary keys: string doc ids internally, number on the wire', () => {
+  it('create/findUnique/update/delete all work with a numeric id, and always return a number back', async () => {
     const created = await prisma.scenario.create({ data: { id: 42, name: 'Numeric Id Test' } });
-    expect(created.id).toBe('42');
+    // Regression: this used to be the string '42' — Firestore's actual doc.id
+    // leaking through untranslated — which broke any caller that round-trips
+    // an id from a read into a Zod `z.number()` input (e.g. scenario.list ->
+    // session.create's scenarioId), producing "expected number, received string".
+    expect(created.id).toBe(42);
+    expect(typeof created.id).toBe('number');
 
     // Router call sites pass the raw Zod-parsed number, e.g. `where: { id: input.scenarioId }`.
     const found = await prisma.scenario.findUnique({ where: { id: 42 as any } });
     expect(found?.name).toBe('Numeric Id Test');
+    expect(found?.id).toBe(42);
 
     const updated = await prisma.scenario.update({
       where: { id: 42 as any },
       data: { name: 'Renamed' },
     });
     expect(updated.name).toBe('Renamed');
+    expect(updated.id).toBe(42);
+
+    const listed = await prisma.scenario.findMany({ where: { name: 'Renamed' } });
+    expect(listed[0]?.id).toBe(42);
+    expect(typeof listed[0]?.id).toBe('number');
 
     await prisma.scenario.delete({ where: { id: 42 as any } });
     const afterDelete = await prisma.scenario.findUnique({ where: { id: 42 as any } });
     expect(afterDelete).toBeNull();
+  });
+
+  it('does not coerce string-id models (e.g. user) the same way', async () => {
+    const created = await prisma.user.create({ data: { id: 'u-abc', name: 'Not Numeric' } });
+    expect(created.id).toBe('u-abc');
+    expect(typeof created.id).toBe('string');
   });
 });
 
@@ -275,6 +292,77 @@ describe('updateMany', () => {
     expect(i1?.linkedUserId).toBeNull();
     expect(i1?.claimedAt).toBeNull();
     expect(i2?.linkedUserId).toBe('u2');
+  });
+
+  it('matches on `id` combined with other fields (regression: ConversationManager.onClose\'s `{ id, endedAt: null }` always matched zero docs, so sessions never got marked COMPLETED)', async () => {
+    await prisma.conversationSession.create({
+      data: { id: 1, endedAt: null, status: 'ACTIVE' },
+    });
+    await prisma.conversationSession.create({
+      data: { id: 2, endedAt: null, status: 'ACTIVE' },
+    });
+
+    const result = await prisma.conversationSession.updateMany({
+      where: { id: 1, endedAt: null },
+      data: { endedAt: '2026-07-29T00:00:00.000Z', status: 'COMPLETED' },
+    });
+
+    expect(result.count).toBe(1);
+
+    const s1 = await prisma.conversationSession.findUnique({ where: { id: 1 } });
+    const s2 = await prisma.conversationSession.findUnique({ where: { id: 2 } });
+    expect(s1?.status).toBe('COMPLETED');
+    expect(s2?.status).toBe('ACTIVE');
+  });
+
+  it('translates the `{ increment }` shorthand into a real atomic increment (regression: totalMessages bump in handleUserMessage silently stored the literal `{increment: N}` object instead of incrementing)', async () => {
+    await prisma.conversationSession.create({ data: { id: 3, totalMessages: 5 } });
+
+    await prisma.conversationSession.updateMany({
+      where: { id: 3 },
+      data: { totalMessages: { increment: 2 } },
+    });
+
+    const session = await prisma.conversationSession.findUnique({ where: { id: 3 } });
+    expect(session?.totalMessages).toBe(7);
+  });
+});
+
+describe('update — Prisma atomic-update shorthand translation', () => {
+  it('translates `{ increment }` on a direct update() call', async () => {
+    await prisma.conversationSession.create({ data: { id: 4, totalMessages: 10 } });
+
+    const updated = await prisma.conversationSession.update({
+      where: { id: 4 },
+      data: { totalMessages: { increment: 3 } },
+    });
+
+    expect(updated.totalMessages).toBe(13);
+
+    const reread = await prisma.conversationSession.findUnique({ where: { id: 4 } });
+    expect(reread?.totalMessages).toBe(13);
+  });
+
+  it('translates `{ decrement }` to a negative increment', async () => {
+    await prisma.conversationSession.create({ data: { id: 5, totalMessages: 10 } });
+
+    const updated = await prisma.conversationSession.update({
+      where: { id: 5 },
+      data: { totalMessages: { decrement: 4 } },
+    });
+
+    expect(updated.totalMessages).toBe(6);
+  });
+
+  it('leaves plain (non-shorthand) field values untouched', async () => {
+    await prisma.conversationSession.create({ data: { id: 6, status: 'ACTIVE' } });
+
+    const updated = await prisma.conversationSession.update({
+      where: { id: 6 },
+      data: { status: 'COMPLETED' },
+    });
+
+    expect(updated.status).toBe('COMPLETED');
   });
 });
 
