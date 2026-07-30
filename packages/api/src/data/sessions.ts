@@ -1,5 +1,6 @@
 import { prisma } from '@workspace/database';
 import type { ConversationSession } from '@workspace/database';
+import { updateSessionAtomically } from './atomic.js';
 
 /**
  * Creates a new conversation session in Firestore.
@@ -27,10 +28,7 @@ export async function updateSession(
   id: string,
   data: Partial<ConversationSession>
 ): Promise<ConversationSession> {
-  return prisma.conversationSession.update({
-    where: { id } as any,
-    data,
-  });
+  return updateSessionAtomically(id, data);
 }
 
 /**

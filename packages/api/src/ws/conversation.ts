@@ -12,7 +12,7 @@ import {
   getMessagesForSession,
   createLappScore,
   getLappScoresForSession,
-  updateSession,
+  completeSession,
 } from '../data/index.js';
 import type { FastifyBaseLogger } from 'fastify';
 
@@ -78,6 +78,7 @@ interface SessionWithScenario extends ConversationSession {
 
 export class ConversationManager {
   private ws: WebSocket;
+  private db: PrismaClient;
   private prisma: PrismaClient;
   private session: SessionWithScenario;
   private logger: FastifyBaseLogger;
@@ -93,6 +94,7 @@ export class ConversationManager {
   ) {
     this.ws = ws;
     this.db = db;
+    this.prisma = db;
     this.session = session;
     this.logger = logger;
   }
@@ -208,10 +210,6 @@ export class ConversationManager {
         send(this.ws, { type: 'exchange:complete' });
         await this.logUsage(partnerResult.usage, null);
         await this.checkQuotaWarning();
-        await this.db.conversationSession.update({
-          where: { id: this.session.id },
-          data: { totalMessages: { increment: 2 } },
-        });
       } else {
         const coachResult = await this.streamResponse('coach');
         if (!coachResult) {
@@ -220,10 +218,6 @@ export class ConversationManager {
         }
         await this.logUsage(partnerResult.usage, coachResult.usage);
         await this.checkQuotaWarning();
-        await this.db.conversationSession.update({
-          where: { id: this.session.id },
-          data: { totalMessages: { increment: 3 } },
-        });
 
         // Fire-and-forget LAPP scorer (does not block the next exchange)
         this.runLappScorer(userMsg.id, content, partnerResult.content, turnNumber).catch(() => {});
@@ -743,18 +737,10 @@ Return ONLY this JSON: {"l":N,"a":N,"p":N,"pe":N,"tone":"X"}`;
   }
 
   async onClose(reason: 'idle_timeout' | 'disconnect'): Promise<void> {
-    // Idempotent: only the first close transitions the session to ended.
     const now = new Date();
-    const durationMs = now.getTime() - this.session.startedAt.getTime();
-    const result = await this.db.conversationSession.updateMany({
-      where: { id: this.session.id, endedAt: null },
-      data: {
-        endedAt: now,
-        durationSeconds: Math.round(durationMs / 1000),
-        status: 'COMPLETED',
-      },
-    });
-    if (result.count === 0) return;
+    const result = await completeSession(String(this.session.id), now);
+    if (!result.completed) return;
+    const durationMs = result.durationSeconds * 1000;
 
     await track(
       this.prisma,

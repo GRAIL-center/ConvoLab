@@ -1,6 +1,8 @@
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 import { getFirestoreClient } from './src/firestoreClient';
 
+export { getFirestoreClient } from './src/firestoreClient';
+
 function getDb(): Firestore {
   return getFirestoreClient();
 }
