@@ -1,5 +1,6 @@
 import { prisma } from '@workspace/database';
 import type { Message } from '@workspace/database';
+import { createMessageAndIncrementSession } from './atomic.js';
 
 /**
  * Creates a new message linked to a conversation session in Firestore.
@@ -8,9 +9,7 @@ export async function createMessage(
   sessionId: string,
   data: Omit<Message, 'id' | 'sessionId'> & { id?: string }
 ): Promise<string> {
-  const payload = { ...data, sessionId, conversationSessionId: sessionId } as any;
-  const created = await prisma.message.create({ data: payload });
-  return String(created.id);
+  return createMessageAndIncrementSession(sessionId, data);
 }
 
 /**
