@@ -6,7 +6,6 @@ import type {
   PrismaClient,
   Scenario,
 } from '@workspace/database';
-import { db } from '../db/firestoreHelpers.js';
 import {
   createMessage,
   getMessagesForSession,

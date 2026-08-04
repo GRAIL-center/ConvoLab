@@ -357,7 +357,7 @@ async function upsert<T extends Record<string, any>>(
 ): Promise<T & { id: string }> {
   const collection = col(model);
 
-  let ref;
+  let ref: FirebaseFirestore.DocumentReference;
 
   if ('id' in args.where && args.where.id !== undefined && args.where.id !== null) {
     ref = collection.doc(toDocId(args.where.id));

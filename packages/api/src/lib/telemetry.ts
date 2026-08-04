@@ -9,7 +9,7 @@ export async function track(
   // Intentionally empty – telemetry is disabled for this deployment
 }
 
-export function createTracker(_prisma: any, _userId?: string) {
+export function createTracker(_prisma: unknown, _userId?: string) {
   return (
     _name: string,
     _properties?: Record<string, unknown>,
@@ -38,5 +38,4 @@ export const TelemetryEvents = {
   CTA_CLICKED: 'cta_clicked',
 } as const;
 
-type TelemetryEventName = (typeof TelemetryEvents)[keyof typeof TelemetryEvents];
-
+export type TelemetryEventName = (typeof TelemetryEvents)[keyof typeof TelemetryEvents];

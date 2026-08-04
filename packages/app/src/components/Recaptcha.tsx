@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 
 // Wrapper component to expose onChange token to parent

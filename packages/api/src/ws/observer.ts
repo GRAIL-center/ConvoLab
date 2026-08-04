@@ -1,5 +1,4 @@
 import type { PrismaClient } from '../db/firestoreHelpers';
-import { db as prisma } from '../db/firestoreHelpers';
 import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
@@ -14,13 +13,11 @@ import { type HistoryMessage, send } from './protocol.js';
  */
 export class ObserverManager {
   private ws: WebSocket;
-  private prisma: PrismaClient;
   private sessionId: number;
   private logger: FastifyBaseLogger;
 
-  constructor(ws: WebSocket, prisma: PrismaClient, sessionId: number, logger: FastifyBaseLogger) {
+  constructor(ws: WebSocket, _prisma: PrismaClient, sessionId: number, logger: FastifyBaseLogger) {
     this.ws = ws;
-    this.prisma = prisma;
     this.sessionId = sessionId;
     this.logger = logger;
   }

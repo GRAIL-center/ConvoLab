@@ -10,7 +10,8 @@ export const feedbackRouter = router({
     .input(
       z.object({
         rating: z.number().int().min(1).max(5),
-        comment: z.string().max(2000).optional()
+        comment: z.string().max(2000).optional(),
+        recaptchaToken: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -55,9 +56,36 @@ export const feedbackRouter = router({
         const nextDoc = docs.pop();
         nextCursor = nextDoc?.id;
       }
-      const items = docs.map(d => ({
-        id: d.id,
-        ...d.data(),
+      const rawItems = docs.map((d) => {
+        const data = d.data() as {
+          rating?: unknown;
+          comment?: unknown;
+          userId?: unknown;
+          createdAt?: unknown;
+        };
+        return {
+          id: d.id,
+          rating: typeof data.rating === 'number' ? data.rating : 0,
+          comment: typeof data.comment === 'string' ? data.comment : null,
+          userId: typeof data.userId === 'string' ? data.userId : null,
+          createdAt: typeof data.createdAt === 'string' ? data.createdAt : new Date(0).toISOString(),
+        };
+      });
+      const userIds = [
+        ...new Set(rawItems.map((item) => item.userId).filter((id): id is string => !!id)),
+      ];
+      const users = await Promise.all(
+        userIds.map((id) =>
+          ctx.prisma.user.findUnique({
+            where: { id },
+            select: { id: true, name: true, avatarUrl: true, role: true },
+          })
+        )
+      );
+      const userById = new Map(users.filter(Boolean).map((user: any) => [String(user.id), user]));
+      const items = rawItems.map((item) => ({
+        ...item,
+        user: item.userId ? (userById.get(item.userId) ?? null) : null,
       }));
       return { items, nextCursor };
     }),
