@@ -181,7 +181,7 @@ export const invitationRouter = router({
         }
       }
 
-      let userId = ctx.userId;
+      let userId = ctx.userId ?? undefined;
 
       // If no session user, create anonymous user
       if (!userId) {
@@ -243,7 +243,7 @@ export const invitationRouter = router({
             });
           }
           const createdId = await createSession({
-            scenarioId: invitation.scenarioId,
+            scenarioId: invitation.scenarioId ?? undefined,
             userId,
             invitationId: invitation.id,
             status: 'ACTIVE',
@@ -380,16 +380,14 @@ export const invitationRouter = router({
           expiresAt: new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000),
           createdById: ctx.user.id,
         },
-        include: {
-          scenario: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
       });
+
+      const scenario = invitation.scenarioId
+        ? await ctx.prisma.scenario.findUnique({
+            where: { id: invitation.scenarioId },
+            select: { id: true, name: true, slug: true },
+          })
+        : null;
 
       // Track invitation created event
       await track(
@@ -408,7 +406,7 @@ export const invitationRouter = router({
         id: invitation.id,
         token: invitation.token,
         label: invitation.label,
-        scenario: invitation.scenario,
+        scenario,
         allowCustomScenario: invitation.allowCustomScenario,
         quota: invitation.quota,
         expiresAt: invitation.expiresAt,
@@ -512,51 +510,77 @@ export const invitationRouter = router({
     .query(async ({ ctx, input }) => {
       const invitation = await ctx.prisma.invitation.findUnique({
         where: { id: input.invitationId },
-        include: {
-          scenario: { select: scenarioSelect },
-          linkedUser: {
-            select: { id: true, name: true, role: true },
-          },
-          sessions: {
-            orderBy: { startedAt: 'asc' },
-            include: {
-              messages: {
-                orderBy: { timestamp: 'asc' },
-                select: {
-                  id: true,
-                  role: true,
-                  content: true,
-                  timestamp: true,
-                },
-              },
-            },
-          },
-          observationNotes: {
-            orderBy: { timestamp: 'desc' },
-            include: {
-              researcher: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-        },
       });
 
       if (!invitation) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
       }
 
+      const [scenario, linkedUser, sessions, observationNotes] = await Promise.all([
+        invitation.scenarioId
+          ? ctx.prisma.scenario.findUnique({
+              where: { id: invitation.scenarioId },
+              select: scenarioSelect,
+            })
+          : Promise.resolve(null),
+        invitation.linkedUserId
+          ? ctx.prisma.user.findUnique({
+              where: { id: invitation.linkedUserId },
+              select: { id: true, name: true, role: true },
+            })
+          : Promise.resolve(null),
+        ctx.prisma.conversationSession.findMany({
+          where: { invitationId: invitation.id },
+          orderBy: { startedAt: 'asc' },
+        }),
+        ctx.prisma.observationNote.findMany({
+          where: { invitationId: invitation.id },
+          orderBy: { timestamp: 'desc' },
+        }),
+      ]);
+
+      const sessionIds = sessions.map((session: any) => session.id);
+      const [messages, researchers] = await Promise.all([
+        sessionIds.length
+          ? ctx.prisma.message.findMany({
+              where: { sessionId: { in: sessionIds } },
+              orderBy: { timestamp: 'asc' },
+              select: { id: true, sessionId: true, role: true, content: true, timestamp: true },
+            })
+          : Promise.resolve([]),
+        Promise.all(
+          [...new Set(observationNotes.map((note: any) => note.researcherId).filter(Boolean))].map(
+            (id) => ctx.prisma.user.findUnique({ where: { id }, select: { id: true, name: true } })
+          )
+        ),
+      ]);
+
+      const messagesBySessionId = new Map<string, any[]>();
+      for (const message of messages as any[]) {
+        const key = String(message.sessionId ?? message.conversationSessionId);
+        const current = messagesBySessionId.get(key) ?? [];
+        current.push(message);
+        messagesBySessionId.set(key, current);
+      }
+      const researcherById = new Map(
+        researchers.filter(Boolean).map((researcher: any) => [String(researcher.id), researcher])
+      );
+      const notesWithResearchers = observationNotes.map((note: any) => ({
+        ...note,
+        researcher: note.researcherId ? (researcherById.get(String(note.researcherId)) ?? null) : null,
+      }));
+
       const quota = parseQuota(invitation.quota);
       const quotaStatus = await getInvitationQuotaStatus(ctx.prisma, invitation.id, quota);
 
       // Find the currently active session (if any)
-      const activeSession = invitation.sessions.find((s) => s.status === 'ACTIVE');
+      const activeSession = sessions.find((s: any) => s.status === 'ACTIVE');
 
       return {
         id: invitation.id,
         token: invitation.token,
         label: invitation.label,
-        scenario: invitation.scenario,
+        scenario,
         allowCustomScenario: invitation.allowCustomScenario,
         quota: {
           label: quota.label,
@@ -567,8 +591,8 @@ export const invitationRouter = router({
         expiresAt: invitation.expiresAt,
         createdAt: invitation.createdAt,
         claimedAt: invitation.claimedAt,
-        linkedUser: invitation.linkedUser,
-        sessions: invitation.sessions.map((session) => ({
+        linkedUser,
+        sessions: sessions.map((session: any) => ({
           id: session.id,
           status: session.status,
           startedAt: session.startedAt,
@@ -578,14 +602,17 @@ export const invitationRouter = router({
           customDescription: session.customDescription,
           customPartnerPersona: session.customPartnerPersona,
           // Messages for timeline view
-          messages: session.messages.map((m) => ({
+          messages: (messagesBySessionId.get(String(session.id)) ?? []).map((m: any) => ({
             id: m.id,
             role: m.role as 'user' | 'partner' | 'coach',
             content: m.content,
-            timestamp: m.timestamp.toISOString(),
+            timestamp:
+              m.timestamp instanceof Date
+                ? m.timestamp.toISOString()
+                : String(m.timestamp),
           })),
         })),
-        observationNotes: invitation.observationNotes,
+        observationNotes: notesWithResearchers,
         // Quick access to active session for "Watch Live" button
         activeSessionId: activeSession?.id ?? null,
       };

@@ -55,7 +55,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       }
 
       // Session must have either a scenario OR custom prompts
-      if (!session.scenario && !session.customPartnerPrompt) {
+      if (!(session as any).scenario && !session.customPartnerPrompt) {
         send(socket, {
           type: 'error',
           code: 'NO_SCENARIO',
@@ -71,7 +71,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         socket,
         prisma,
         // biome-ignore lint/suspicious/noExplicitAny: legacy code
-        { ...session, scenario: session.scenario, userId: userId as string } as any,
+        { ...session, scenario: (session as any).scenario, userId: userId as string } as any,
         fastify.log
       );
 

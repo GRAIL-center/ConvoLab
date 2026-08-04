@@ -7,3 +7,5 @@ export async function createContext({ req, res }: CreateFastifyContextOptions) {
   const firestore = getFirestore();
   return { req, res, userId, prisma, firestore };
 }
+
+export type Context = Awaited<ReturnType<typeof createContext>>;

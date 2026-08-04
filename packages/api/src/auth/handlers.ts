@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@workspace/database';
+import type { PrismaClient, Role } from '@workspace/database';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
 import type { AuthResult, GoogleUserInfo } from './types.js';
 
@@ -111,7 +111,7 @@ export async function handleGoogleAuth(
     where: { provider_externalId: { provider: 'google', externalId: userInfo.sub } },
   });
 
-  let user: { id: string; name: string | null; role: string };
+  let user: { id: string; name: string | null; role: Role };
 
   if (existingIdentity) {
     // Identity exists - log in as that user. The shim doesn't support
@@ -186,13 +186,14 @@ export async function handleGoogleAuth(
             avatarUrl: userInfo.picture,
             role: 'USER',
             lastLoginAt: new Date(),
-            externalIdentities: {
-              create: {
-                provider: 'google',
-                externalId: userInfo.sub,
-                email: userInfo.email,
-              },
-            },
+          },
+        });
+        await prisma.externalIdentity.create({
+          data: {
+            userId: user.id,
+            provider: 'google',
+            externalId: userInfo.sub,
+            email: userInfo.email,
           },
         });
       }
@@ -246,13 +247,14 @@ export async function handleGoogleAuth(
             avatarUrl: userInfo.picture,
             role: 'USER',
             lastLoginAt: new Date(),
-            externalIdentities: {
-              create: {
-                provider: 'google',
-                externalId: userInfo.sub,
-                email: userInfo.email,
-              },
-            },
+          },
+        });
+        await prisma.externalIdentity.create({
+          data: {
+            userId: user.id,
+            provider: 'google',
+            externalId: userInfo.sub,
+            email: userInfo.email,
           },
         });
       }

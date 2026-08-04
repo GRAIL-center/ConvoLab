@@ -17,12 +17,12 @@ describe('handleGoogleAuth', () => {
       expect(result.mergedFrom).toBeNull();
 
       // Creates User in database
-      const user = await testPrisma.user.findUnique({
-        where: { id: result.user.id },
-        include: {
-          externalIdentities: true,
-          contactMethods: true,
-        },
+      const user = await testPrisma.user.findUnique({ where: { id: result.user.id } });
+      const externalIdentities = await testPrisma.externalIdentity.findMany({
+        where: { userId: result.user.id },
+      });
+      const contactMethods = await testPrisma.contactMethod.findMany({
+        where: { userId: result.user.id },
       });
       expect(user).not.toBeNull();
       expect(user!.name).toBe(googleUser.name);
@@ -31,17 +31,17 @@ describe('handleGoogleAuth', () => {
       expect(user!.lastLoginAt).not.toBeNull();
 
       // Creates ExternalIdentity
-      expect(user!.externalIdentities).toHaveLength(1);
-      expect(user!.externalIdentities[0].provider).toBe('google');
-      expect(user!.externalIdentities[0].externalId).toBe(googleUser.sub);
-      expect(user!.externalIdentities[0].email).toBe(googleUser.email);
+      expect(externalIdentities).toHaveLength(1);
+      expect(externalIdentities[0].provider).toBe('google');
+      expect(externalIdentities[0].externalId).toBe(googleUser.sub);
+      expect(externalIdentities[0].email).toBe(googleUser.email);
 
       // Creates ContactMethod (verified, primary)
-      expect(user!.contactMethods).toHaveLength(1);
-      expect(user!.contactMethods[0].type).toBe('email');
-      expect(user!.contactMethods[0].value).toBe(googleUser.email);
-      expect(user!.contactMethods[0].verified).toBe(true);
-      expect(user!.contactMethods[0].primary).toBe(true);
+      expect(contactMethods).toHaveLength(1);
+      expect(contactMethods[0].type).toBe('email');
+      expect(contactMethods[0].value).toBe(googleUser.email);
+      expect(contactMethods[0].verified).toBe(true);
+      expect(contactMethods[0].primary).toBe(true);
     });
   });
 
@@ -120,13 +120,13 @@ describe('handleGoogleAuth', () => {
       expect(result.mergedFrom).toBeNull(); // No merge, just link
 
       // User is upgraded
-      const user = await testPrisma.user.findUnique({
-        where: { id: anonymousUser.id },
-        include: { externalIdentities: true },
+      const user = await testPrisma.user.findUnique({ where: { id: anonymousUser.id } });
+      const externalIdentities = await testPrisma.externalIdentity.findMany({
+        where: { userId: anonymousUser.id },
       });
       expect(user!.role).toBe('USER');
-      expect(user!.externalIdentities).toHaveLength(1);
-      expect(user!.externalIdentities[0].provider).toBe('google');
+      expect(externalIdentities).toHaveLength(1);
+      expect(externalIdentities[0].provider).toBe('google');
 
       // Preserves anonymous user's name if set
       expect(user!.name).toBe('Anonymous Guest');
@@ -208,13 +208,15 @@ describe('handleGoogleAuth', () => {
       // Linked to existing user
       expect(result.user.id).toBe(anonymousUser.id);
 
-      const user = await testPrisma.user.findUnique({
-        where: { id: result.user.id },
-        include: { externalIdentities: true, contactMethods: true },
+      const externalIdentities = await testPrisma.externalIdentity.findMany({
+        where: { userId: result.user.id },
       });
-      expect(user!.externalIdentities).toHaveLength(1);
+      const contactMethods = await testPrisma.contactMethod.findMany({
+        where: { userId: result.user.id },
+      });
+      expect(externalIdentities).toHaveLength(1);
       // ContactMethod is now verified
-      expect(user!.contactMethods[0].verified).toBe(true);
+      expect(contactMethods[0].verified).toBe(true);
     });
 
     it('creates new user when session user no longer exists', async () => {

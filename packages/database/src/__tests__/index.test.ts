@@ -199,10 +199,19 @@ describe('findUnique — id and compound-key lookups', () => {
     expect(found).toBeNull();
   });
 
-  it('throws on an unsupported where shape (multiple top-level keys)', async () => {
-    await expect(
-      prisma.user.findUnique({ where: { email: 'a@b.com', role: 'ADMIN' } as any })
-    ).rejects.toThrow(/unsupported findUnique/i);
+  it('supports multiple scalar fields as an equality lookup', async () => {
+    await prisma.user.create({
+      data: { id: 'u1', email: 'a@b.com', role: 'ADMIN' } as any,
+    });
+    await prisma.user.create({
+      data: { id: 'u2', email: 'a@b.com', role: 'USER' } as any,
+    });
+
+    const found = await prisma.user.findUnique({
+      where: { email: 'a@b.com', role: 'ADMIN' } as any,
+    });
+
+    expect(found?.id).toBe('u1');
   });
 });
 

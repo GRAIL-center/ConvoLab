@@ -128,21 +128,40 @@ export const telemetryRouter = router({
     .query(async ({ ctx, input }) => {
       const { startDate, endDate, eventType, userId, cursor, limit } = input;
 
-      const rawEvents = await ctx.prisma.telemetryEvent.findMany({
+      let rawEvents = await ctx.prisma.telemetryEvent.findMany({
         where: {
           createdAt: { gte: startDate, lte: endDate },
           ...(eventType && { name: eventType }),
           ...(userId && { userId }),
         },
-        include: {
-          user: {
-            select: { id: true, name: true, avatarUrl: true },
-          },
-        },
         orderBy: { createdAt: 'desc' },
-        take: limit + 1,
-        ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       });
+
+      if (cursor) {
+        const cursorIndex = rawEvents.findIndex((event: any) => event.id === cursor);
+        if (cursorIndex >= 0) {
+          rawEvents = rawEvents.slice(cursorIndex + 1);
+        }
+      }
+
+      rawEvents = rawEvents.slice(0, limit + 1);
+
+      const userIds = [
+        ...new Set(
+          rawEvents
+            .map((event: any) => event.userId)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ];
+      const users = await Promise.all(
+        userIds.map((id) =>
+          ctx.prisma.user.findUnique({
+            where: { id },
+            select: { id: true, name: true, avatarUrl: true },
+          })
+        )
+      );
+      const userById = new Map(users.filter(Boolean).map((user: any) => [String(user.id), user]));
 
       let nextCursor: string | undefined;
       if (rawEvents.length > limit) {
@@ -158,7 +177,7 @@ export const telemetryRouter = router({
         userId: e.userId,
         sessionId: e.sessionId,
         createdAt: e.createdAt,
-        user: e.user,
+        user: e.userId ? (userById.get(String(e.userId)) ?? null) : null,
       }));
 
       return {

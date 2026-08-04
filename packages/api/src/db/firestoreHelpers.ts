@@ -18,6 +18,8 @@ import {
   createLappScore as createLappScoreData,
 } from '../data';
 
+export type { PrismaClient } from '@workspace/database';
+
 // Export the raw shim client for any advanced usage
 export const db = prisma;
 

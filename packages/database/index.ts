@@ -32,7 +32,7 @@ function col(name: string) {
 // one three layers up in a router.
 // ============================================
 
-type WhereClause = Record<string, unknown>;
+export type WhereClause = Record<string, unknown>;
 
 const OP_TO_FIRESTORE: Record<string, FirebaseFirestore.WhereFilterOp> = {
   equals: '==',
@@ -231,7 +231,7 @@ function resolveUniqueWhereQuery(
 // GENERIC CRUD OPERATIONS
 // ============================================
 
-interface FindManyArgs {
+export interface FindManyArgs {
   where?: WhereClause;
   orderBy?: unknown;
   select?: Record<string, boolean>;
@@ -423,12 +423,12 @@ async function count(model: string, args?: { where?: WhereClause }): Promise<num
   return snapshot.size;
 }
 
-interface AggregateArgs {
+export interface AggregateArgs {
   where?: WhereClause;
   _sum?: Record<string, boolean>;
 }
 
-interface AggregateResult {
+export interface AggregateResult {
   _sum: Record<string, number>;
   _count: { _all: number };
 }

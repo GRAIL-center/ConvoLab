@@ -7,9 +7,10 @@ dotenv.config({
 
 
 import { afterAll, beforeAll, beforeEach } from 'vitest';
+import type { PrismaClient } from '@workspace/database';
 
 // Placeholder for Prisma client; will be set in beforeAll
-export let testPrisma: unknown;
+export let testPrisma: PrismaClient;
 
 // Test database connection string
 const TEST_DATABASE_URL =
@@ -20,7 +21,7 @@ const TEST_DATABASE_URL =
  * Clean all tables before each test.
  * Order matters due to foreign key constraints.
  */
-async function cleanDatabase(prisma: unknown) {
+async function cleanDatabase(prisma: PrismaClient) {
   // Delete in order that respects foreign keys
   await prisma.observationNote.deleteMany();
   await prisma.lappScore.deleteMany();
@@ -59,5 +60,5 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await testPrisma?.$disconnect();
+  await testPrisma.$disconnect();
 });

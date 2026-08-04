@@ -37,7 +37,9 @@ export async function updateSession(
 export async function listSessions(
   _options?: { limit?: number; cursor?: string }
 ): Promise<ConversationSession[]> {
-  return prisma.conversationSession.findMany(_options);
+  return prisma.conversationSession.findMany(
+    _options?.limit ? { take: _options.limit } : undefined
+  );
 }
 
 /**

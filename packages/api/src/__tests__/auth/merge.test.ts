@@ -248,12 +248,11 @@ describe('handleGoogleAuth merge scenarios', () => {
     await handleGoogleAuth(google2, anonymousUser.id, testPrisma);
 
     // User now has two external identities
-    const user = await testPrisma.user.findUnique({
-      where: { id: anonymousUser.id },
-      include: { externalIdentities: true },
+    const externalIdentities = await testPrisma.externalIdentity.findMany({
+      where: { userId: anonymousUser.id },
     });
-    expect(user!.externalIdentities).toHaveLength(2);
-    expect(user!.externalIdentities.map((ei) => ei.email).sort()).toEqual([
+    expect(externalIdentities).toHaveLength(2);
+    expect(externalIdentities.map((ei: any) => ei.email).sort()).toEqual([
       'personal@gmail.com',
       'work@company.com',
     ]);

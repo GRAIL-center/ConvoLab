@@ -69,12 +69,14 @@ export const feedbackRouter = router({
       const feedbackCol = ctx.firestore.collection('feedback');
       const snapshot = await feedbackCol.get();
       const total = snapshot.size;
-      const ratings = snapshot.docs.map(d => d.data().rating);
+      const ratings = snapshot.docs
+        .map((d) => d.data().rating)
+        .filter((r): r is number => typeof r === 'number');
       const average = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
-      const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      const distribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       for (const r of ratings) {
         if (r >= 1 && r <= 5) {
-          distribution[r] += 1;
+          distribution[r as 1 | 2 | 3 | 4 | 5] += 1;
         }
       }
       return { total, average, distribution };
