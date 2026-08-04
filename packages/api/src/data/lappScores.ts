@@ -24,10 +24,10 @@ export async function getLappScore(id: string): Promise<LappScore | null> {
  * Retrieves all LAPP scores for a given session.
  */
 export async function getLappScoresForSession(sessionId: string): Promise<LappScore[]> {
-  const allScores: any[] = await prisma.lappScore.findMany();
-  return allScores.filter(
-    (score) => String(score.sessionId) === String(sessionId) || String(score.conversationSessionId) === String(sessionId)
-  );
+  return prisma.lappScore.findMany({
+    where: { sessionId },
+    orderBy: { createdAt: 'asc' },
+  });
 }
 
 /**

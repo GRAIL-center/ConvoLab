@@ -23,10 +23,10 @@ export async function getMessage(id: string): Promise<Message | null> {
  * Retrieves all messages belonging to a given session.
  */
 export async function getMessagesForSession(sessionId: string): Promise<Message[]> {
-  const allMessages: any[] = await prisma.message.findMany();
-  return allMessages.filter(
-    (m) => String(m.sessionId) === String(sessionId) || String(m.conversationSessionId) === String(sessionId)
-  );
+  return prisma.message.findMany({
+    where: { sessionId },
+    orderBy: { timestamp: 'asc' },
+  });
 }
 
 /**

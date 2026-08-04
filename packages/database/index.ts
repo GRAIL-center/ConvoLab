@@ -1,3 +1,4 @@
+import { FieldValue } from '@google-cloud/firestore';
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 import { getFirestoreClient } from './src/firestoreClient';
 
@@ -433,6 +434,60 @@ export interface AggregateResult {
   _count: { _all: number };
 }
 
+type UsageLogData = Record<string, unknown> & {
+  invitationId?: unknown;
+  inputTokens?: unknown;
+  outputTokens?: unknown;
+};
+
+function tokenCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+async function incrementInvitationUsage(data: UsageLogData): Promise<void> {
+  if (!data.invitationId) return;
+
+  const inputTokens = tokenCount(data.inputTokens);
+  const outputTokens = tokenCount(data.outputTokens);
+  const totalTokens = inputTokens + outputTokens;
+
+  if (totalTokens === 0) return;
+
+  try {
+    await col('invitations')
+      .doc(toDocId(data.invitationId))
+      .update({
+        'usage.inputTokens': FieldValue.increment(inputTokens),
+        'usage.outputTokens': FieldValue.increment(outputTokens),
+        'usage.totalTokens': FieldValue.increment(totalTokens),
+      });
+  } catch (error: any) {
+    if (error?.code === 5 || /not.?found/i.test(String(error?.message ?? ''))) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function incrementInvitationUsageMany(data: UsageLogData[]): Promise<void> {
+  const byInvitation = new Map<string, { inputTokens: number; outputTokens: number }>();
+
+  for (const entry of data) {
+    if (!entry.invitationId) continue;
+    const invitationId = toDocId(entry.invitationId);
+    const current = byInvitation.get(invitationId) ?? { inputTokens: 0, outputTokens: 0 };
+    current.inputTokens += tokenCount(entry.inputTokens);
+    current.outputTokens += tokenCount(entry.outputTokens);
+    byInvitation.set(invitationId, current);
+  }
+
+  await Promise.all(
+    Array.from(byInvitation.entries()).map(([invitationId, usage]) =>
+      incrementInvitationUsage({ invitationId, ...usage })
+    )
+  );
+}
+
 /**
  * Computes real sums (client-side, over the filtered result set) instead of
  * the previous hardcoded `{ _sum: {}, _count: {} }` stub. This is a
@@ -560,6 +615,14 @@ export const prisma = {
   usageLog: {
     ...modelProxy<any>('usageLogs'),
 
+    create: async (
+      args: { data: any }
+    ) => {
+      const created = await create<any>('usageLogs', args as any);
+      await incrementInvitationUsage(args.data);
+      return created;
+    },
+
     createMany: async (
       args: unknown
     ) => {
@@ -578,6 +641,7 @@ export const prisma = {
       }
 
       await batch.commit();
+      await incrementInvitationUsageMany(unknownArgs.data);
     },
 
     aggregate: (

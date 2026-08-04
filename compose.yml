@@ -71,6 +71,3 @@ services:
 networks:
   conversation-coach:
     driver: bridge
-
-volumes:
-  postgres_data:

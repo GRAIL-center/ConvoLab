@@ -1,24 +1,6 @@
 # Production compose - run with: docker compose -f compose.prod.yml up -d
 # Host Caddy proxies to the API container on port 3004
 services:
-  db:
-    image: postgres:17-alpine
-    container_name: ai-dialogues-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
-      POSTGRES_DB: conversation_coach
-    volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 2s
-      timeout: 5s
-      retries: 5
-    networks:
-      - ai-dialogues
-
   api:
     build:
       context: .
@@ -30,7 +12,7 @@ services:
     ports:
       - "127.0.0.1:3004:3000"  # Only localhost, host Caddy proxies in
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/conversation_coach?schema=public
+      FIRESTORE_PROJECT_ID: ${FIRESTORE_PROJECT_ID:?Set FIRESTORE_PROJECT_ID in .env.prod}
       PORT: 3000
       HOST: 0.0.0.0
       NODE_ENV: production
@@ -43,15 +25,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - ai-dialogues
 
 networks:
   ai-dialogues:
     driver: bridge
-
-volumes:
-  postgres_data_prod:

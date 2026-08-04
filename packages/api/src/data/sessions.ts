@@ -35,10 +35,19 @@ export async function updateSession(
  * Lists conversation sessions.
  */
 export async function listSessions(
-  _options?: { limit?: number; cursor?: string }
+  options?: { limit?: number; cursor?: string; userId?: string; invitationId?: string }
 ): Promise<ConversationSession[]> {
   return prisma.conversationSession.findMany(
-    _options?.limit ? { take: _options.limit } : undefined
+    options
+      ? {
+          where: {
+            ...(options.userId ? { userId: options.userId } : {}),
+            ...(options.invitationId ? { invitationId: options.invitationId } : {}),
+          },
+          orderBy: { startedAt: 'desc' },
+          take: options.limit,
+        }
+      : undefined
   );
 }
 

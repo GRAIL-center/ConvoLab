@@ -56,7 +56,14 @@ export async function createUser(data: Omit<User, 'id'> & { id?: string }): Prom
 
 /** Invitation helpers */
 export async function createInvitation(data: Omit<Invitation, 'id'> & { id?: string }): Promise<string> {
-  const created = await prisma.invitation.create({ data });
+  const defaultUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const payload = {
+    ...data,
+    usage: data.usage ?? defaultUsage,
+  };
+  const created = await prisma.invitation.create({
+    data: payload,
+  });
   return created.id;
 }
 
