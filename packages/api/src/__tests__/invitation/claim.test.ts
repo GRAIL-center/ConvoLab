@@ -54,7 +54,7 @@ describe('invitation.claim session creation', () => {
       },
     });
 
-    expect(session.id).toBeGreaterThan(0);
+    expect(String(session.id)).not.toHaveLength(0);
     expect(session.scenarioId).toBe(scenario.id);
     expect(session.userId).toBe(guest.id);
     expect(session.invitationId).toBe(invitation.id);

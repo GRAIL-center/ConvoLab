@@ -7,7 +7,7 @@
     "dev:landing": "pnpm -F @workspace/landing dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "test:api": "TEST_DATABASE_URL=\"postgresql://postgres:postgres@localhost:5432/conversation_coach_test\" pnpm -F @workspace/api test",
+    "test:api": "pnpm -F @workspace/api test",
     "db:migrate": "pnpm -F @workspace/database migrate",
     "db:studio": "pnpm -F @workspace/database studio",
     "lint": "biome lint .",
