@@ -1,13 +1,8 @@
-// A separate, deliberately minimal vitest config for the new tests added
-// alongside the Firestore shim fixes (see docs/plans/15-firestore-shim-gaps.md).
+// Narrow config for running only *.safe.test.ts files during focused debugging.
 //
-// The project's default vitest.config.ts wires every test file to
-// src/__tests__/setup.ts, which connects to whatever Firestore project
-// FIRESTORE_PROJECT_ID in .env points at and wipes every collection in
-// `beforeEach`. This config intentionally has NO setupFiles and only picks
-// up *.safe.test.ts files, so these tests never touch real infrastructure —
-// they run entirely against the in-memory fake Firestore from
-// packages/database/src/__tests__/fakeFirestore.ts.
+// The default API Vitest config now also uses in-memory fake Firestore via
+// src/__tests__/setup.ts. This file remains useful when you want to run only
+// the explicitly safe subset without loading the broader API setup.
 //
 // Run with: npx vitest run --config vitest.safe.config.ts
 import { defineConfig } from 'vitest/config';
