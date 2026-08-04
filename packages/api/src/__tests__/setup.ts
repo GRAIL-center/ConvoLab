@@ -1,28 +1,26 @@
 import path from "node:path";
 import dotenv from "dotenv";
+import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
+import type { PrismaClient } from '@workspace/database';
+import { FakeFirestore } from './fakeFirestore.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
+const fakeDb = new FakeFirestore();
 
-import { afterAll, beforeAll, beforeEach } from 'vitest';
-import type { PrismaClient } from '@workspace/database';
+vi.mock('../../../database/src/firestoreClient', () => ({
+  getFirestoreClient: () => fakeDb,
+}));
 
-// Placeholder for Prisma client; will be set in beforeAll
 export let testPrisma: PrismaClient;
 
-// Test database connection string
-const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ||
-  'postgresql://postgres:postgres@localhost:5432/conversation_coach_test';
-
 /**
- * Clean all tables before each test.
- * Order matters due to foreign key constraints.
+ * Clean all collections before each test. Tests run against FakeFirestore, so
+ * this never touches Cloud SQL or a live Firestore project.
  */
 async function cleanDatabase(prisma: PrismaClient) {
-  // Delete in order that respects foreign keys
   await prisma.observationNote.deleteMany();
   await prisma.lappScore.deleteMany();
   await prisma.message.deleteMany();
@@ -37,25 +35,17 @@ async function cleanDatabase(prisma: PrismaClient) {
 }
 
 beforeAll(async () => {
-  // Dynamically import the database module after env is loaded
   const dbModule = await import('@workspace/database');
 
   const createPrismaClient = dbModule.createPrismaClient;
   if (!createPrismaClient) {
     throw new Error('createPrismaClient missing from @workspace/database export');
   }
-  testPrisma = createPrismaClient({
-    connectionString: TEST_DATABASE_URL,
-    log: ['error'],
-  });
-  // Push schema to test database (skipped in Firestore shim)
-  // execSync('pnpm -F @workspace/database exec prisma db push', {
-  //   env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
-  //   stdio: 'pipe',
-  // });
+  testPrisma = createPrismaClient();
 });
 
 beforeEach(async () => {
+  fakeDb.reset();
   await cleanDatabase(testPrisma);
 });
 

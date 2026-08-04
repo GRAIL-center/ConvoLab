@@ -1,5 +1,5 @@
-// Safe by construction: run only via `vitest.safe.config.ts` (no setupFiles,
-// no real Firestore project). See that file for why a separate config exists.
+// Safe by construction: uses an in-memory fake Firestore and never touches
+// real infrastructure.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeFirestore } from '../../../../database/src/__tests__/fakeFirestore';
 
