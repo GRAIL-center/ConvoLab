@@ -2,6 +2,7 @@ import type { OAuth2Namespace } from '@fastify/oauth2';
 import { db as prisma } from '../db/firestoreHelpers';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { handleGoogleAuth } from '../auth/handlers.js';
+import { deleteUserCascade } from '../data/users.js';
 import type { GoogleUserInfo } from '../auth/types.js';
 
 declare module 'fastify' {
@@ -78,24 +79,28 @@ async function authRoutes(fastify: FastifyInstance) {
       const shouldUnclaim = request.query.unclaim === 'true';
 
       if (userId && shouldUnclaim) {
-        // Check if user is a guest with no sessions
+        // Check if user is a guest with no sessions. `_count` inside `select`
+        // was a Prisma relation-aggregation shorthand the shim never
+        // implemented (see docs/plans/15-firestore-shim-gaps.md) — use the
+        // now-working `count()` instead.
         const user = await prisma.user.findUnique({
           where: { id: userId },
-          select: {
-            role: true,
-            _count: { select: { sessions: true } },
-          },
+          select: { role: true },
         });
+        const sessionCount = user
+          ? await prisma.conversationSession.count({ where: { userId } })
+          : 0;
 
-        if (user?.role === 'GUEST' && user._count.sessions === 0) {
+        if (user?.role === 'GUEST' && sessionCount === 0) {
           // Find and unclaim their invitation
           await prisma.invitation.updateMany({
             where: { linkedUserId: userId },
             data: { linkedUserId: null, claimedAt: null },
           });
 
-          // Delete the orphaned guest user
-          await prisma.user.delete({ where: { id: userId } });
+          // Delete the orphaned guest user (and cascade their
+          // ContactMethod/ExternalIdentity rows — see data/users.ts)
+          await deleteUserCascade(userId, prisma);
 
           fastify.log.info({ userId }, 'Guest logged out and invitation unclaimed');
         }

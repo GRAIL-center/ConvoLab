@@ -59,18 +59,29 @@ export const observationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.observationNote.findMany({
+      const notes = await ctx.prisma.observationNote.findMany({
         where: {
           invitationId: input.invitationId,
           ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
         },
-        include: {
-          researcher: {
-            select: { id: true, name: true },
-          },
-        },
         orderBy: { timestamp: 'desc' },
       });
+
+      // Firestore has no joins (the shim now throws on `include` rather than
+      // silently dropping it — see docs/plans/15-firestore-shim-gaps.md), so
+      // batch-fetch each distinct researcher once instead of one query per note.
+      const researcherIds = [...new Set(notes.map((n: any) => n.researcherId))];
+      const researchers = await Promise.all(
+        researcherIds.map((id) =>
+          ctx.prisma.user.findUnique({ where: { id }, select: { id: true, name: true } })
+        )
+      );
+      const researcherById = new Map(researchers.filter(Boolean).map((r: any) => [r.id, r]));
+
+      return notes.map((note: any) => ({
+        ...note,
+        researcher: researcherById.get(note.researcherId) ?? null,
+      }));
     }),
 
   /**

@@ -17,7 +17,8 @@
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "generate": "prisma generate",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test": "vitest run"
   },
   "bin": {
     "prisma": "./scripts/prisma.js"
@@ -35,6 +36,7 @@
     "@types/node": "^25.0.3",
     "prisma": "^7.2.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
   }
 }

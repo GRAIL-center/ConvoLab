@@ -129,10 +129,11 @@ export function runStartupChecks(): DiagnosticResult {
     );
   }
 
-  // Database URL
-  if (!process.env.DATABASE_URL) {
+  // Firestore project (replaces the old DATABASE_URL/Postgres check —
+  // this codebase no longer uses Prisma/Postgres, see CLAUDE.md)
+  if (!process.env.FIRESTORE_PROJECT_ID) {
     errors.push(
-      'DATABASE_URL not set.\n' +
+      'FIRESTORE_PROJECT_ID not set.\n' +
         '  If using Docker: this should be set in compose.yml\n' +
         '  If running locally: set it in .env'
     );
