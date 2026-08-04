@@ -26,6 +26,19 @@ export interface QuotaStatus {
   total: number;
 }
 
+function parseUsageTotal(json: unknown): number | null {
+  if (!json || typeof json !== 'object') return null;
+
+  const usage = json as Record<string, unknown>;
+  if (typeof usage.totalTokens === 'number') return usage.totalTokens;
+
+  const inputTokens = typeof usage.inputTokens === 'number' ? usage.inputTokens : 0;
+  const outputTokens = typeof usage.outputTokens === 'number' ? usage.outputTokens : 0;
+  const total = inputTokens + outputTokens;
+
+  return total > 0 ? total : null;
+}
+
 /**
  * Check if quota allows more usage.
  */
@@ -45,6 +58,13 @@ export async function getUsageForInvitation(
   prisma: PrismaClient,
   invitationId: string
 ): Promise<number> {
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    select: { usage: true },
+  });
+  const denormalizedUsage = parseUsageTotal(invitation?.usage);
+  if (denormalizedUsage !== null) return denormalizedUsage;
+
   const result = await prisma.usageLog.aggregate({
     where: { invitationId },
     _sum: {

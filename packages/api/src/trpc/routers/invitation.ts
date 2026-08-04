@@ -227,10 +227,11 @@ export const invitationRouter = router({
 
       if (alreadyClaimed && !shouldCreateNewSession) {
         // Return existing session (predefined scenario, already claimed)
-        const allSessions = await listSessions();
-        const existingSession = allSessions.find(
-          (s: any) => String(s.userId) === String(userId) && String(s.invitationId) === String(invitation.id)
-        );
+        const [existingSession] = await listSessions({
+          userId,
+          invitationId: invitation.id,
+          limit: 1,
+        });
 
         if (existingSession) {
           sessionId = existingSession.id;
@@ -377,6 +378,7 @@ export const invitationRouter = router({
           scenarioId: input.scenarioId,
           allowCustomScenario: input.allowCustomScenario,
           quota: { tokens: quota.tokens, label: preset.label },
+          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
           expiresAt: new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000),
           createdById: ctx.user.id,
         },

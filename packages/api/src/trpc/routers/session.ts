@@ -66,6 +66,7 @@ export const sessionRouter = router({
             label: `Staff quick-start: ${scenario.name}`,
             scenarioId: scenario.id,
             quota: { tokens: quota.tokens, label: preset.label },
+            usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
             expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
             createdById: ctx.user.id,
             linkedUserId: ctx.user.id,
@@ -110,6 +111,7 @@ export const sessionRouter = router({
           label: `Staff quick-start: ${elaborated.name}`,
           allowCustomScenario: true,
           quota: { tokens: quota.tokens, label: preset.label },
+          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
           createdById: ctx.user.id,
           linkedUserId: ctx.user.id,
@@ -149,8 +151,7 @@ export const sessionRouter = router({
   listMine: publicProcedure.query(async ({ ctx }) => {
     if (!ctx.userId) return [];
 
-    const allSessions = await listSessions();
-    const sessions = allSessions.filter((s: any) => String(s.userId) === String(ctx.userId));
+    const sessions = await listSessions({ userId: ctx.userId });
 
     return sessions.map((s: any) => ({
       id: s.id,
@@ -161,4 +162,3 @@ export const sessionRouter = router({
     }));
   }),
 });
-

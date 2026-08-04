@@ -3,9 +3,6 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies (OpenSSL for Prisma)
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
 # Install pnpm (pinned to match pnpm-lock.yaml version)
 RUN npm install -g pnpm@10.28.2
 
@@ -23,7 +20,7 @@ COPY packages/database ./packages/database
 COPY packages/api ./packages/api
 COPY packages/app ./packages/app
 
-# Generate Prisma Client
+# Generate Prisma Client for legacy schema-derived types.
 RUN pnpm -F @workspace/database generate
 
 # Build database package (compile TypeScript for production)
@@ -45,9 +42,6 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install system dependencies (OpenSSL for Prisma runtime)
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
 # Install pnpm (pinned to match pnpm-lock.yaml version)
 RUN npm install -g pnpm@10.28.2
 
@@ -65,5 +59,4 @@ COPY --from=builder /app/packages/api/node_modules ./packages/api/node_modules
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# Run migrations then start server
-CMD ["sh", "-c", "pnpm -F @workspace/database exec prisma migrate deploy && node packages/api/dist/server.js"]
+CMD ["node", "packages/api/dist/server.js"]

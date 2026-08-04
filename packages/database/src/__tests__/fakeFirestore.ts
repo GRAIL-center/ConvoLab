@@ -10,6 +10,43 @@ function getAtPath(obj: any, path: string): unknown {
   return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
 }
 
+function setAtPath(obj: any, path: string, value: unknown): void {
+  const keys = path.split('.');
+  let current = obj;
+  for (const key of keys.slice(0, -1)) {
+    current[key] ??= {};
+    current = current[key];
+  }
+  current[keys[keys.length - 1]] = value;
+}
+
+function applyUpdate(existing: Doc, data: Doc): Doc {
+  const next = { ...existing };
+
+  for (const [field, value] of Object.entries(data)) {
+    const increment =
+      value &&
+      typeof value === 'object' &&
+      (value as any).constructor?.name === 'NumericIncrementTransform'
+        ? (value as any).operand
+        : null;
+
+    if (typeof increment === 'number') {
+      const current = getAtPath(next, field);
+      setAtPath(next, field, (typeof current === 'number' ? current : 0) + increment);
+      continue;
+    }
+
+    if (field.includes('.')) {
+      setAtPath(next, field, value);
+    } else {
+      next[field] = value;
+    }
+  }
+
+  return next;
+}
+
 function compare(op: string, actual: unknown, expected: unknown): boolean {
   switch (op) {
     case '==':
@@ -54,8 +91,13 @@ class FakeDocRef {
   }
 
   async update(data: Doc) {
-    const existing = this.store.get(this.id) ?? {};
-    this.store.set(this.id, { ...existing, ...data });
+    const existing = this.store.get(this.id);
+    if (!existing) {
+      const error = new Error(`Document ${this.id} not found`) as Error & { code?: number };
+      error.code = 5;
+      throw error;
+    }
+    this.store.set(this.id, applyUpdate(existing, data));
   }
 
   async delete() {

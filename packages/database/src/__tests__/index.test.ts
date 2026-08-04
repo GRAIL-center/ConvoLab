@@ -153,6 +153,30 @@ describe('aggregate — real sums', () => {
     expect(result._sum.inputTokens).toBe(300);
     expect(result._sum.outputTokens).toBe(125);
   });
+
+  it('denormalizes usage totals onto the invitation when usage logs are created', async () => {
+    await prisma.invitation.create({
+      data: { id: 'inv1', usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+    });
+
+    await prisma.usageLog.create({
+      data: { id: 'l1', invitationId: 'inv1', inputTokens: 100, outputTokens: 50 },
+    });
+    await prisma.usageLog.createMany({
+      data: [
+        { id: 'l2', invitationId: 'inv1', inputTokens: 200, outputTokens: 75 },
+        { id: 'l3', invitationId: 'inv1', inputTokens: 10, outputTokens: 15 },
+      ],
+    });
+
+    const invitation = await prisma.invitation.findUnique({ where: { id: 'inv1' } });
+
+    expect(invitation?.usage).toEqual({
+      inputTokens: 310,
+      outputTokens: 140,
+      totalTokens: 450,
+    });
+  });
 });
 
 describe('findUnique — id and compound-key lookups', () => {
