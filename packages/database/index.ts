@@ -165,6 +165,17 @@ function applySelect<T extends Record<string, any>>(
   return result as T;
 }
 
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => stripUndefined(item)) as T;
+  if (value instanceof Date || value === null || typeof value !== 'object') return value;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(value as Record<string, unknown>)) {
+    if (fieldValue !== undefined) result[key] = stripUndefined(fieldValue);
+  }
+  return result as T;
+}
+
 function applyDistinct<T extends Record<string, any>>(
   rows: T[],
   distinct: string[] | undefined
@@ -321,7 +332,7 @@ async function create<T extends { id?: unknown }>(
       ? col(model).doc(toDocId(data.id))
       : col(model).doc();
 
-  await ref.set(data as WithFieldValue<DocumentData>);
+  await ref.set(stripUndefined(data) as WithFieldValue<DocumentData>);
 
   return {
     ...data,
@@ -338,7 +349,7 @@ async function update<T>(
 ): Promise<T & { id: string }> {
   const ref = col(model).doc(toDocId(args.where.id));
 
-  await ref.update(args.data as DocumentData);
+  await ref.update(stripUndefined(args.data) as DocumentData);
 
   const doc = await ref.get();
 
@@ -377,9 +388,9 @@ async function upsert<T extends Record<string, any>>(
   const doc = await ref.get();
 
   if (doc.exists) {
-    await ref.update(args.update as DocumentData);
+    await ref.update(stripUndefined(args.update) as DocumentData);
   } else {
-    await ref.set(args.create as WithFieldValue<DocumentData>);
+    await ref.set(stripUndefined(args.create) as WithFieldValue<DocumentData>);
   }
 
   const finalDoc = await ref.get();

@@ -6,7 +6,7 @@ interface MessageListProps {
   messages: Message[];
   isStreaming: boolean;
   partnerName?: string;
-  lappScores?: Map<number, LappScore>;
+  lappScores?: Map<string, LappScore>;
 }
 
 export function MessageList({ messages, isStreaming, partnerName, lappScores }: MessageListProps) {
@@ -37,7 +37,9 @@ export function MessageList({ messages, isStreaming, partnerName, lappScores }: 
     >
       {messages.map((message, index) => {
         const tone =
-          message.role === 'user' && lappScores ? (lappScores.get(message.id)?.tone ?? null) : null;
+          message.role === 'user' && lappScores
+            ? (lappScores.get(String(message.id))?.tone ?? null)
+            : null;
         return (
           <MessageBubble
             key={message.id !== -1 ? message.id : `streaming-${index}`}

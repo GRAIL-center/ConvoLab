@@ -96,7 +96,7 @@ export function runStartupChecks(): DiagnosticResult {
   const aiKeys = {
     anthropic: !!process.env.ANTHROPIC_API_KEY,
     openai: !!process.env.OPENAI_API_KEY,
-    google: !!process.env.GOOGLE_AI_API_KEY,
+    google: !!process.env.GOOGLE_CLOUD_PROJECT || !!process.env.GOOGLE_AI_API_KEY,
   };
 
   const configuredProviders = Object.entries(aiKeys)
@@ -108,7 +108,7 @@ export function runStartupChecks(): DiagnosticResult {
       'No AI API keys configured. At least one is required:\n' +
       '  - ANTHROPIC_API_KEY (recommended) - https://console.anthropic.com/\n' +
       '  - OPENAI_API_KEY - https://platform.openai.com/api-keys\n' +
-      '  - GOOGLE_AI_API_KEY - https://aistudio.google.com/apikey\n' +
+      '  - GOOGLE_CLOUD_PROJECT for Vertex AI, or GOOGLE_AI_API_KEY for AI Studio\n' +
       '\n' +
       '  The app currently defaults to Anthropic Claude models.\n' +
       '  Set ANTHROPIC_API_KEY to get started.';
@@ -207,7 +207,8 @@ export function getAIProviderSummary(): string {
 
   if (process.env.ANTHROPIC_API_KEY) providers.push('Anthropic');
   if (process.env.OPENAI_API_KEY) providers.push('OpenAI');
-  if (process.env.GOOGLE_AI_API_KEY) providers.push('Google AI');
+  if (process.env.GOOGLE_CLOUD_PROJECT) providers.push('Google Vertex AI');
+  else if (process.env.GOOGLE_AI_API_KEY) providers.push('Google AI Studio');
 
   if (providers.length === 0) return 'None configured';
   return providers.join(', ');

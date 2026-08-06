@@ -29,18 +29,12 @@ describe('ConversationManager session completion', () => {
     track.mockReset();
   });
 
-  it('tracks only the WebSocket close that atomically completes the session', async () => {
-    completeSession
-      .mockResolvedValueOnce({
-        completed: true,
-        endedAt: new Date('2026-07-30T12:01:00.000Z'),
-        durationSeconds: 60,
-      })
-      .mockResolvedValueOnce({
-        completed: false,
-        endedAt: new Date('2026-07-30T12:01:00.000Z'),
-        durationSeconds: 60,
-      });
+  it('does not complete active sessions on ordinary WebSocket disconnects', async () => {
+    completeSession.mockResolvedValueOnce({
+      completed: true,
+      endedAt: new Date('2026-07-30T12:01:00.000Z'),
+      durationSeconds: 60,
+    });
 
     const manager = new ConversationManager(
       { send: vi.fn() } as never,
@@ -61,14 +55,14 @@ describe('ConversationManager session completion', () => {
     await manager.onClose('disconnect');
     await manager.onClose('idle_timeout');
 
-    expect(completeSession).toHaveBeenNthCalledWith(1, '42', expect.any(Date));
-    expect(completeSession).toHaveBeenNthCalledWith(2, '42', expect.any(Date));
+    expect(completeSession).toHaveBeenCalledTimes(1);
+    expect(completeSession).toHaveBeenCalledWith('42', expect.any(Date));
     expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith(
       expect.anything(),
       'conversation_ended',
       expect.objectContaining({
-        reason: 'disconnect',
+        reason: 'idle_timeout',
         durationMs: 60_000,
         totalMessages: 0,
       }),

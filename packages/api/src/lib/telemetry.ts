@@ -4,7 +4,7 @@ export async function track(
   _prisma: unknown,
   _name: string,
   _properties: Record<string, unknown> = {},
-  _options: { userId?: string; sessionId?: number } = {}
+  _options: { userId?: string; sessionId?: string | number } = {}
 ): Promise<void> {
   // Intentionally empty – telemetry is disabled for this deployment
 }
@@ -13,7 +13,7 @@ export function createTracker(_prisma: unknown, _userId?: string) {
   return (
     _name: string,
     _properties?: Record<string, unknown>,
-    _sessionId?: number
+    _sessionId?: string | number
   ) => track(_prisma, _name, _properties, { userId: _userId, sessionId: _sessionId });
 }
 

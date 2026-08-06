@@ -18,7 +18,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
     { websocket: true },
     async (socket: WebSocket, request: FastifyRequest<{ Params: { sessionId: string } }>) => {
       const sessionIdStr = request.params.sessionId;
-      const sessionId = parseInt(sessionIdStr, 10);
+      const sessionId = sessionIdStr;
 
       // Get user from session (if authenticated)
       const userId = (request.session as { userId?: string } | undefined)?.userId;
@@ -188,9 +188,9 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
     '/ws/observe/:sessionId',
     { websocket: true },
     async (socket: WebSocket, request: FastifyRequest<{ Params: { sessionId: string } }>) => {
-      const sessionId = parseInt(request.params.sessionId, 10);
+      const sessionId = request.params.sessionId;
 
-      if (Number.isNaN(sessionId)) {
+      if (!sessionId) {
         send(socket, {
           type: 'error',
           code: 'SESSION_NOT_FOUND',

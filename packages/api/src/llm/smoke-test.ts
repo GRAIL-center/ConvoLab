@@ -19,7 +19,7 @@ import { streamCompletion } from './registry.js';
 
 interface ProviderConfig {
   name: string;
-  envVar: string;
+  envVars: string[];
   testModel: string;
   modelLabel: string;
 }
@@ -28,20 +28,20 @@ interface ProviderConfig {
 const PROVIDERS: ProviderConfig[] = [
   {
     name: 'anthropic',
-    envVar: 'ANTHROPIC_API_KEY',
+    envVars: ['ANTHROPIC_API_KEY'],
     testModel: 'anthropic:claude-haiku-4-5',
     modelLabel: 'Claude Haiku 4.5',
   },
   {
     name: 'openai',
-    envVar: 'OPENAI_API_KEY',
+    envVars: ['OPENAI_API_KEY'],
     testModel: 'openai:gpt-4o-mini',
     modelLabel: 'GPT-4o Mini',
   },
   {
     name: 'google',
-    envVar: 'GOOGLE_AI_API_KEY',
-    testModel: 'google:gemini-2.0-flash',
+    envVars: ['GOOGLE_CLOUD_PROJECT', 'GOOGLE_AI_API_KEY'],
+    testModel: 'google:gemini-2.5-flash',
     modelLabel: 'Gemini 2.0 Flash',
   },
   // Future: ollama
@@ -101,21 +101,21 @@ async function main() {
   console.log('\n🔬 LLM Provider Smoke Test\n');
   console.log('Checking available providers...\n');
 
-  // Check which providers have API keys
+  // Check which providers have credentials
   const availableProviders = PROVIDERS.filter((p) => {
-    const hasKey = !!process.env[p.envVar];
-    const status = hasKey ? '✓' : '✗';
-    const keyPreview = hasKey ? `${process.env[p.envVar]?.slice(0, 8)}...` : '(not set)';
-    console.log(`  ${status} ${p.envVar}: ${keyPreview}`);
-    return hasKey;
+    const configuredVar = p.envVars.find((envVar) => !!process.env[envVar]);
+    const status = configuredVar ? '✓' : '✗';
+    const valuePreview = configuredVar ? `${process.env[configuredVar]?.slice(0, 8)}...` : '(not set)';
+    console.log(`  ${status} ${p.name}: ${configuredVar ?? p.envVars.join(' or ')} ${valuePreview}`);
+    return !!configuredVar;
   });
 
   console.log();
 
   if (availableProviders.length === 0) {
-    console.error('❌ No API keys found. Set at least one of:');
+    console.error('❌ No AI provider credentials found. Set at least one of:');
     for (const p of PROVIDERS) {
-      console.error(`   - ${p.envVar}`);
+      console.error(`   - ${p.envVars.join(' or ')}`);
     }
     process.exit(1);
   }

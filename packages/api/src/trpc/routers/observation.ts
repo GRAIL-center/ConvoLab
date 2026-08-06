@@ -10,11 +10,13 @@ export const observationRouter = router({
     .input(
       z.object({
         invitationId: z.string(),
-        sessionId: z.number().optional(),
+        sessionId: z.union([z.string(), z.number()]).optional(),
         content: z.string().min(1).max(5000),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const sessionId = input.sessionId !== undefined ? String(input.sessionId) : undefined;
+
       // Verify invitation exists
       const invitation = await ctx.prisma.invitation.findUnique({
         where: { id: input.invitationId },
@@ -25,9 +27,9 @@ export const observationRouter = router({
       }
 
       // If sessionId provided, verify it belongs to this invitation
-      if (input.sessionId) {
+      if (sessionId) {
         const session = await ctx.prisma.conversationSession.findUnique({
-          where: { id: input.sessionId },
+          where: { id: sessionId } as any,
         });
 
         if (!session || session.invitationId !== input.invitationId) {
@@ -41,10 +43,10 @@ export const observationRouter = router({
       return ctx.prisma.observationNote.create({
         data: {
           invitationId: input.invitationId,
-          sessionId: input.sessionId,
+          sessionId,
           researcherId: ctx.user.id,
           content: input.content,
-        },
+        } as any,
       });
     }),
 
@@ -55,15 +57,17 @@ export const observationRouter = router({
     .input(
       z.object({
         invitationId: z.string(),
-        sessionId: z.number().optional(),
+        sessionId: z.union([z.string(), z.number()]).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
+      const sessionId = input.sessionId !== undefined ? String(input.sessionId) : undefined;
+
       const notes = await ctx.prisma.observationNote.findMany({
         where: {
           invitationId: input.invitationId,
-          ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
-        },
+          ...(sessionId !== undefined ? { sessionId } : {}),
+        } as any,
         orderBy: { timestamp: 'desc' },
       });
 

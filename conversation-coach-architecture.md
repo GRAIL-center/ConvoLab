@@ -17,7 +17,7 @@ Fastify Server
   ├── Google OAuth + Invitations
   └── Broadcaster (live observation)
   │
-PostgreSQL (Prisma ORM)
+Cloud Firestore
 ```
 
 ## Stack
@@ -25,7 +25,7 @@ PostgreSQL (Prisma ORM)
 ### Backend
 - Fastify 5 - Server + WebSocket
 - tRPC 11 - Type-safe API
-- Prisma 7 - ORM (runtime connection pattern)
+- Firestore data shim exposed through `@workspace/database`
 - Vercel AI SDK - Multi-provider LLM (Anthropic, OpenAI, Google)
 - @fastify/oauth2 - Google OAuth
 - @fastify/secure-session - Stateless encrypted cookies
@@ -38,14 +38,14 @@ PostgreSQL (Prisma ORM)
 
 ### Infrastructure
 - pnpm workspaces
-- PostgreSQL 17
+- Cloud Firestore
 - Docker Compose (dev)
 
 ## Project Structure
 
 ```
 packages/
-├── database/        # Prisma schema + client
+├── database/        # Firestore shim + shared model types
 ├── api/             # Fastify server
 ├── app/             # React SPA
 └── landing/         # Astro pages (may consolidate into app)
@@ -78,7 +78,7 @@ docs/
 ### Quota System
 - Inviter picks from preset token allocations
 - Absolute quota per invitation (not daily)
-- Tracked via UsageLog, deducted on AI response
+- UsageLog entries are retained; invitation usage counters are denormalized on the Invitation document for quota checks
 
 ## Dual AI Streaming
 
@@ -90,13 +90,25 @@ User message
     │         ▼
     │    partner:delta → partner:done
     │
-    └──▶ Coach AI (sees BOTH conversations)
+    ├──▶ exchange:complete
+    │
+    ├──▶ Coach AI, background (sees latest user + partner exchange)
+    │         │
+    │         ▼
+    │    coach:done
+    │
+    └──▶ LAPP scorer, background
               │
               ▼
-         coach:delta → coach:done
+         score:update
 ```
 
-Partner and coach stream sequentially. Both persisted as Messages with role `partner` or `coach`.
+Partner streaming is the only blocking path for the user's next reply. After
+`partner:done`, the server sends `exchange:complete` and then runs coach and
+LAPP scoring as isolated background jobs. Coach output is collected privately
+and only persisted/sent if the model returns a complete response; partial coach
+output is dropped. LAPP scoring is Vertex/Gemini first, with a local fallback so
+the live metrics panel does not stay empty if structured JSON scoring fails.
 
 ## WebSocket Protocol
 
@@ -109,8 +121,9 @@ Server → Client:
   { type: "history", messages: [...] }
   { type: "partner:delta", content: "..." }
   { type: "partner:done", messageId: 123 }
-  { type: "coach:delta", content: "..." }
+  { type: "exchange:complete" }
   { type: "coach:done", messageId: 124 }
+  { type: "score:update", userMessageId: 123, scores: {...}, tone: "warm" }
   { type: "error", error: "..." }
 ```
 
@@ -152,7 +165,8 @@ Custom prompts stored on ConversationSession, not Scenario.
 
 ## Data Models
 
-See `docs/plans/schema-reference.md` for full Prisma schema.
+See `docs/plans/schema-reference.md` for the historical Prisma schema reference.
+Runtime data is stored in Firestore.
 
 Key models:
 - **User** - OAuth identity, role
@@ -187,7 +201,7 @@ Key models:
 ## Environment Variables
 
 See `.env.example` for full list. Key vars:
-- `DATABASE_URL` - PostgreSQL connection
+- `FIRESTORE_PROJECT_ID` - Firebase/Google Cloud project ID for Firestore
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - OAuth
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` - LLM providers
 - `ADMIN_EMAILS` - Bootstrap admin users on OAuth login

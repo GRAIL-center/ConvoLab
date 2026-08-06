@@ -4,10 +4,33 @@ Audit of `firestore-pr` (commit `2d87dd0`) requested by Hanna: find flows outsid
 conversation path still coupled to Prisma, and think through Firestore schema design for
 Users, Invitations, Sessions, Scenarios, Feedback, Telemetry.
 
-## Status (updated 2026-07-28): shim bugs #1–#4 and #6 fixed; cascade-delete and two `include`
+## Status (updated 2026-08-06): shim bugs #1–#4 and #6 fixed; cascade-delete and two `include`
 callers also fixed; `packages/api` typecheck run for real; `$transaction`, `NOT`, and the OAuth
 handler's three `include` usages now fixed too — Google login should work end-to-end for both
 new and returning users
+
+**2026-08-06 addendum after Firestore/Vertex live debugging:**
+
+- Core local Docker flow is now confirmed against Firestore/Vertex: OAuth,
+  scenario list/selection, session creation, partner replies, automatic coach
+  insights, LAPP scoring, and session cards on the home page.
+- `ConversationSession.totalMessages` is now incremented by
+  `createMessageAndIncrementSession()`, and `session.listMine` reads that
+  denormalized counter with a Firestore count fallback for older docs. Home-page
+  cards no longer depend on Prisma `_count`/`include` shapes.
+- `session.listMine` explicitly fetches scenario display info and normalizes
+  Firestore timestamps to ISO strings. This fixed the `0 messages` /
+  `Invalid Date` cards that made saved conversations look missing.
+- The WebSocket conversation path now isolates partner, coach, and LAPP timing:
+  partner is the only blocking stream; coach and LAPP run as background jobs
+  after `exchange:complete`.
+- Coach output is persisted only after a complete response is collected. Partial
+  automatic coach output is dropped; Ask-Coach aside fragments are rejected
+  instead of saved.
+- Gemini 2.5 Flash dynamic thinking is disabled for low-latency calls with
+  `thinkingConfig: { thinkingBudget: 0 }`, fixing truncated coach/scorer output.
+- Partner web search is now conditional on current/factual-looking prompts to
+  avoid paying search latency on ordinary dialogue turns.
 
 `firestore-shim-fixes.patch` (repo root, regenerated) now contains three rounds of changes:
 
@@ -255,9 +278,13 @@ avoids re-implementing a query planner).
    "not yet migrated."
 2. Add the `String(id)` coercion at call sites for Int-keyed models, or centralize it inside the shim
    so callers don't have to remember it.
-3. Migrate messages/lappScores to subcollections while touching that code anyway (kills two birds:
+3. Deploy Firestore composite indexes before real usage grows. The current local-dev code can avoid
+   some index failures by sorting small result sets in memory, but production should deploy
+   `firestore.indexes.json` with:
+   `npx -y firebase-tools@latest deploy --only firestore:indexes --project convolab-490517`.
+4. Migrate messages/lappScores to subcollections while touching that code anyway (kills two birds:
    fixes bug #1 exposure and the "fetch entire collection" cost problem in `data/messages.ts`).
-4. Decide on cascade-delete strategy for User/Session deletes (explicit batch delete helper, or a
+5. Decide on cascade-delete strategy for User/Session deletes (explicit batch delete helper, or a
    Cloud Function trigger) before relying on delete flows in production.
-5. Align `feedback.ts` with the `packages/api/src/data/` pattern once the shim is trustworthy — not
+6. Align `feedback.ts` with the `packages/api/src/data/` pattern once the shim is trustworthy — not
    urgent since it currently works.
