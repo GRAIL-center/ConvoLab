@@ -2,6 +2,15 @@ import { prisma } from '@workspace/database';
 import type { Message } from '@workspace/database';
 import { createMessageAndIncrementSession } from './atomic.js';
 
+function toTime(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'string' || typeof value === 'number') return new Date(value).getTime();
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().getTime();
+  }
+  return 0;
+}
+
 /**
  * Creates a new message linked to a conversation session in Firestore.
  */
@@ -23,10 +32,11 @@ export async function getMessage(id: string): Promise<Message | null> {
  * Retrieves all messages belonging to a given session.
  */
 export async function getMessagesForSession(sessionId: string): Promise<Message[]> {
-  return prisma.message.findMany({
+  const messages = await prisma.message.findMany({
     where: { sessionId },
-    orderBy: { timestamp: 'asc' },
   });
+
+  return messages.sort((a, b) => toTime(a.timestamp) - toTime(b.timestamp));
 }
 
 /**

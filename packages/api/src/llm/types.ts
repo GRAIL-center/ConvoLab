@@ -19,6 +19,8 @@ export interface StreamParams {
   useWebSearch?: boolean;
   /** AbortSignal for cancelling in-progress streams */
   signal?: AbortSignal;
+  /** Provider-specific response MIME type, e.g. application/json for Gemini structured output */
+  responseMimeType?: string;
 }
 
 export interface StreamChunk {

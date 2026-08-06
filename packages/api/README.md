@@ -36,8 +36,8 @@ docker compose logs -f api
 
 **Local:**
 ```bash
-docker compose up -d db
 pnpm install
+gcloud auth application-default login
 pnpm -F @workspace/api dev
 ```
 
@@ -46,7 +46,9 @@ API: http://localhost:3000
 ## Environment
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/conversation_coach
+FIRESTORE_PROJECT_ID=your-firebase-project-id
+GOOGLE_CLOUD_PROJECT=your-firebase-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
 PORT=3000
 HOST=0.0.0.0
 NODE_ENV=development
@@ -62,7 +64,19 @@ GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 
 # AI
 ANTHROPIC_API_KEY=sk-ant-...
+# Optional: fallback for Google AI Studio instead of Vertex AI
+GOOGLE_AI_API_KEY=
 ```
+
+For local Firestore access, the Google Cloud SDK must have Application Default
+Credentials. The same credentials are used for Vertex AI when
+`GOOGLE_CLOUD_PROJECT` is set:
+
+```bash
+gcloud auth application-default login
+```
+
+Docker Compose mounts local gcloud credentials into the API container.
 
 ## Endpoints
 

@@ -350,7 +350,7 @@ export const invitationRouter = router({
       z
         .object({
           label: z.string().optional(),
-          scenarioId: z.number().optional(),
+          scenarioId: z.coerce.number().optional(),
           allowCustomScenario: z.boolean().default(false),
           presetName: z.string(),
           expiresInDays: z.number().min(1).max(365).default(30),

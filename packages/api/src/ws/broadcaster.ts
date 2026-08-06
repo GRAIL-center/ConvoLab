@@ -9,27 +9,29 @@ import type { ServerMessage } from './protocol.js';
  */
 
 // Map<sessionId, Set<WebSocket>>
-const observers = new Map<number, Set<WebSocket>>();
+const observers = new Map<string, Set<WebSocket>>();
 
 /**
  * Subscribe an observer WebSocket to a session.
  */
-export function subscribe(sessionId: number, ws: WebSocket): void {
-  if (!observers.has(sessionId)) {
-    observers.set(sessionId, new Set());
+export function subscribe(sessionId: string | number, ws: WebSocket): void {
+  const key = String(sessionId);
+  if (!observers.has(key)) {
+    observers.set(key, new Set());
   }
-  observers.get(sessionId)!.add(ws);
+  observers.get(key)!.add(ws);
 }
 
 /**
  * Unsubscribe an observer WebSocket from a session.
  */
-export function unsubscribe(sessionId: number, ws: WebSocket): void {
-  const sockets = observers.get(sessionId);
+export function unsubscribe(sessionId: string | number, ws: WebSocket): void {
+  const key = String(sessionId);
+  const sockets = observers.get(key);
   if (sockets) {
     sockets.delete(ws);
     if (sockets.size === 0) {
-      observers.delete(sessionId);
+      observers.delete(key);
     }
   }
 }
@@ -37,8 +39,8 @@ export function unsubscribe(sessionId: number, ws: WebSocket): void {
 /**
  * Broadcast a message to all observers of a session.
  */
-export function broadcast(sessionId: number, message: ServerMessage): void {
-  const sockets = observers.get(sessionId);
+export function broadcast(sessionId: string | number, message: ServerMessage): void {
+  const sockets = observers.get(String(sessionId));
   if (!sockets || sockets.size === 0) return;
 
   const data = JSON.stringify(message);
@@ -52,6 +54,6 @@ export function broadcast(sessionId: number, message: ServerMessage): void {
 /**
  * Get the number of active observers for a session.
  */
-export function getObserverCount(sessionId: number): number {
-  return observers.get(sessionId)?.size ?? 0;
+export function getObserverCount(sessionId: string | number): number {
+  return observers.get(String(sessionId))?.size ?? 0;
 }

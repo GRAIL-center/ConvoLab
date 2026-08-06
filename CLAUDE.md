@@ -84,17 +84,22 @@ gh pr create
 ### Monorepo Structure
 ```
 packages/
-├── database/  → @workspace/database (Prisma, shared types)
+├── database/  → @workspace/database (Firestore shim, shared types)
 ├── api/       → @workspace/api (Fastify + tRPC)
 ├── app/       → @workspace/app (React + Vite)
 └── landing/   → @workspace/landing (Astro)
 ```
 
-### Prisma 7 Pattern
-No URL in schema. Connection passed at runtime:
-```typescript
-new PrismaClient({ datasourceUrl: process.env.DATABASE_URL })
-```
+### Database Pattern
+Runtime data is stored in Cloud Firestore. `@workspace/database` exports a
+Prisma-shaped Firestore shim so API code can keep using `prisma.user.findMany()`
+style calls while running against Firestore.
+
+Set `FIRESTORE_PROJECT_ID` for API/runtime access. Local development uses Google
+Application Default Credentials (`gcloud auth application-default login`).
+
+The Prisma schema/migration files remain temporarily as schema-derived type
+scaffolding. Do not remove them until those generated types are replaced.
 
 ### Session Storage
 Stateless encrypted cookies via `@fastify/secure-session`. No Redis, no database sessions. 7-day expiry.
@@ -129,4 +134,4 @@ Biome for both linting and formatting. Run `pnpm check` to lint + format.
 ## Don't Forget
 
 - Run `pnpm -F @workspace/database generate` after schema changes
-- The `docs/plans/schema-reference.md` has the full target Prisma schema
+- The `docs/plans/schema-reference.md` has the historical Prisma schema reference

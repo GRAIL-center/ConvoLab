@@ -1,5 +1,7 @@
 import type { TokenUsage } from '../llm/types.js';
 
+export type EntityId = string | number;
+
 /**
  * WebSocket Protocol Types
  *
@@ -9,23 +11,24 @@ import type { TokenUsage } from '../llm/types.js';
 
 // Server -> Client messages
 export type ServerMessage =
-  | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
+  | { type: 'connected'; sessionId: EntityId; scenario: ScenarioInfo }
   | { type: 'history'; messages: HistoryMessage[] }
   | { type: 'partner:delta'; content: string }
   | { type: 'partner:retry' }
-  | { type: 'partner:done'; messageId: number; usage: TokenUsage; content: string }
+  | { type: 'partner:done'; messageId: EntityId; usage: TokenUsage; content: string }
   | { type: 'exchange:complete' }
   | { type: 'coach:delta'; content: string }
-  | { type: 'coach:done'; messageId: number; usage: TokenUsage; content: string }
+  | { type: 'coach:retry' }
+  | { type: 'coach:done'; messageId: EntityId; usage: TokenUsage; content: string }
   | { type: 'aside:delta'; threadId: string; content: string }
-  | { type: 'aside:done'; threadId: string; messageId: number; usage: TokenUsage }
+  | { type: 'aside:done'; threadId: string; messageId: EntityId; usage: TokenUsage }
   | { type: 'aside:error'; threadId: string; error: string }
   | { type: 'error'; code: ErrorCode; message: string; recoverable: boolean }
   | { type: 'quota:warning'; remaining: number; total: number }
   | { type: 'quota:exhausted' }
   | {
       type: 'score:update';
-      userMessageId: number;
+      userMessageId: EntityId;
       turnNumber: number;
       scores: { l: number; a: number; p: number; pe: number };
       tone: 'constructive' | 'warm' | 'neutral' | 'tense';
@@ -35,12 +38,12 @@ export type ServerMessage =
 export type ClientMessage =
   | { type: 'message'; content: string }
   | { type: 'ping' }
-  | { type: 'resume'; afterMessageId?: number }
+  | { type: 'resume'; afterMessageId?: EntityId }
   | { type: 'aside:start'; content: string; threadId: string }
   | { type: 'aside:cancel'; threadId: string };
 
 export interface ScenarioInfo {
-  id: number;
+  id: EntityId;
   name: string;
   description: string;
   partnerPersona: string;
@@ -48,7 +51,7 @@ export interface ScenarioInfo {
 }
 
 export interface HistoryMessage {
-  id: number;
+  id: EntityId;
   role: 'user' | 'partner' | 'coach';
   content: string;
   timestamp: string;

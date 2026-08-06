@@ -5,7 +5,7 @@ import type { AsideMessage, LappScore, Message } from '../../hooks/useConversati
 interface DesktopCoachPanelProps {
   coachMessages: Message[]; // automatic coach responses (role=coach)
   asideMessages: AsideMessage[]; // user Q&A with coach
-  lappScores: Map<number, LappScore>;
+  lappScores: Map<string, LappScore>;
 }
 
 type Tone = 'constructive' | 'warm' | 'neutral' | 'tense';

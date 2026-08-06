@@ -49,6 +49,30 @@ Docs: https://platform.openai.com/docs/models
 
 ## Google (Gemini)
 
+The local and deployed API can use Gemini through Vertex AI by setting
+`GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`. `GOOGLE_AI_API_KEY` remains
+available as a Google AI Studio fallback, but the current local migration work
+uses Vertex AI.
+
+Runtime defaults currently resolve partner, coach, and LAPP scoring to
+`google:gemini-2.5-flash` when Anthropic is not configured.
+
+Gemini 2.5 Flash enables dynamic thinking by default. For this app's short,
+low-latency partner/coach/scoring calls, the Google provider explicitly sends:
+
+```ts
+thinkingConfig: { thinkingBudget: 0 }
+```
+
+Without that setting, Vertex can spend the small output budget on thinking
+tokens and return visible fragments with `MAX_TOKENS`, which makes coach
+insights appear missing or cut off.
+
+Partner web search grounding is intentionally selective: scenarios can enable
+`partnerUseWebSearch`, but runtime only uses search for current/factual-looking
+questions such as "who is president", "what year is it", or "latest/recent"
+queries. Normal dialogue turns skip web search to reduce latency.
+
 ### List Models
 ```bash
 curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_AI_API_KEY"

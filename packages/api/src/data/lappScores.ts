@@ -1,6 +1,15 @@
 import { prisma } from '@workspace/database';
 import type { LappScore } from '@workspace/database';
 
+function toTime(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'string' || typeof value === 'number') return new Date(value).getTime();
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().getTime();
+  }
+  return 0;
+}
+
 /**
  * Creates a new LAPP score entry linked to a session in Firestore.
  */
@@ -24,10 +33,11 @@ export async function getLappScore(id: string): Promise<LappScore | null> {
  * Retrieves all LAPP scores for a given session.
  */
 export async function getLappScoresForSession(sessionId: string): Promise<LappScore[]> {
-  return prisma.lappScore.findMany({
+  const scores = await prisma.lappScore.findMany({
     where: { sessionId },
-    orderBy: { createdAt: 'asc' },
   });
+
+  return scores.sort((a, b) => toTime(a.createdAt) - toTime(b.createdAt));
 }
 
 /**

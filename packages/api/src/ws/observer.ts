@@ -5,6 +5,15 @@ import type { WebSocket } from 'ws';
 import { subscribe, unsubscribe } from './broadcaster.js';
 import { type HistoryMessage, send } from './protocol.js';
 
+function toIsoString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (typeof value === 'string') return value;
+  return new Date().toISOString();
+}
+
 /**
  * Manages a read-only observer connection to a conversation session.
  *
@@ -13,12 +22,17 @@ import { type HistoryMessage, send } from './protocol.js';
  */
 export class ObserverManager {
   private ws: WebSocket;
-  private sessionId: number;
+  private sessionId: string;
   private logger: FastifyBaseLogger;
 
-  constructor(ws: WebSocket, _prisma: PrismaClient, sessionId: number, logger: FastifyBaseLogger) {
+  constructor(
+    ws: WebSocket,
+    _prisma: PrismaClient,
+    sessionId: string | number,
+    logger: FastifyBaseLogger
+  ) {
     this.ws = ws;
-    this.sessionId = sessionId;
+    this.sessionId = String(sessionId);
     this.logger = logger;
   }
 
@@ -71,7 +85,7 @@ export class ObserverManager {
       id: m.id,
       role: m.role as 'user' | 'partner' | 'coach',
       content: m.content,
-      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
+      timestamp: toIsoString(m.timestamp),
     }));
 
     send(this.ws, { type: 'history', messages: historyMessages });
