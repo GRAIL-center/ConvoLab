@@ -30,7 +30,8 @@ import { type HistoryMessage, type ScenarioInfo, send } from "./protocol.js";
 // Default models for custom scenarios
 const DEFAULT_PARTNER_MODEL = DEFAULT_GOOGLE_MODEL;
 const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
-const DEFAULT_SCORER_MODEL = DEFAULT_GOOGLE_MODEL;
+const DEFAULT_SCORER_MODEL =
+	process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
 const FALLBACK_PARTNER_MODEL = "claude-sonnet-4-20250514";
 const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;

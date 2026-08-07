@@ -1,4 +1,5 @@
 import { anthropicProvider } from './providers/anthropic.js';
+import { fakeProvider } from './providers/fake.js';
 import { googleProvider } from './providers/google.js';
 import { openaiProvider } from './providers/openai.js';
 import type { LLMProvider, StreamParams } from './types.js';
@@ -27,6 +28,7 @@ const providers = new Map<string, LLMProvider>([
   ['anthropic', anthropicProvider],
   ['openai', openaiProvider],
   ['google', googleProvider],
+  ['fake', fakeProvider], // offline deterministic provider for tests/synthetic dry runs
   // Future: ['ollama', ollamaProvider]
 ]);
 

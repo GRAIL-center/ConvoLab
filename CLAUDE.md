@@ -112,6 +112,9 @@ tRPC endpoint: `/trpc`. Procedures: `publicProcedure`, `protectedProcedure`, `ad
 ### Linting & Formatting
 Biome for both. Run `pnpm check`.
 
+### Synthetic Conversations (DQI training data)
+`pnpm -F @workspace/api synthetic` drives the real partner/coach/LAPP pipeline with an LLM-simulated participant and persists full sessions exactly as the app would. It refuses to run unless `FIRESTORE_EMULATOR_HOST` is set (`firebase emulators:start --only firestore`, port 8080 per firebase.json) so synthetic data never lands in the real project. `--fake-llm` switches all agents to the deterministic offline `fake:` provider (no API keys needed); `--out file.jsonl` also writes records in the same schema as the `export_transcripts*.py` scripts. `LAPP_SCORER_MODEL` env var overrides the scorer model. Covered end-to-end by `packages/api/src/cli/synthetic.test.ts` against the fake Firestore double.
+
 ## Orientation Docs
 
 - `docs/plans/16-firestore-status-update.md` — freshest migration status write-up

@@ -12,6 +12,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:llm": "tsx src/llm/smoke-test.ts",
+    "synthetic": "tsx src/cli/synthetic.ts",
     "llm:compare": "tsx src/llm/compare.ts",
     "type-check": "tsc --noEmit"
   },

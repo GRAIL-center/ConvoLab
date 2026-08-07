@@ -16,9 +16,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getAtPath(obj: unknown, path: string): unknown {
-  return path
-    .split('.')
-    .reduce<unknown>((acc, key) => (isRecord(acc) ? acc[key] : undefined), obj);
+  return path.split('.').reduce<unknown>((acc, key) => (isRecord(acc) ? acc[key] : undefined), obj);
 }
 
 function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): void {
@@ -219,6 +217,48 @@ export class FakeFirestore {
       this.collections.set(name, new Map());
     }
     return new FakeCollectionRef(this.collections.get(name)!);
+  }
+
+  /**
+   * Single-writer approximation of Firestore transactions: reads happen
+   * immediately, writes are buffered and applied after the callback, matching
+   * the real client's ordering rules. No contention/retry semantics — tests
+   * are single-threaded.
+   */
+  async runTransaction<T>(
+    fn: (transaction: {
+      get: (ref: FakeDocRef) => Promise<FakeDocSnapshot>;
+      create: (ref: FakeDocRef, data: Doc) => void;
+      set: (ref: FakeDocRef, data: Doc) => void;
+      update: (ref: FakeDocRef, data: Doc) => void;
+      delete: (ref: FakeDocRef) => void;
+    }) => Promise<T>
+  ): Promise<T> {
+    const writes: Array<() => Promise<void>> = [];
+    const transaction = {
+      get: (ref: FakeDocRef) => ref.get(),
+      create: (ref: FakeDocRef, data: Doc) => {
+        writes.push(async () => {
+          const snapshot = await ref.get();
+          if (snapshot.exists) {
+            throw new Error(`Document ${ref.id} already exists`);
+          }
+          await ref.set(data);
+        });
+      },
+      set: (ref: FakeDocRef, data: Doc) => {
+        writes.push(() => ref.set(data));
+      },
+      update: (ref: FakeDocRef, data: Doc) => {
+        writes.push(() => ref.update(data));
+      },
+      delete: (ref: FakeDocRef) => {
+        writes.push(() => ref.delete());
+      },
+    };
+    const result = await fn(transaction);
+    for (const write of writes) await write();
+    return result;
   }
 
   batch() {
