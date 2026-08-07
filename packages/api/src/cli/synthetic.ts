@@ -22,6 +22,7 @@
  *   --partner-model <model> partner LLM for the CLI-owned synthetic scenario
  *   --coach-model <model>   coach LLM for the CLI-owned synthetic scenario
  *   --fake-llm              offline mode: all agents use the deterministic fake provider
+ *   --pace-seconds <n>      sleep between turns (use ~30 on the Gemini free tier)
  *   --out <file.jsonl>      also write the generated sessions as JSONL
  *   --allow-real-firestore  skip the emulator guard (DANGER: writes to the real project)
  */
@@ -38,10 +39,11 @@ config({ path: resolve(import.meta.dirname, '../../../../.env') });
 
 const DEFAULT_PARTICIPANT_PERSONA = [
   'You are role-playing a study participant practicing a difficult cross-partisan',
-  'conversation with a MAGA-aligned relative. You lean liberal, care about your',
-  'relationship with them, and are trying (imperfectly) to listen, acknowledge,',
-  'and stay curious rather than lecture. Reply with ONLY your next conversational',
-  'turn, 1-3 sentences, no stage directions.',
+  'conversation with a MAGA-aligned relative (your uncle Dale). You lean liberal,',
+  'care about your relationship with him, and are trying (imperfectly) to listen,',
+  'acknowledge, and stay curious rather than lecture. Reply with ONLY your next',
+  'conversational turn, 1-3 sentences, no stage directions and no placeholder',
+  'names in brackets.',
 ].join(' ');
 
 interface CliOptions {
@@ -53,6 +55,7 @@ interface CliOptions {
   partnerModel?: string;
   coachModel?: string;
   fakeLlm: boolean;
+  paceSeconds: number;
   out?: string;
   allowRealFirestore: boolean;
 }
@@ -70,6 +73,7 @@ function parseCliArgs(): CliOptions {
       'partner-model': { type: 'string' },
       'coach-model': { type: 'string' },
       'fake-llm': { type: 'boolean', default: false },
+      'pace-seconds': { type: 'string' },
       out: { type: 'string' },
       'allow-real-firestore': { type: 'boolean', default: false },
     },
@@ -84,6 +88,7 @@ function parseCliArgs(): CliOptions {
     partnerModel: values['partner-model'],
     coachModel: values['coach-model'],
     fakeLlm,
+    paceSeconds: Number(values['pace-seconds'] ?? 0),
     out: values.out,
     allowRealFirestore: values['allow-real-firestore'] ?? false,
   };
@@ -162,6 +167,8 @@ export interface RunOptions {
   scenarioSlug?: string;
   partnerModel?: string;
   coachModel?: string;
+  /** Sleep between turns — needed to stay inside free-tier LLM rate limits */
+  paceSeconds?: number;
   postExchangeTimeoutMs?: number;
 }
 
@@ -256,6 +263,9 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
   const participantView: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
   for (let turn = 1; turn <= opts.turns; turn++) {
+    if (turn > 1 && opts.paceSeconds) {
+      await new Promise((resolve) => setTimeout(resolve, opts.paceSeconds! * 1000));
+    }
     if (participantView.length === 0) {
       participantView.push({
         role: 'user',

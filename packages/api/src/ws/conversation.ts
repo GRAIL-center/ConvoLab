@@ -32,7 +32,8 @@ const DEFAULT_PARTNER_MODEL = DEFAULT_GOOGLE_MODEL;
 const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
 const DEFAULT_SCORER_MODEL =
 	process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
-const FALLBACK_PARTNER_MODEL = "claude-sonnet-4-20250514";
+// claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
+const FALLBACK_PARTNER_MODEL = "claude-sonnet-5";
 const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;
 const CURRENT_FACT_CONTEXT = `
