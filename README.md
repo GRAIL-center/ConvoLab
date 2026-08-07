@@ -72,7 +72,18 @@ task up:bg    # Start containers in background
 
 </details>
 
-See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions including Google OAuth setup.
+<details>
+<summary>Google OAuth setup</summary>
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create/select a project
+2. Navigate to **APIs & Services > Credentials**, click **Create Credentials > OAuth client ID**
+3. If prompted, configure the OAuth consent screen first (External user type; add your email to test users)
+4. Select **Web application** and configure:
+   - **Authorized JavaScript origins:** `http://localhost:5173`
+   - **Authorized redirect URIs:** `http://localhost:5173/api/auth/google/callback`
+5. Copy the Client ID and Client Secret into `.env`
+
+</details>
 
 ### Authentication
 
@@ -89,7 +100,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 **Stack:**
 - **Backend:** Fastify 5 + tRPC 11 + WebSocket
-- **Database:** PostgreSQL 17 + Prisma 7
+- **Database:** Cloud Firestore (via a Prisma-shaped shim in `@workspace/database`)
 - **Frontend:** Vite 7 + React 19 + TanStack Query 5
 - **Landing:** Astro 5
 - **Auth:** Google OAuth + invitation links
@@ -100,7 +111,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 ```
 packages/
-├── database/    # Prisma schema + types
+├── database/    # Firestore shim + shared types
 ├── api/         # Fastify server
 ├── app/         # React SPA
 └── landing/     # Astro pages
@@ -110,7 +121,7 @@ docs/
 
 ### Useful Commands
 
-Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for details.
+Run `task --list` for all commands.
 
 </details>
 

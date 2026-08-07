@@ -8,7 +8,6 @@ version: '3'
 vars:
   API_SERVICE: api
   APP_SERVICE: app
-  DB_SERVICE: db
 
 tasks:
   # === Quick Start ===
@@ -36,8 +35,6 @@ tasks:
       - 'echo "✓ Services starting in background"'
       - 'echo "  API: http://localhost:3000"'
       - 'echo "  App: http://localhost:5173"'
-      - echo ""
-      - echo "Run 'task migrate' to set up the database"
 
   down:
     desc: "Stop all services"
@@ -48,38 +45,6 @@ tasks:
     desc: "Restart all services"
     cmds:
       - docker compose restart
-
-  # === Database ===
-
-  migrate:
-    desc: "Run database migrations (creates tables + seeds data)"
-    cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
-
-  migrate:deploy:
-    desc: "Run migrations in production mode (no prompts)"
-    cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate:deploy"
-
-  db:seed:
-    desc: "Re-run database seed (adds sample scenarios)"
-    cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
-
-  db:studio:
-    desc: "Open Prisma Studio (visual database browser)"
-    cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm studio"
-
-  db:reset:
-    desc: "Reset database (WARNING: deletes all data)"
-    prompt: "This will delete ALL data. Continue?"
-    cmds:
-      - docker compose down -v
-      - docker compose up -d db api
-      - echo "Waiting for services to be ready..."
-      - sleep 5
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
 
   # === Logs ===
 
@@ -97,11 +62,6 @@ tasks:
     desc: "View React app logs"
     cmds:
       - docker compose logs -f app
-
-  logs:db:
-    desc: "View database logs"
-    cmds:
-      - docker compose logs -f db
 
   # === Development ===
 
@@ -213,7 +173,6 @@ tasks:
       - 'echo "URLs:"'
       - 'echo "  App:  http://localhost:5173"'
       - 'echo "  API:  http://localhost:3000/health"'
-      - 'echo "  DB:   localhost:5432"'
 
   # === Local Development (without Docker) ===
 
@@ -227,17 +186,6 @@ tasks:
     cmds:
       - pnpm dev
 
-  local:db:up:
-    desc: "Start only database (for local development)"
-    cmds:
-      - docker compose up -d db
-      - 'echo "✓ Database running on localhost:5432"'
-
-  local:migrate:
-    desc: "Run migrations locally"
-    cmds:
-      - pnpm db:migrate
-
   # === Help ===
 
   help:
@@ -250,19 +198,12 @@ tasks:
         echo "📦 First time setup:"
         echo "  task setup        # Create .env file"
         echo "  task up:bg        # Start services in background"
-        echo "  task migrate      # Set up database"
         echo "  task status       # Verify everything is running"
         echo ""
         echo "🔄 Daily development:"
         echo "  task up           # Start (shows logs)"
         echo "  task logs:api     # Watch API logs"
-        echo "  task db:studio    # Browse database"
         echo "  task down         # Stop everything"
-        echo ""
-        echo "📝 Database operations:"
-        echo "  task migrate      # Run migrations"
-        echo "  task db:seed      # Add sample data"
-        echo "  task db:reset     # Fresh database (deletes data!)"
         echo ""
         echo "🧪 Testing & quality:"
         echo "  task test          # Run tests once"
