@@ -455,7 +455,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 ## Getting Help
 
-- **Documentation**: Start with [QUICKSTART.md](./QUICKSTART.md)
+- **Documentation**: Start with the [README](./README.md) Quick Start
 - **Architecture**: See [conversation-coach-architecture.md](./conversation-coach-architecture.md)
 - **Taskfile**: Run `task --list` to see all available commands
 - **Issues**: Check existing issues or create a new one
