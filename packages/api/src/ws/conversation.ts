@@ -977,25 +977,40 @@ export class ConversationManager {
 			clearTimeout(timeout);
 		}
 
-		const trimmed = content.trim();
+		let trimmed = content.trim();
 		if (!trimmed || isLikelyIncompleteCoachMessage(trimmed)) {
-			this.logger.warn(
-				{
-					sessionId: this.session.id,
+			// Usually a maxTokens truncation mid-sentence. Salvage the complete
+			// sentences instead of silently giving the user no coaching this turn.
+			const lastStop = Math.max(
+				trimmed.lastIndexOf("."),
+				trimmed.lastIndexOf("!"),
+				trimmed.lastIndexOf("?"),
+			);
+			const salvaged = lastStop >= 24 ? trimmed.slice(0, lastStop + 1) : "";
+			if (!salvaged) {
+				this.logger.warn(
+					{
+						sessionId: this.session.id,
+						userMessageId: args.userMessageId,
+						turnNumber: args.turnNumber,
+						model,
+						contentPreview: trimmed.slice(0, 120),
+					},
+					"[coach] Dropping incomplete coach insight",
+				);
+				this.logTiming("coach", startMs, {
 					userMessageId: args.userMessageId,
 					turnNumber: args.turnNumber,
 					model,
-					contentPreview: trimmed.slice(0, 120),
-				},
-				"[coach] Dropping incomplete coach insight",
+					completed: false,
+				});
+				return;
+			}
+			this.logger.info(
+				{ sessionId: this.session.id, turnNumber: args.turnNumber, model },
+				"[coach] Salvaged truncated coach insight to last complete sentence",
 			);
-			this.logTiming("coach", startMs, {
-				userMessageId: args.userMessageId,
-				turnNumber: args.turnNumber,
-				model,
-				completed: false,
-			});
-			return;
+			trimmed = salvaged;
 		}
 
 		const message = await this.persistMessage("coach", trimmed);

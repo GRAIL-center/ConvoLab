@@ -19,7 +19,7 @@ set -u
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${1:-$HOME/convolab-synthetic}"
 LOG="$OUT_DIR/generator.log"
-HAIKU_PER_DAY="${HAIKU_PER_DAY:-20}"
+HAIKU_PER_DAY="${HAIKU_PER_DAY:-50}"
 HAIKU_MODEL="anthropic:claude-haiku-4-5-20251001"
 mkdir -p "$OUT_DIR"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
