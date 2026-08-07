@@ -143,10 +143,14 @@ class EventCollector {
     return new Promise((resolve) => {
       const waiter = { predicate, resolve };
       this.waiters.push(waiter);
+      // Deliberately NOT unref'd: this timer can be the only referenced handle
+      // while we wait (e.g. the coach lane drops an incomplete insight and never
+      // emits coach:done). With unref, Node's event loop drains and the process
+      // exits 0 mid-conversation without writing --out.
       setTimeout(() => {
         this.waiters = this.waiters.filter((w) => w !== waiter);
         resolve(null);
-      }, timeoutMs).unref?.();
+      }, timeoutMs);
     });
   }
 }
