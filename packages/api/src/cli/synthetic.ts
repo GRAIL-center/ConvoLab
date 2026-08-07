@@ -19,13 +19,22 @@
  *   --scenario <slug>       reuse an existing scenario by slug
  *   --persona <text>        participant persona for the simulated user
  *   --user-model <model>    LLM for the simulated participant
+ *   --partner-model <model> partner LLM for the CLI-owned synthetic scenario
+ *   --coach-model <model>   coach LLM for the CLI-owned synthetic scenario
  *   --fake-llm              offline mode: all agents use the deterministic fake provider
  *   --out <file.jsonl>      also write the generated sessions as JSONL
  *   --allow-real-firestore  skip the emulator guard (DANGER: writes to the real project)
  */
 
 import fs from 'node:fs';
+import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { config } from 'dotenv';
+
+// Load API keys from the repo-root .env (same pattern as llm/smoke-test.ts).
+// Safe with the emulator guard: FIRESTORE_EMULATOR_HOST comes from the shell,
+// not .env, and when set it overrides whatever project id .env names.
+config({ path: resolve(import.meta.dirname, '../../../../.env') });
 
 const DEFAULT_PARTICIPANT_PERSONA = [
   'You are role-playing a study participant practicing a difficult cross-partisan',
@@ -41,6 +50,8 @@ interface CliOptions {
   scenarioSlug?: string;
   persona: string;
   userModel: string;
+  partnerModel?: string;
+  coachModel?: string;
   fakeLlm: boolean;
   out?: string;
   allowRealFirestore: boolean;
@@ -48,12 +59,16 @@ interface CliOptions {
 
 function parseCliArgs(): CliOptions {
   const { values } = parseArgs({
+    // pnpm forwards a literal "--" separator; tolerate it instead of crashing
+    args: process.argv.slice(2).filter((a) => a !== '--'),
     options: {
       conversations: { type: 'string', default: '1' },
       turns: { type: 'string', default: '4' },
       scenario: { type: 'string' },
       persona: { type: 'string' },
       'user-model': { type: 'string' },
+      'partner-model': { type: 'string' },
+      'coach-model': { type: 'string' },
       'fake-llm': { type: 'boolean', default: false },
       out: { type: 'string' },
       'allow-real-firestore': { type: 'boolean', default: false },
@@ -66,6 +81,8 @@ function parseCliArgs(): CliOptions {
     scenarioSlug: values.scenario,
     persona: values.persona ?? DEFAULT_PARTICIPANT_PERSONA,
     userModel: values['user-model'] ?? (fakeLlm ? 'fake:participant' : 'google:gemini-2.5-flash'),
+    partnerModel: values['partner-model'],
+    coachModel: values['coach-model'],
     fakeLlm,
     out: values.out,
     allowRealFirestore: values['allow-real-firestore'] ?? false,
@@ -143,6 +160,8 @@ export interface RunOptions {
   userModel: string;
   fakeLlm: boolean;
   scenarioSlug?: string;
+  partnerModel?: string;
+  coachModel?: string;
   postExchangeTimeoutMs?: number;
 }
 
@@ -169,8 +188,18 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
   }
   if (!scenario) {
     const slug = `synthetic-${opts.fakeLlm ? 'fake' : 'llm'}`;
+    const partnerModel =
+      opts.partnerModel ?? (opts.fakeLlm ? 'fake:partner' : 'google:gemini-2.5-flash');
+    const coachModel =
+      opts.coachModel ?? (opts.fakeLlm ? 'fake:coach' : 'anthropic:claude-sonnet-5');
     scenario = await prisma.scenario.findUnique({ where: { slug } as never });
-    if (!scenario) {
+    if (scenario) {
+      // The synthetic scenario is CLI-owned; keep its models in sync with the flags
+      scenario = await prisma.scenario.update({
+        where: { id: (scenario as { id: string | number }).id } as never,
+        data: { partnerModel, coachModel, updatedAt: new Date() } as never,
+      });
+    } else {
       scenario = await prisma.scenario.create({
         data: {
           name: 'Synthetic: MAGA-aligned relative',
@@ -187,8 +216,8 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
           ].join(' '),
           coachSystemPrompt:
             'You coach users on constructive cross-partisan conversations using the LAPP framework (Listen, Acknowledge, Pivot, Perspective).',
-          partnerModel: opts.fakeLlm ? 'fake:partner' : 'google:gemini-2.5-flash',
-          coachModel: opts.fakeLlm ? 'fake:coach' : 'anthropic:claude-sonnet-5',
+          partnerModel,
+          coachModel,
           partnerUseWebSearch: false,
           coachUseWebSearch: false,
           isActive: true,
