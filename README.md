@@ -67,7 +67,21 @@ Then open http://localhost:5173.
 Notes:
 - The api container mounts `~/.config/gcloud` read-only for Firestore access.
 - Source is bind-mounted for hot reload, but changes in `packages/database` need `docker compose restart api`.
+- After pulling new changes, use `docker compose up --build -V` to rebuild and reset volumes.
 - [Task](https://taskfile.dev) (`brew install go-task/tap/go-task`) wraps common commands: `task --list`.
+
+<details>
+<summary>Google OAuth setup</summary>
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create/select a project
+2. Navigate to **APIs & Services > Credentials**, click **Create Credentials > OAuth client ID**
+3. If prompted, configure the OAuth consent screen first (External user type; add your email to test users)
+4. Select **Web application** and configure:
+   - **Authorized JavaScript origins:** `http://localhost:5173`
+   - **Authorized redirect URIs:** `http://localhost:5173/api/auth/google/callback`
+5. Copy the Client ID and Client Secret into `.env`
+
+</details>
 
 ### Authentication
 
@@ -84,7 +98,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 **Stack:**
 - **Backend:** Fastify 5 + tRPC 11 + WebSocket
-- **Database:** Firestore, accessed through a Prisma-shaped compatibility shim in `packages/database` (call sites still read like Prisma)
+- **Database:** Cloud Firestore, accessed through a Prisma-shaped compatibility shim in `packages/database` (call sites still read like Prisma)
 - **Frontend:** Vite 7 + React 19 + TanStack Query 5
 - **Landing:** Astro 5
 - **Auth:** Google OAuth + invitation links

@@ -20,7 +20,7 @@ import { streamCompletion } from './registry.js';
 
 interface ProviderConfig {
   name: string;
-  envVar: string;
+  envVars: string[];
   model: string;
   modelLabel: string;
 }
@@ -28,20 +28,20 @@ interface ProviderConfig {
 const PROVIDERS: ProviderConfig[] = [
   {
     name: 'anthropic',
-    envVar: 'ANTHROPIC_API_KEY',
+    envVars: ['ANTHROPIC_API_KEY'],
     model: 'anthropic:claude-haiku-4-5',
     modelLabel: 'Claude Haiku 4.5',
   },
   {
     name: 'openai',
-    envVar: 'OPENAI_API_KEY',
+    envVars: ['OPENAI_API_KEY'],
     model: 'openai:gpt-4o-mini',
     modelLabel: 'GPT-4o Mini',
   },
   {
     name: 'google',
-    envVar: 'GOOGLE_AI_API_KEY',
-    model: 'google:gemini-2.0-flash',
+    envVars: ['GOOGLE_CLOUD_PROJECT', 'GOOGLE_AI_API_KEY'],
+    model: 'google:gemini-2.5-flash',
     modelLabel: 'Gemini 2.0 Flash',
   },
 ];
@@ -139,12 +139,14 @@ async function main() {
   }
 
   // Find available providers
-  const availableProviders = PROVIDERS.filter((p) => !!process.env[p.envVar]);
+  const availableProviders = PROVIDERS.filter((p) =>
+    p.envVars.some((envVar) => !!process.env[envVar])
+  );
 
   if (availableProviders.length === 0) {
-    console.error('No API keys found. Set at least one of:');
+    console.error('No AI provider credentials found. Set at least one of:');
     for (const p of PROVIDERS) {
-      console.error(`  - ${p.envVar}`);
+      console.error(`  - ${p.envVars.join(' or ')}`);
     }
     process.exit(1);
   }

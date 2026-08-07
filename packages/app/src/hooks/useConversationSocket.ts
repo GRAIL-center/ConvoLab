@@ -1,590 +1,721 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
+
+export type EntityId = string | number;
 
 // LAPP score for a single user message
 export interface LappScore {
-  userMessageId: number;
-  turnNumber: number;
-  scores: { l: number; a: number; p: number; pe: number };
-  tone: 'constructive' | 'warm' | 'neutral' | 'tense';
+	userMessageId: EntityId;
+	turnNumber: number;
+	scores: { l: number; a: number; p: number; pe: number };
+	tone: "constructive" | "warm" | "neutral" | "tense";
 }
 
 // Mirror types from API protocol (no shared package yet)
 export interface ScenarioInfo {
-  id: number;
-  name: string;
-  description: string;
-  partnerPersona: string;
+	id: EntityId;
+	name: string;
+	description: string;
+	partnerPersona: string;
 }
 
 export interface Message {
-  id: number;
-  role: 'user' | 'partner' | 'coach';
-  content: string;
-  timestamp: string;
-  isStreaming?: boolean;
-  messageType?: 'main' | 'aside';
-  asideThreadId?: string;
-  action?: string;
+	id: EntityId;
+	role: "user" | "partner" | "coach";
+	content: string;
+	timestamp: string;
+	isStreaming?: boolean;
+	messageType?: "main" | "aside";
+	asideThreadId?: string;
+	action?: string;
 }
 
 export interface AsideMessage {
-  id: number;
-  role: 'user' | 'coach';
-  content: string;
-  timestamp: string;
-  threadId: string;
-  isStreaming?: boolean;
+	id: EntityId;
+	role: "user" | "coach";
+	content: string;
+	timestamp: string;
+	threadId: string;
+	isStreaming?: boolean;
 }
 
 interface TokenUsage {
-  inputTokens: number;
-  outputTokens: number;
+	inputTokens: number;
+	outputTokens: number;
 }
 
 type ServerMessage =
-  | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
-  | { type: 'history'; messages: Message[] }
-  | {
-      type: 'score:update';
-      userMessageId: number;
-      turnNumber: number;
-      scores: { l: number; a: number; p: number; pe: number };
-      tone: 'constructive' | 'warm' | 'neutral' | 'tense';
-    }
-  | { type: 'partner:delta'; content: string }
-  | { type: 'partner:retry' }
-  | { type: 'partner:done'; messageId: number; usage: TokenUsage; content: string }
-  | { type: 'exchange:complete' }
-  | { type: 'coach:delta'; content: string }
-  | { type: 'coach:done'; messageId: number; usage: TokenUsage; content: string }
-  | { type: 'aside:delta'; threadId: string; content: string }
-  | { type: 'aside:done'; threadId: string; messageId: number; usage: TokenUsage }
-  | { type: 'aside:error'; threadId: string; error: string }
-  | { type: 'error'; code: string; message: string; recoverable: boolean }
-  | { type: 'quota:warning'; remaining: number; total: number }
-  | { type: 'quota:exhausted' };
+	| { type: "connected"; sessionId: EntityId; scenario: ScenarioInfo }
+	| { type: "history"; messages: Message[] }
+	| {
+			type: "score:update";
+			userMessageId: EntityId;
+			turnNumber: number;
+			scores: { l: number; a: number; p: number; pe: number };
+			tone: "constructive" | "warm" | "neutral" | "tense";
+	  }
+	| { type: "partner:delta"; content: string }
+	| { type: "partner:retry" }
+	| {
+			type: "partner:done";
+			messageId: EntityId;
+			usage: TokenUsage;
+			content: string;
+	  }
+	| { type: "exchange:complete" }
+	| { type: "coach:delta"; content: string }
+	| { type: "coach:retry" }
+	| {
+			type: "coach:done";
+			messageId: EntityId;
+			usage: TokenUsage;
+			content: string;
+	  }
+	| { type: "aside:delta"; threadId: string; content: string }
+	| {
+			type: "aside:done";
+			threadId: string;
+			messageId: EntityId;
+			usage: TokenUsage;
+	  }
+	| { type: "aside:error"; threadId: string; error: string }
+	| { type: "error"; code: string; message: string; recoverable: boolean }
+	| { type: "quota:warning"; remaining: number; total: number }
+	| { type: "quota:exhausted" };
 
 type ClientMessage =
-  | { type: 'message'; content: string }
-  | { type: 'ping' }
-  | { type: 'resume'; afterMessageId?: number }
-  | { type: 'aside:start'; content: string; threadId: string }
-  | { type: 'aside:cancel'; threadId: string };
+	| { type: "message"; content: string }
+	| { type: "ping" }
+	| { type: "resume"; afterMessageId?: EntityId }
+	| { type: "aside:start"; content: string; threadId: string }
+	| { type: "aside:cancel"; threadId: string };
 
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type ConnectionStatus =
+	| "connecting"
+	| "connected"
+	| "disconnected"
+	| "error";
 
 export interface ConversationError {
-  code: string;
-  message: string;
-  recoverable: boolean;
+	code: string;
+	message: string;
+	recoverable: boolean;
 }
 
 export interface QuotaState {
-  remaining: number;
-  total: number;
-  exhausted: boolean;
+	remaining: number;
+	total: number;
+	exhausted: boolean;
 }
 
 export interface AsideError {
-  threadId: string;
-  message: string;
+	threadId: string;
+	message: string;
 }
 
 interface UseConversationSocketResult {
-  status: ConnectionStatus;
-  scenario: ScenarioInfo | null;
-  messages: Message[];
-  sendMessage: (content: string) => void;
-  isStreaming: boolean;
-  streamingRole: 'partner' | 'coach' | null;
-  quota: QuotaState | null;
-  error: ConversationError | null;
-  // LAPP scores keyed by userMessageId
-  lappScores: Map<number, LappScore>;
-  // Aside state
-  asideMessages: AsideMessage[];
-  isAsideStreaming: boolean;
-  activeAsideThreadId: string | null;
-  asideError: AsideError | null;
-  // Aside actions
-  startAside: (question: string) => string;
-  cancelAside: () => void;
+	status: ConnectionStatus;
+	scenario: ScenarioInfo | null;
+	messages: Message[];
+	sendMessage: (content: string) => void;
+	isStreaming: boolean;
+	streamingRole: "partner" | "coach" | null;
+	quota: QuotaState | null;
+	error: ConversationError | null;
+	// LAPP scores keyed by userMessageId
+	lappScores: Map<string, LappScore>;
+	// Aside state
+	asideMessages: AsideMessage[];
+	isAsideStreaming: boolean;
+	activeAsideThreadId: string | null;
+	asideError: AsideError | null;
+	// Aside actions
+	startAside: (question: string) => string;
+	cancelAside: () => void;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
-export function useConversationSocket(sessionId: number): UseConversationSocketResult {
-  const [status, setStatus] = useState<ConnectionStatus>('connecting');
-  const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingRole, setStreamingRole] = useState<'partner' | 'coach' | null>(null);
-  const [quota, setQuota] = useState<QuotaState | null>(null);
-  const [error, setError] = useState<ConversationError | null>(null);
-  const [lappScores, setLappScores] = useState<Map<number, LappScore>>(new Map());
+export function useConversationSocket(
+	sessionId: string,
+): UseConversationSocketResult {
+	const [status, setStatus] = useState<ConnectionStatus>("connecting");
+	const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
+	const [messages, setMessages] = useState<Message[]>([]);
+	const [isStreaming, setIsStreaming] = useState(false);
+	const [streamingRole, setStreamingRole] = useState<
+		"partner" | "coach" | null
+	>(null);
+	const [quota, setQuota] = useState<QuotaState | null>(null);
+	const [error, setError] = useState<ConversationError | null>(null);
+	const [lappScores, setLappScores] = useState<Map<string, LappScore>>(
+		new Map(),
+	);
 
-  // Aside state
-  const [asideMessages, setAsideMessages] = useState<AsideMessage[]>([]);
-  const [isAsideStreaming, setIsAsideStreaming] = useState(false);
-  const [activeAsideThreadId, setActiveAsideThreadId] = useState<string | null>(null);
-  const [asideError, setAsideError] = useState<AsideError | null>(null);
+	// Aside state
+	const [asideMessages, setAsideMessages] = useState<AsideMessage[]>([]);
+	const [isAsideStreaming, setIsAsideStreaming] = useState(false);
+	const [activeAsideThreadId, setActiveAsideThreadId] = useState<string | null>(
+		null,
+	);
+	const [asideError, setAsideError] = useState<AsideError | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const lastMessageIdRef = useRef<number | null>(null);
-  const hasLoadedHistoryRef = useRef(false);
-  const streamingContentRef = useRef<string>('');
-  const asideStreamingContentRef = useRef<string>('');
-  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isStreamingRef = useRef(false);
-  const activeAsideThreadIdRef = useRef<string | null>(null);
+	const wsRef = useRef<WebSocket | null>(null);
+	const reconnectAttemptsRef = useRef(0);
+	const lastMessageIdRef = useRef<EntityId | null>(null);
+	const hasLoadedHistoryRef = useRef(false);
+	const partnerStreamingContentRef = useRef<string>("");
+	const coachStreamingContentRef = useRef<string>("");
+	const asideStreamingContentRef = useRef<string>("");
+	const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+		null,
+	);
+	const isStreamingRef = useRef(false);
+	const activeAsideThreadIdRef = useRef<string | null>(null);
+	const fatalErrorRef = useRef<ConversationError | null>(null);
 
-  // Keep refs in sync with state for use in callbacks
-  useEffect(() => {
-    isStreamingRef.current = isStreaming;
-  }, [isStreaming]);
+	// Keep refs in sync with state for use in callbacks
+	useEffect(() => {
+		isStreamingRef.current = isStreaming;
+	}, [isStreaming]);
 
-  useEffect(() => {
-    activeAsideThreadIdRef.current = activeAsideThreadId;
-  }, [activeAsideThreadId]);
+	useEffect(() => {
+		activeAsideThreadIdRef.current = activeAsideThreadId;
+	}, [activeAsideThreadId]);
 
-  const send = useCallback((msg: ClientMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(msg));
-    }
-  }, []);
+	const send = useCallback((msg: ClientMessage) => {
+		if (wsRef.current?.readyState === WebSocket.OPEN) {
+			wsRef.current.send(JSON.stringify(msg));
+		}
+	}, []);
 
-  const sendMessage = useCallback(
-    (content: string) => {
-      // Use ref to avoid recreating callback on every isStreaming change
-      if (!content.trim() || isStreamingRef.current) return;
+	const sendMessage = useCallback(
+		(content: string) => {
+			// Use ref to avoid recreating callback on every isStreaming change
+			if (!content.trim() || isStreamingRef.current) return;
 
-      // Optimistically add user message
-      const userMessage: Message = {
-        id: Date.now(),
-        role: 'user',
-        content: content.trim(),
-        timestamp: new Date().toISOString(),
-        messageType: 'main',
-      };
-      setMessages((prev) => [...prev, userMessage]);
+			// Optimistically add user message
+			const userMessage: Message = {
+				id: Date.now(),
+				role: "user",
+				content: content.trim(),
+				timestamp: new Date().toISOString(),
+				messageType: "main",
+			};
+			setMessages((prev) => [...prev, userMessage]);
 
-      send({ type: 'message', content: content.trim() });
-    },
-    [send]
-  );
+			send({ type: "message", content: content.trim() });
+		},
+		[send],
+	);
 
-  const startAside = useCallback(
-    (question: string): string => {
-      // Generate unique thread ID
-      const threadId = `aside-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+	const startAside = useCallback(
+		(question: string): string => {
+			// Generate unique thread ID
+			const threadId = `aside-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-      if (!question.trim() || isStreamingRef.current || activeAsideThreadIdRef.current) {
-        return threadId;
-      }
+			if (
+				!question.trim() ||
+				isStreamingRef.current ||
+				activeAsideThreadIdRef.current
+			) {
+				return threadId;
+			}
 
-      setAsideError(null);
-      setActiveAsideThreadId(threadId);
+			setAsideError(null);
+			setActiveAsideThreadId(threadId);
 
-      // Optimistically add user aside message
-      const userMessage: AsideMessage = {
-        id: Date.now(),
-        role: 'user',
-        content: question.trim(),
-        timestamp: new Date().toISOString(),
-        threadId,
-      };
-      setAsideMessages((prev) => [...prev, userMessage]);
+			// Optimistically add user aside message
+			const userMessage: AsideMessage = {
+				id: Date.now(),
+				role: "user",
+				content: question.trim(),
+				timestamp: new Date().toISOString(),
+				threadId,
+			};
+			setAsideMessages((prev) => [...prev, userMessage]);
 
-      send({ type: 'aside:start', content: question.trim(), threadId });
+			send({ type: "aside:start", content: question.trim(), threadId });
 
-      return threadId;
-    },
-    [send]
-  );
+			return threadId;
+		},
+		[send],
+	);
 
-  const cancelAside = useCallback(() => {
-    const threadId = activeAsideThreadIdRef.current;
-    if (threadId) {
-      send({ type: 'aside:cancel', threadId });
-    }
-  }, [send]);
+	const cancelAside = useCallback(() => {
+		const threadId = activeAsideThreadIdRef.current;
+		if (threadId) {
+			send({ type: "aside:cancel", threadId });
+		}
+	}, [send]);
 
-  useEffect(() => {
-    function connect() {
-      // Check for CONNECTING or OPEN state to avoid orphan sockets
-      if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
+	useEffect(() => {
+		function connect() {
+			// Check for CONNECTING or OPEN state to avoid orphan sockets
+			if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED)
+				return;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/conversation/${sessionId}`);
-      wsRef.current = ws;
+			fatalErrorRef.current = null;
+			const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+			const ws = new WebSocket(
+				`${protocol}//${window.location.host}/ws/conversation/${encodeURIComponent(sessionId)}`,
+			);
+			wsRef.current = ws;
 
-      ws.onopen = () => {
-        setStatus('connected');
-        setError(null);
-        reconnectAttemptsRef.current = 0;
+			ws.onopen = () => {
+				setStatus("connected");
+				setError(null);
 
-        // Reset streaming content refs on (re)connect — stale content from a
-        // dropped connection would otherwise get prepended to the next stream.
-        streamingContentRef.current = '';
-        asideStreamingContentRef.current = '';
+				// Reset streaming content refs on (re)connect — stale content from a
+				// dropped connection would otherwise get prepended to the next stream.
+				partnerStreamingContentRef.current = "";
+				coachStreamingContentRef.current = "";
+				asideStreamingContentRef.current = "";
 
-        // Clear any in-progress streaming state left over from a dropped connection
-        setIsStreaming(false);
-        setStreamingRole(null);
-        setIsAsideStreaming(false);
+				// Clear any in-progress streaming state left over from a dropped connection
+				setIsStreaming(false);
+				setStreamingRole(null);
+				setIsAsideStreaming(false);
 
-        // If reconnecting, request messages since last known
-        if (lastMessageIdRef.current !== null) {
-          send({ type: 'resume', afterMessageId: lastMessageIdRef.current });
-        }
+				// If reconnecting, request messages since last known
+				if (lastMessageIdRef.current !== null) {
+					send({ type: "resume", afterMessageId: lastMessageIdRef.current });
+				}
 
-        // Start ping interval
-        pingIntervalRef.current = setInterval(() => {
-          send({ type: 'ping' });
-        }, PING_INTERVAL_MS);
-      };
+				// Start ping interval
+				pingIntervalRef.current = setInterval(() => {
+					send({ type: "ping" });
+				}, PING_INTERVAL_MS);
+			};
 
-      ws.onclose = (event) => {
-        if (pingIntervalRef.current) {
-          clearInterval(pingIntervalRef.current);
-          pingIntervalRef.current = null;
-        }
+			ws.onclose = (event) => {
+				if (pingIntervalRef.current) {
+					clearInterval(pingIntervalRef.current);
+					pingIntervalRef.current = null;
+				}
 
-        if (event.code !== 1000) {
-          // Not a clean close, attempt reconnect
-          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-            const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
-            reconnectAttemptsRef.current++;
-            setStatus('connecting');
-            // Store timeout ref for cleanup
-            reconnectTimeoutRef.current = setTimeout(connect, delay);
-          } else {
-            setStatus('error');
-            setError({
-              code: 'CONNECTION_LOST',
-              message: 'Connection lost. Please refresh the page.',
-              recoverable: false,
-            });
-          }
-        } else {
-          setStatus('disconnected');
-        }
-      };
+				if (fatalErrorRef.current || event.code === 1008) {
+					setStatus("error");
+					setError(
+						fatalErrorRef.current ?? {
+							code: "CONNECTION_CLOSED",
+							message: event.reason || "The server closed the connection.",
+							recoverable: false,
+						},
+					);
+				} else if (event.code !== 1000) {
+					// Not a clean close, attempt reconnect
+					if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+						const delay = Math.min(
+							1000 * 2 ** reconnectAttemptsRef.current,
+							30000,
+						);
+						reconnectAttemptsRef.current++;
+						setStatus("connecting");
+						// Store timeout ref for cleanup
+						reconnectTimeoutRef.current = setTimeout(connect, delay);
+					} else {
+						setStatus("error");
+						setError({
+							code: "CONNECTION_LOST",
+							message: "Connection lost. Please refresh the page.",
+							recoverable: false,
+						});
+					}
+				} else {
+					setStatus("disconnected");
+				}
+			};
 
-      ws.onerror = () => {
-        // Error handling is done in onclose
-      };
+			ws.onerror = () => {
+				// Error handling is done in onclose
+			};
 
-      ws.onmessage = (event) => {
-        let msg: ServerMessage;
-        try {
-          msg = JSON.parse(event.data) as ServerMessage;
-        } catch {
-          setError({
-            code: 'INVALID_MESSAGE',
-            message: 'Received an invalid message from the server.',
-            recoverable: true,
-          });
-          return;
-        }
+			ws.onmessage = (event) => {
+				let msg: ServerMessage;
+				try {
+					msg = JSON.parse(event.data) as ServerMessage;
+				} catch {
+					setError({
+						code: "INVALID_MESSAGE",
+						message: "Received an invalid message from the server.",
+						recoverable: true,
+					});
+					return;
+				}
 
-        switch (msg.type) {
-          case 'connected':
-            setScenario(msg.scenario);
-            break;
+				switch (msg.type) {
+					case "connected":
+						reconnectAttemptsRef.current = 0;
+						setScenario(msg.scenario);
+						break;
 
-          case 'history': {
-            // Separate main messages from aside messages
-            const mainMessages = msg.messages.filter((m) => m.messageType !== 'aside');
-            const newAsideMessages = msg.messages
-              .filter((m) => m.messageType === 'aside')
-              .map((m) => ({
-                id: m.id,
-                role: m.role as 'user' | 'coach',
-                content: m.content,
-                timestamp: m.timestamp,
-                threadId: m.asideThreadId ?? '',
-              }));
+					case "history": {
+						setIsStreaming(false);
+						setStreamingRole(null);
+						partnerStreamingContentRef.current = "";
+						coachStreamingContentRef.current = "";
 
-            if (!hasLoadedHistoryRef.current) {
-              // Initial load: replace empty state with full history from DB
-              hasLoadedHistoryRef.current = true;
-              setMessages(mainMessages);
-            } else {
-              // Resume after reconnect: merge new messages into existing confirmed state.
-              // The server only sends messages after lastMessageIdRef, so we keep
-              // confirmed DB messages (small sequential IDs) and append the new batch.
-              setMessages((prev) => {
-                const serverIds = new Set(mainMessages.map((m) => m.id));
-                // DB IDs are small sequential integers; optimistic IDs are Date.now() (~1.7e12)
-                const confirmed = prev.filter(
-                  (m) => m.id > 0 && m.id < 1_000_000_000 && !serverIds.has(m.id)
-                );
-                return [...confirmed, ...mainMessages];
-              });
-            }
-            if (newAsideMessages.length > 0) {
-              setAsideMessages((prev) => [...prev, ...newAsideMessages]);
-            }
-            if (msg.messages.length > 0) {
-              lastMessageIdRef.current = msg.messages[msg.messages.length - 1].id;
-            }
-            break;
-          }
+						// Separate main messages from aside messages
+						const mainMessages = msg.messages.filter(
+							(m) => m.messageType !== "aside",
+						);
+						const newAsideMessages = msg.messages
+							.filter((m) => m.messageType === "aside")
+							.map((m) => ({
+								id: m.id,
+								role: m.role as "user" | "coach",
+								content: m.content,
+								timestamp: m.timestamp,
+								threadId: m.asideThreadId ?? "",
+							}));
 
-          case 'partner:retry':
-            // Fallback triggered (e.g. Gemini quota → Claude): clear partial content
-            streamingContentRef.current = '';
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: '' }];
-              }
-              return prev;
-            });
-            break;
+						if (!hasLoadedHistoryRef.current) {
+							// Initial load: replace empty state with full history from DB
+							hasLoadedHistoryRef.current = true;
+							setMessages(mainMessages);
+						} else {
+							// Resume after reconnect: merge new messages into existing confirmed state.
+							// The server only sends messages after lastMessageIdRef, so keep
+							// confirmed messages and append the new batch.
+							setMessages((prev) => {
+								const serverIds = new Set(
+									mainMessages.map((m) => String(m.id)),
+								);
+								const confirmed = prev.filter(
+									(m) => !serverIds.has(String(m.id)) && !m.isStreaming,
+								);
+								return [...confirmed, ...mainMessages];
+							});
+						}
+						if (newAsideMessages.length > 0) {
+							setAsideMessages((prev) => [...prev, ...newAsideMessages]);
+						}
+						if (msg.messages.length > 0) {
+							lastMessageIdRef.current =
+								msg.messages[msg.messages.length - 1].id;
+						}
+						break;
+					}
 
-          case 'partner:delta': {
-            setIsStreaming(true);
-            setStreamingRole('partner');
-            streamingContentRef.current += msg.content;
-            const partnerAccumulated = streamingContentRef.current;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: partnerAccumulated }];
-              }
-              return [
-                ...prev,
-                {
-                  id: -1, // Temporary
-                  role: 'partner',
-                  content: partnerAccumulated,
-                  timestamp: new Date().toISOString(),
-                  isStreaming: true,
-                },
-              ];
-            });
-            break;
-          }
+					case "partner:retry":
+						// Fallback triggered (e.g. Gemini quota → Claude): clear partial content
+						partnerStreamingContentRef.current = "";
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "partner" && last.isStreaming) {
+								return [...prev.slice(0, -1), { ...last, content: "" }];
+							}
+							return prev;
+						});
+						break;
 
-          case 'exchange:complete':
-            setIsStreaming(false);
-            setStreamingRole(null);
-            break;
+					case "coach:retry":
+						coachStreamingContentRef.current = "";
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "coach" && last.isStreaming) {
+								return prev.slice(0, -1);
+							}
+							return prev;
+						});
+						break;
 
-          case 'partner:done':
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'partner' && last.isStreaming) {
-                // Prefer the accumulated streaming content; fall back to the server's
-                // confirmed content (e.g. after a partner:retry that cleared the bubble).
-                const finalContent = last.content || msg.content;
-                return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
-              }
-              // No streaming message (e.g. Gemini search chunks had null text) — create from content
-              if (msg.content) {
-                return [
-                  ...prev,
-                  {
-                    id: msg.messageId,
-                    role: 'partner' as const,
-                    content: msg.content,
-                    timestamp: new Date().toISOString(),
-                    isStreaming: false,
-                  },
-                ];
-              }
-              return prev;
-            });
-            lastMessageIdRef.current = msg.messageId;
-            streamingContentRef.current = '';
-            setStreamingRole(null);
-            // Don't set isStreaming false yet - coach will follow
-            break;
+					case "partner:delta": {
+						setIsStreaming(true);
+						setStreamingRole("partner");
+						partnerStreamingContentRef.current += msg.content;
+						const partnerAccumulated = partnerStreamingContentRef.current;
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "partner" && last.isStreaming) {
+								return [
+									...prev.slice(0, -1),
+									{ ...last, content: partnerAccumulated },
+								];
+							}
+							return [
+								...prev,
+								{
+									id: -1, // Temporary
+									role: "partner",
+									content: partnerAccumulated,
+									timestamp: new Date().toISOString(),
+									isStreaming: true,
+								},
+							];
+						});
+						break;
+					}
 
-          case 'coach:delta': {
-            setIsStreaming(true);
-            setStreamingRole('coach');
-            streamingContentRef.current += msg.content;
-            const coachAccumulated = streamingContentRef.current;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: coachAccumulated }];
-              }
-              return [
-                ...prev,
-                {
-                  id: -1,
-                  role: 'coach',
-                  content: coachAccumulated,
-                  timestamp: new Date().toISOString(),
-                  isStreaming: true,
-                },
-              ];
-            });
-            break;
-          }
+					case "exchange:complete":
+						setIsStreaming(false);
+						setStreamingRole(null);
+						break;
 
-          case 'coach:done':
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming) {
-                // Same fallback as partner:done — use server content if bubble was cleared.
-                const finalContent = last.content || msg.content;
-                return [...prev.slice(0, -1), { ...last, content: finalContent, id: msg.messageId, isStreaming: false }];
-              }
-              // No streaming message — create from content
-              if (msg.content) {
-                return [
-                  ...prev,
-                  {
-                    id: msg.messageId,
-                    role: 'coach' as const,
-                    content: msg.content,
-                    timestamp: new Date().toISOString(),
-                    isStreaming: false,
-                  },
-                ];
-              }
-              return prev;
-            });
-            lastMessageIdRef.current = msg.messageId;
-            streamingContentRef.current = '';
-            setIsStreaming(false);
-            setStreamingRole(null);
-            break;
+					case "partner:done":
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "partner" && last.isStreaming) {
+								// Prefer the accumulated streaming content; fall back to the server's
+								// confirmed content (e.g. after a partner:retry that cleared the bubble).
+								const finalContent = last.content || msg.content;
+								return [
+									...prev.slice(0, -1),
+									{
+										...last,
+										content: finalContent,
+										id: msg.messageId,
+										isStreaming: false,
+									},
+								];
+							}
+							// No streaming message (e.g. Gemini search chunks had null text) — create from content
+							if (msg.content) {
+								return [
+									...prev,
+									{
+										id: msg.messageId,
+										role: "partner" as const,
+										content: msg.content,
+										timestamp: new Date().toISOString(),
+										isStreaming: false,
+									},
+								];
+							}
+							return prev;
+						});
+						lastMessageIdRef.current = msg.messageId;
+						partnerStreamingContentRef.current = "";
+						setIsStreaming(false);
+						setStreamingRole(null);
+						break;
 
-          case 'aside:delta':
-            setIsAsideStreaming(true);
-            asideStreamingContentRef.current += msg.content;
-            setAsideMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: asideStreamingContentRef.current },
-                ];
-              }
-              return [
-                ...prev,
-                {
-                  id: -1,
-                  role: 'coach',
-                  content: asideStreamingContentRef.current,
-                  timestamp: new Date().toISOString(),
-                  threadId: msg.threadId,
-                  isStreaming: true,
-                },
-              ];
-            });
-            break;
+					case "coach:delta": {
+						coachStreamingContentRef.current += msg.content;
+						const coachAccumulated = coachStreamingContentRef.current;
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "coach" && last.isStreaming) {
+								return [
+									...prev.slice(0, -1),
+									{ ...last, content: coachAccumulated },
+								];
+							}
+							return [
+								...prev,
+								{
+									id: -1,
+									role: "coach",
+									content: coachAccumulated,
+									timestamp: new Date().toISOString(),
+									isStreaming: true,
+								},
+							];
+						});
+						break;
+					}
 
-          case 'aside:done':
-            setAsideMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming && last.threadId === msg.threadId) {
-                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
-              }
-              return prev;
-            });
-            asideStreamingContentRef.current = '';
-            setIsAsideStreaming(false);
-            setActiveAsideThreadId(null);
-            break;
+					case "coach:done":
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.role === "coach" && last.isStreaming) {
+								// Same fallback as partner:done — use server content if bubble was cleared.
+								const finalContent = last.content || msg.content;
+								return [
+									...prev.slice(0, -1),
+									{
+										...last,
+										content: finalContent,
+										id: msg.messageId,
+										isStreaming: false,
+									},
+								];
+							}
+							// No streaming message — create from content
+							if (msg.content) {
+								return [
+									...prev,
+									{
+										id: msg.messageId,
+										role: "coach" as const,
+										content: msg.content,
+										timestamp: new Date().toISOString(),
+										isStreaming: false,
+									},
+								];
+							}
+							return prev;
+						});
+						lastMessageIdRef.current = msg.messageId;
+						coachStreamingContentRef.current = "";
+						break;
 
-          case 'aside:error':
-            setAsideError({ threadId: msg.threadId, message: msg.error });
-            asideStreamingContentRef.current = '';
-            setIsAsideStreaming(false);
-            setActiveAsideThreadId(null);
-            break;
+					case "aside:delta":
+						setIsAsideStreaming(true);
+						asideStreamingContentRef.current += msg.content;
+						setAsideMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (
+								last?.role === "coach" &&
+								last.isStreaming &&
+								last.threadId === msg.threadId
+							) {
+								return [
+									...prev.slice(0, -1),
+									{ ...last, content: asideStreamingContentRef.current },
+								];
+							}
+							return [
+								...prev,
+								{
+									id: -1,
+									role: "coach",
+									content: asideStreamingContentRef.current,
+									timestamp: new Date().toISOString(),
+									threadId: msg.threadId,
+									isStreaming: true,
+								},
+							];
+						});
+						break;
 
-          case 'score:update':
-            setLappScores((prev) => {
-              const next = new Map(prev);
-              next.set(msg.userMessageId, {
-                userMessageId: msg.userMessageId,
-                turnNumber: msg.turnNumber,
-                scores: msg.scores,
-                tone: msg.tone,
-              });
-              return next;
-            });
-            break;
+					case "aside:done":
+						setAsideMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (
+								last?.role === "coach" &&
+								last.isStreaming &&
+								last.threadId === msg.threadId
+							) {
+								return [
+									...prev.slice(0, -1),
+									{ ...last, id: msg.messageId, isStreaming: false },
+								];
+							}
+							return prev;
+						});
+						asideStreamingContentRef.current = "";
+						setIsAsideStreaming(false);
+						setActiveAsideThreadId(null);
+						break;
 
-          case 'error':
-            setError({ code: msg.code, message: msg.message, recoverable: msg.recoverable });
-            if (!msg.recoverable) {
-              setStatus('error');
-            }
-            setIsStreaming(false);
-            setStreamingRole(null);
-            streamingContentRef.current = '';
-            // Remove any dangling streaming bubble — e.g. after partner:retry if the
-            // fallback model also fails, leaving an empty isStreaming:true message.
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.isStreaming) {
-                return prev.slice(0, -1);
-              }
-              return prev;
-            });
-            break;
+					case "aside:error":
+						setAsideError({ threadId: msg.threadId, message: msg.error });
+						asideStreamingContentRef.current = "";
+						setIsAsideStreaming(false);
+						setActiveAsideThreadId(null);
+						setAsideMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (
+								last?.role === "coach" &&
+								last.isStreaming &&
+								last.threadId === msg.threadId
+							) {
+								return prev.slice(0, -1);
+							}
+							return prev;
+						});
+						break;
 
-          case 'quota:warning':
-            setQuota({ remaining: msg.remaining, total: msg.total, exhausted: false });
-            break;
+					case "score:update":
+						setLappScores((prev) => {
+							const next = new Map(prev);
+							next.set(String(msg.userMessageId), {
+								userMessageId: msg.userMessageId,
+								turnNumber: msg.turnNumber,
+								scores: msg.scores,
+								tone: msg.tone,
+							});
+							return next;
+						});
+						break;
 
-          case 'quota:exhausted':
-            setQuota((prev) =>
-              prev ? { ...prev, exhausted: true } : { remaining: 0, total: 0, exhausted: true }
-            );
-            break;
-        }
-      };
-    }
+					case "error":
+						setError({
+							code: msg.code,
+							message: msg.message,
+							recoverable: msg.recoverable,
+						});
+						if (!msg.recoverable) {
+							fatalErrorRef.current = {
+								code: msg.code,
+								message: msg.message,
+								recoverable: msg.recoverable,
+							};
+							setStatus("error");
+						}
+						setIsStreaming(false);
+						setStreamingRole(null);
+						partnerStreamingContentRef.current = "";
+						coachStreamingContentRef.current = "";
+						// Remove any dangling streaming bubble — e.g. after partner:retry if the
+						// fallback model also fails, leaving an empty isStreaming:true message.
+						setMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (last?.isStreaming) {
+								return prev.slice(0, -1);
+							}
+							return prev;
+						});
+						break;
 
-    connect();
+					case "quota:warning":
+						setQuota({
+							remaining: msg.remaining,
+							total: msg.total,
+							exhausted: false,
+						});
+						break;
 
-    return () => {
-      // Clean up reconnection timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmounting');
-        wsRef.current = null;
-      }
-    };
-  }, [sessionId, send]);
+					case "quota:exhausted":
+						setQuota((prev) =>
+							prev
+								? { ...prev, exhausted: true }
+								: { remaining: 0, total: 0, exhausted: true },
+						);
+						break;
+				}
+			};
+		}
 
-  return {
-    status,
-    scenario,
-    messages,
-    sendMessage,
-    isStreaming,
-    streamingRole,
-    quota,
-    error,
-    lappScores,
-    // Aside state
-    asideMessages,
-    isAsideStreaming,
-    activeAsideThreadId,
-    asideError,
-    // Aside actions
-    startAside,
-    cancelAside,
-  };
+		connect();
+
+		return () => {
+			// Clean up reconnection timeout
+			if (reconnectTimeoutRef.current) {
+				clearTimeout(reconnectTimeoutRef.current);
+				reconnectTimeoutRef.current = null;
+			}
+			if (pingIntervalRef.current) {
+				clearInterval(pingIntervalRef.current);
+				pingIntervalRef.current = null;
+			}
+			if (wsRef.current) {
+				wsRef.current.close(1000, "Component unmounting");
+				wsRef.current = null;
+			}
+		};
+	}, [sessionId, send]);
+
+	return {
+		status,
+		scenario,
+		messages,
+		sendMessage,
+		isStreaming,
+		streamingRole,
+		quota,
+		error,
+		lappScores,
+		// Aside state
+		asideMessages,
+		isAsideStreaming,
+		activeAsideThreadId,
+		asideError,
+		// Aside actions
+		startAside,
+		cancelAside,
+	};
 }

@@ -103,28 +103,22 @@ task down
 # Install dependencies
 pnpm install
 
-# Start only the database in Docker
-task local:db:up  # or: docker compose up -d db
-
-# Generate Prisma client
-pnpm -F @workspace/database generate
-
-# Run migrations
-task local:migrate  # or: pnpm db:migrate
+# Authenticate local Firestore access
+gcloud auth application-default login
 
 # Start dev servers
 task local:dev  # or: pnpm dev
 ```
 
-This runs API and app locally while using Docker for PostgreSQL.
+This runs API and app locally while using Cloud Firestore.
 
 ### Hybrid Approach
 
 Run some services in Docker, others locally:
 
 ```bash
-# Start only database and API in Docker
-docker compose up -d db api
+# Start only API in Docker
+docker compose up -d api
 
 # Run app locally for fast iteration
 cd packages/app
@@ -135,28 +129,28 @@ pnpm dev
 
 ```
 packages/
-├── database/    # Shared Prisma schema and types
+├── database/    # Firestore shim and shared types
 ├── api/         # Fastify backend + tRPC + WebSockets
 ├── app/         # React frontend
 └── landing/     # Astro landing pages
 ```
 
-All packages share types via `@workspace/database` - changes to the database schema automatically propagate.
+All packages share data access and model types via `@workspace/database`.
 
 ## Making Changes
 
-### Database Schema Changes
+### Database Model Changes
 
-1. Edit `packages/database/prisma/schema.prisma`
-2. Generate Prisma client:
+Runtime data is stored in Firestore. The Prisma schema is still present
+temporarily for generated model types, but it is not the runtime database.
+
+1. Update Firestore shim/types in `packages/database`
+2. If schema-derived types changed, generate Prisma artifacts:
    ```bash
    pnpm -F @workspace/database generate
    ```
-3. Create migration:
-   ```bash
-   task migrate  # or: pnpm db:migrate
-   ```
-4. Types are now updated across all packages!
+3. Add or update indexes in `firestore.indexes.json` for new compound queries
+4. Run tests and type-checks
 
 ### Adding API Endpoints (tRPC)
 
@@ -280,16 +274,16 @@ pnpm -F @workspace/app test
 
 ### Viewing the Database
 
-**Prisma Studio** (visual interface):
+Use the Firebase console for live Firestore data.
+
+**Firestore indexes:**
 ```bash
-task db:studio  # or: docker compose exec api sh -c "cd packages/database && pnpm studio"
+npx -y firebase-tools@latest firestore:indexes
 ```
 
-Opens at http://localhost:5555
-
-**Direct SQL**:
+**Deploy indexes:**
 ```bash
-docker compose exec db psql -U postgres -d conversation_coach
+npx -y firebase-tools@latest deploy --only firestore:indexes
 ```
 
 ### Resetting the Database
@@ -297,11 +291,8 @@ docker compose exec db psql -U postgres -d conversation_coach
 **WARNING: This deletes all data!**
 
 ```bash
-task db:reset
-# or:
-docker compose down -v
-docker compose up -d db
-task migrate
+# Prefer deleting test/dev collections from the Firebase console.
+# API unit tests use in-memory fake Firestore and do not need a reset.
 ```
 
 ### Debugging
@@ -354,7 +345,7 @@ Use clear, descriptive commit messages:
 
 ```
 feat: add dual AI streaming to conversation handler
-fix: resolve Prisma connection error on startup
+fix: resolve Firestore startup config error
 docs: update CONTRIBUTING with local dev setup
 refactor: extract auth middleware to separate file
 chore: upgrade dependencies to latest versions
@@ -375,7 +366,7 @@ chore: upgrade dependencies to latest versions
 ### Required
 
 - `ANTHROPIC_API_KEY` - Get from https://console.anthropic.com/
-- `DATABASE_URL` - Automatically set by Docker Compose
+- `FIRESTORE_PROJECT_ID` - Firebase/Google Cloud project ID for Firestore
 
 ### Optional
 
@@ -392,7 +383,6 @@ See `.env.example` for full list.
 
 ```bash
 # Find what's using the port
-lsof -i :5432  # Database
 lsof -i :3000  # API
 lsof -i :5173  # App
 
@@ -407,17 +397,18 @@ pnpm -F @workspace/database generate
 docker compose restart api
 ```
 
-### "Can't connect to database"
+### "FIRESTORE_PROJECT_ID is not set"
 
 ```bash
-# Check database is running
-docker compose ps
+cp .env.example .env
+# Set FIRESTORE_PROJECT_ID in .env
+```
 
-# View database logs
-docker compose logs db
+### "Could not load the default credentials"
 
-# Restart database
-docker compose restart db
+```bash
+gcloud auth application-default login
+docker compose restart api
 ```
 
 ### Changes not reflecting
@@ -432,7 +423,7 @@ docker compose restart api
 docker compose restart app
 ```
 
-**Prisma schema changes:**
+**Database model/type changes:**
 ```bash
 pnpm -F @workspace/database generate
 docker compose restart api
@@ -449,7 +440,7 @@ docker compose up --build
 
 ## Package-Specific Documentation
 
-- [Database Package](./packages/database/README.md) - Prisma schema and migrations
+- [Database Package](./packages/database/README.md) - Firestore shim and shared types
 - [API Package](./packages/api/README.md) - Backend routes and WebSockets
 - [App Package](./packages/app/README.md) - Frontend components
 - [Landing Package](./packages/landing/README.md) - Astro landing pages
@@ -464,7 +455,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 ## Getting Help
 
-- **Documentation**: Start with [QUICKSTART.md](./QUICKSTART.md)
+- **Documentation**: Start with the [README](./README.md) Quick Start
 - **Architecture**: See [conversation-coach-architecture.md](./conversation-coach-architecture.md)
 - **Taskfile**: Run `task --list` to see all available commands
 - **Issues**: Check existing issues or create a new one

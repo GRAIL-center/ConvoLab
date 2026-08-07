@@ -23,7 +23,7 @@ Key facts:
 - `firebase.json`, `firestore.indexes.json`, and `functions/` (plain-JS Cloud Functions, outside the workspace) handle Firebase config
 - ⚠️ `functions/index.js` `qualtricsWebhook` has no auth/shared-secret check
 
-Any remaining `DATABASE_URL` / Prisma-migrate / Postgres references in Taskfile.yml, package.json scripts, or `.env.example` are dead remnants — do not use or resurrect them.
+Set `FIRESTORE_PROJECT_ID` for API/runtime access; local dev uses Application Default Credentials. Postgres is fully gone — dead remnants (Taskfile db block, `db:*` scripts, QUICKSTART.md) were removed 7 Aug 2026; do not resurrect them.
 
 ## Auth Model
 
@@ -87,7 +87,7 @@ Docker Compose is the primary path:
 gcloud auth application-default login   # api container talks to real Firestore
 docker compose up --build               # api :3000, app :5173
 ```
-`packages/database` changes need `docker compose restart api` (bind mount doesn't cover it). `Taskfile.yml` wraps common commands, but its `# === Database ===` block (migrate/seed/studio/reset) is dead Postgres tooling.
+`packages/database` changes need `docker compose restart api` (bind mount doesn't cover it). `Taskfile.yml` wraps common commands.
 
 ### Ports & Routing
 Everything through frontend origin. Vite proxies `/api/*` and `/ws/*` to API.
@@ -117,10 +117,10 @@ Biome for both. Run `pnpm check`.
 - `docs/plans/16-firestore-status-update.md` — freshest migration status write-up
 - `docs/plans/15-firestore-shim-gaps.md` — technical audit with file:line detail
 - `docs/plans/` — implementation phases (07 landing, 08 model discovery, 12 coach aside — the latter two shipped or partially shipped; check code before trusting a plan doc)
-- ⚠️ `QUICKSTART.md` is stale (still Postgres-era) — trust this file and the README over it
 
 ## Don't Forget
 
 - Never point tests or scripts at a real Firestore project; the fake double is the only test target
 - Seeding is not yet ported to Firestore (TODOs in `packages/api/src/db/firestoreHelpers.ts`)
 - Composite indexes may need `firebase deploy --only firestore:indexes` after editing `firestore.indexes.json`
+- The Prisma schema/migration files remain as schema-derived type scaffolding (`pnpm -F @workspace/database generate` after schema changes); don't remove them until the generated types are replaced. Historical schema reference: `docs/plans/schema-reference.md`

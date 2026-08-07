@@ -113,9 +113,8 @@ function getShortName(
 export function Conversation() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const parsedSessionId = sessionId ? parseInt(sessionId, 10) : NaN;
 
-  if (Number.isNaN(parsedSessionId)) {
+  if (!sessionId) {
     return (
       <FullScreenMessage
         title="Invalid Session"
@@ -137,10 +136,10 @@ export function Conversation() {
     );
   }
 
-  return <ConversationContent sessionId={parsedSessionId} />;
+  return <ConversationContent sessionId={sessionId} />;
 }
 
-function ConversationContent({ sessionId }: { sessionId: number }) {
+function ConversationContent({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -188,9 +187,10 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
   const mainMessages = messages.filter((m) => m.role !== 'coach');
   const coachMessages = messages.filter((m) => m.role === 'coach');
   const shortName = getShortName(scenario);
+  const isQuotaExhausted = quota?.exhausted === true;
 
   const isInputDisabled =
-    (inputMode === 'partner' && (isStreaming || quota?.exhausted)) ||
+    (inputMode === 'partner' && (isStreaming || isQuotaExhausted)) ||
     (inputMode === 'coach' && isAsideStreaming);
 
   // Loading state
@@ -309,7 +309,8 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                     setInputMode('partner');
                     inputRef.current?.focus();
                   }}
-                  disabled={isStreaming || quota?.exhausted}
+                  disabled={isStreaming || isQuotaExhausted}
+                  title={isQuotaExhausted ? 'Token quota exhausted' : undefined}
                   className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium transition-all
                     ${
                       inputMode === 'partner'
@@ -339,13 +340,22 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
                 </button>
               </div>
 
+              {isQuotaExhausted && (
+                <p className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-sm text-[#991B1B] dark:border-[#7F1D1D] dark:bg-[rgba(127,29,29,0.25)] dark:text-[#FCA5A5]">
+                  Token quota exhausted. Start a new conversation with Quick chat or a larger quota
+                  to keep replying to {shortName}.
+                </p>
+              )}
+
               {/* SINGLE input that changes based on mode - EXACT FIGMA */}
               <div className="flex gap-2">
                 <textarea
                   ref={inputRef}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    inputMode === 'partner'
+                    isQuotaExhausted && inputMode === 'partner'
+                      ? 'Token quota exhausted'
+                      : inputMode === 'partner'
                       ? mainMessages.length > 0
                         ? `Reply to ${shortName}...`
                         : "What's on your mind?"
@@ -377,7 +387,9 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
               </div>
 
               <p className="text-xs text-[#4A4A4A] dark:text-[#858585] text-center pb-2">
-                Press Enter to send • Shift+Enter for new line
+                {isQuotaExhausted
+                  ? 'Choose a larger quota when starting the next conversation.'
+                  : 'Press Enter to send • Shift+Enter for new line'}
               </p>
             </div>
           </div>
@@ -388,7 +400,7 @@ function ConversationContent({ sessionId }: { sessionId: number }) {
               onSendPartner={(content) => sendMessage(content)}
               onSendCoach={(content) => startAside(content)}
               partnerName={shortName}
-              disabled={isStreaming || isAsideStreaming || quota?.exhausted || false}
+              disabled={isStreaming || isAsideStreaming || isQuotaExhausted}
               isInsightsOpen={false}
               onToggleInsights={() => {}}
               onInputFocus={() => {}}

@@ -22,6 +22,23 @@ function asDate(value: Date | Timestamp | undefined, field: string): Date {
   throw new Error(`Session ${field} is missing or invalid`);
 }
 
+function asDateOr(value: Date | Timestamp | undefined, fallback: Date): Date {
+  if (value instanceof Date) return value;
+  if (value && typeof value.toDate === 'function') return value.toDate();
+  return fallback;
+}
+
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => stripUndefined(item)) as T;
+  if (value instanceof Date || value === null || typeof value !== 'object') return value;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, fieldValue] of Object.entries(value as Record<string, unknown>)) {
+    if (fieldValue !== undefined) result[key] = stripUndefined(fieldValue);
+  }
+  return result as T;
+}
+
 function snapshotData(snapshot: DocumentSnapshot<DocumentData>, entity: string): DocumentData {
   if (!snapshot.exists) throw new Error(`${entity} not found`);
   return snapshot.data() ?? {};
@@ -56,7 +73,7 @@ export async function createMessageAndIncrementSession(
       timestamp: data.timestamp ?? new Date(),
     };
 
-    transaction.create(messageRef, payload);
+    transaction.create(messageRef, stripUndefined(payload));
     transaction.update(sessionRef, { totalMessages: totalMessages + 1 });
   });
 
@@ -87,13 +104,13 @@ export async function completeSession(
             ? session.durationSeconds
             : Math.round(
                 (asDate(session.endedAt, 'endedAt').getTime() -
-                  asDate(session.startedAt, 'startedAt').getTime()) /
+                  asDateOr(session.startedAt, asDate(session.endedAt, 'endedAt')).getTime()) /
                   1000
               ),
       };
     }
 
-    const startedAt = asDate(session.startedAt, 'startedAt');
+    const startedAt = asDateOr(session.startedAt, completedAt);
     const durationSeconds = Math.max(
       0,
       Math.round((completedAt.getTime() - startedAt.getTime()) / 1000)

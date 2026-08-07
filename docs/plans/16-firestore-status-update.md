@@ -1,6 +1,54 @@
-# Firestore Migration — Status Update (2026-07-28)
+# Firestore Migration — Status Update (2026-08-06)
 
 Summary for the team of what's been audited, fixed, and is still open on `firestore-pr`. Full technical detail with file:line references is in `docs/plans/15-firestore-shim-gaps.md`; this is the short version.
+
+## Latest status after local Docker testing
+
+The Firestore-backed local app now supports the core user flow without Cloud
+SQL/Postgres:
+
+- Google OAuth, `auth.me`, scenario listing, scenario selection, conversation
+  creation, message persistence, partner replies, automatic coach insights,
+  LAPP scoring, and the home-page "Your Conversations" list have been exercised
+  against live local Docker + Firestore/Vertex configuration.
+- `session.listMine` now returns Firestore-safe summaries instead of Prisma
+  relation shapes: scenario info is fetched explicitly, `startedAt` is
+  normalized to ISO strings, and message count comes from the denormalized
+  `ConversationSession.totalMessages` counter with a Firestore count fallback
+  for older docs.
+- Conversation messages are persisted through `createMessageAndIncrementSession`,
+  which writes the message and increments `totalMessages` in a Firestore
+  transaction. If the home page shows sessions, the conversations are saving;
+  localhost is not supposed to lose them unless it is pointed at a different
+  Firestore project or credentials than the deployed app.
+- The automatic coach path is isolated from the partner path. Partner streaming
+  is the only blocking step; after `partner:done`, the server sends
+  `exchange:complete` and then runs coach and LAPP jobs in the background.
+- Coach output is never persisted as a partial. The server collects the full
+  coach response privately and only emits/persists `coach:done` if the response
+  looks complete. Ask-Coach aside responses now also reject cut-off output
+  instead of saving fragments.
+- LAPP scoring is Vertex/Gemini first using structured JSON. If Vertex returns
+  malformed JSON, the API logs the failure and uses a local fallback score so
+  the live metrics panel does not stay empty.
+- Gemini 2.5 Flash now runs with `thinkingConfig: { thinkingBudget: 0 }` for
+  the app's low-latency calls. This fixed the observed `MAX_TOKENS` issue where
+  coach and scorer calls returned only a few visible words because dynamic
+  thinking consumed the output budget.
+- Partner web search grounding is now selective. Scenarios can still enable it,
+  but runtime only uses search for current/factual-looking prompts such as
+  "who is president", "what year is it", or "latest/recent" queries. Normal
+  dialogue turns skip search to reduce latency.
+
+Verification run in Docker:
+
+```bash
+docker compose exec api pnpm -F @workspace/api type-check
+docker compose exec api pnpm -F @workspace/api test:run src/ws/conversation.atomic.test.ts
+```
+
+Known caveat: `packages/app` type-check still has pre-existing tRPC type
+inference errors unrelated to the Firestore/session-summary changes.
 
 ## What we found
 
@@ -36,8 +84,15 @@ Live testing also surfaced two `FAILED_PRECONDITION: The query requires an index
 
 ## What's still open
 
-- `user.ts` (admin user list/detail) and `telemetry.ts` (event list) also use `include`, `_count`, cursor pagination, and `OR`/`contains`/`mode: insensitive` filters — none of which the shim supports. Not touched yet.
-- `invitation.detail` (the researcher timeline view — invitation → sessions → messages) has even deeper nesting than the others. Not touched.
+- `user.ts` (admin user list/detail) and `telemetry.ts` (event list) still have
+  tRPC/frontend typing cleanup and Firestore-query edge cases to finish before
+  treating the admin dashboards as production-ready.
+- Keep deploying/checking Firestore composite indexes. Current local-dev code
+  uses simple equality reads and in-memory sorting in a few places to avoid
+  blocking on index build time, but larger usage should rely on
+  `firestore.indexes.json` and `firebase deploy --only firestore:indexes`.
+- Legacy Prisma schema/migration files remain because the project still uses
+  schema-derived model types/generation. They are not the runtime database.
 
 ## Getting the branch running locally at all
 

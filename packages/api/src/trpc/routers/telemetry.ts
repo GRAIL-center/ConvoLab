@@ -12,7 +12,7 @@ export const telemetryRouter = router({
       z.object({
         name: z.string().max(100),
         properties: z.record(z.string(), z.any()).optional(),
-        sessionId: z.number().optional(),
+        sessionId: z.union([z.string(), z.number()]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

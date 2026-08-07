@@ -8,8 +8,6 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:api": "pnpm -F @workspace/api test",
-    "db:migrate": "pnpm -F @workspace/database migrate",
-    "db:studio": "pnpm -F @workspace/database studio",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write ."

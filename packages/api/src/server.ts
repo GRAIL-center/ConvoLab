@@ -121,7 +121,7 @@ if (isDev) {
     const aiKeys = {
       anthropic: !!process.env.ANTHROPIC_API_KEY,
       openai: !!process.env.OPENAI_API_KEY,
-      googleAi: !!process.env.GOOGLE_AI_API_KEY,
+      googleAi: !!process.env.GOOGLE_CLOUD_PROJECT || !!process.env.GOOGLE_AI_API_KEY,
     };
 
     const hasAnyAiKey = Object.values(aiKeys).some(Boolean);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Message, ScenarioInfo } from './useConversationSocket';
+import type { EntityId, Message, ScenarioInfo } from './useConversationSocket';
 
 // Reuse types from useConversationSocket
 export type { Message, ScenarioInfo };
@@ -10,12 +10,13 @@ interface TokenUsage {
 }
 
 type ServerMessage =
-  | { type: 'connected'; sessionId: number; scenario: ScenarioInfo }
+  | { type: 'connected'; sessionId: string; scenario: ScenarioInfo }
   | { type: 'history'; messages: Message[] }
   | { type: 'partner:delta'; content: string }
-  | { type: 'partner:done'; messageId: number; usage: TokenUsage }
+  | { type: 'partner:done'; messageId: EntityId; usage: TokenUsage }
   | { type: 'coach:delta'; content: string }
-  | { type: 'coach:done'; messageId: number; usage: TokenUsage }
+  | { type: 'coach:retry' }
+  | { type: 'coach:done'; messageId: EntityId; usage: TokenUsage }
   | { type: 'error'; code: string; message: string; recoverable: boolean };
 
 type ClientMessage = { type: 'ping' };
@@ -44,7 +45,7 @@ const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
  * Read-only WebSocket hook for observing a conversation session.
  * Similar to useConversationSocket but without message sending capability.
  */
-export function useObserverSocket(sessionId: number): UseObserverSocketResult {
+export function useObserverSocket(sessionId: string | number | null | undefined): UseObserverSocketResult {
   const [status, setStatus] = useState<ObserverStatus>('connecting');
   const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -65,11 +66,15 @@ export function useObserverSocket(sessionId: number): UseObserverSocketResult {
   }, []);
 
   useEffect(() => {
+    if (sessionId === null || sessionId === undefined || sessionId === '') return;
+
     function connect() {
       if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/observe/${sessionId}`);
+      const ws = new WebSocket(
+        `${protocol}//${window.location.host}/ws/observe/${encodeURIComponent(String(sessionId))}`
+      );
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -134,9 +139,20 @@ export function useObserverSocket(sessionId: number): UseObserverSocketResult {
             // For observers, history messages are appended (used for both initial load and user message broadcasts)
             setMessages((prev) => {
               // Merge new messages, avoiding duplicates
-              const existingIds = new Set(prev.map((m) => m.id));
-              const newMessages = msg.messages.filter((m) => !existingIds.has(m.id));
+              const existingIds = new Set(prev.map((m) => String(m.id)));
+              const newMessages = msg.messages.filter((m) => !existingIds.has(String(m.id)));
               return [...prev, ...newMessages];
+            });
+            break;
+
+          case 'coach:retry':
+            streamingContentRef.current = '';
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === 'coach' && last.isStreaming) {
+                return prev.slice(0, -1);
+              }
+              return prev;
             });
             break;
 
