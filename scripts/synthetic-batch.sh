@@ -52,11 +52,14 @@ while true; do
   out="$OUT_DIR/conv-$ts.jsonl"
   log "generating conv-$ts ($turns turns)"
 
+  # Each role on its own model = its own free-tier daily-quota bucket
+  # (per-model free caps are small, ~20 req/day). Scorer falls back to the
+  # built-in heuristic when its bucket empties, so scoring never blocks.
   if (cd "$REPO_ROOT" && pnpm -F @workspace/api synthetic -- \
-      --turns "$turns" --pace-seconds 60 \
-      --user-model google:gemini-2.5-flash \
-      --partner-model google:gemini-2.5-flash \
-      --coach-model google:gemini-2.5-flash \
+      --turns "$turns" --pace-seconds 30 \
+      --user-model google:gemini-3-flash-preview \
+      --partner-model google:gemini-3.6-flash \
+      --coach-model google:gemini-3.1-flash-lite \
       --out "$out" >> "$OUT_DIR/runs.log" 2>&1); then
     n=$(ls "$OUT_DIR"/conv-*.jsonl 2>/dev/null | wc -l | tr -d ' ')
     log "OK conv-$ts ($n total)"
