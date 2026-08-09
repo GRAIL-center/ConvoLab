@@ -70,6 +70,10 @@ export const googleProvider: LLMProvider = {
 					systemInstruction: params.systemPrompt,
 					maxOutputTokens: params.maxTokens ?? 1024,
 					responseMimeType: params.responseMimeType,
+					// Structured-output schema + deterministic sampling (used by the
+					// LAPP scorer). Both are omitted when undefined.
+					responseSchema: params.responseSchema as never,
+					temperature: params.temperature,
 					thinkingConfig,
 					tools,
 				},
