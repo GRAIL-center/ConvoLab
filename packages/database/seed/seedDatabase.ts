@@ -768,10 +768,11 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
 
   // Create scenarios
   for (const scenario of SCENARIOS) {
+    const scenarioData = { ...scenario, isActive: true };
     await prisma.scenario.upsert({
       where: { slug: scenario.slug },
-      update: scenario,
-      create: scenario,
+      update: scenarioData,
+      create: scenarioData,
     });
   }
   log(`Seeded scenarios: ${SCENARIOS.map((s) => s.slug).join(', ')}`);

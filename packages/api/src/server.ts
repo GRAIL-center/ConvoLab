@@ -16,12 +16,13 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { db as prisma } from './db/firestoreHelpers.js';
 import { isDatabaseEmpty, seedReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
+import { db as prisma } from './db/firestoreHelpers.js';
 
 import {
   getAIProviderSummary,
+  getFirestoreTargetSummary,
   logStartupDiagnostics,
   runStartupChecks,
 } from './lib/startup-checks.js';
@@ -48,6 +49,7 @@ if (process.env.SENTRY_DSN) {
 // Run startup diagnostics (will exit if critical config missing)
 logStartupDiagnostics(fastify.log);
 fastify.log.info(`AI providers available: ${getAIProviderSummary()}`);
+fastify.log.info(`Firestore target: ${getFirestoreTargetSummary()}`);
 
 // Register plugins
 await fastify.register(cors, {

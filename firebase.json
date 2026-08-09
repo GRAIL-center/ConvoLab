@@ -4,11 +4,15 @@
   },
   "emulators": {
     "firestore": {
+      "host": "0.0.0.0",
       "port": 8080
     },
     "ui": {
-      "enabled": false
-    }
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 4000
+    },
+    "singleProjectMode": true
   },
   "functions": [
     {

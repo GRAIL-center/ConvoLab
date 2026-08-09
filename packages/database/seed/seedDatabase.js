@@ -746,10 +746,11 @@ export async function seedReferenceData(prisma, options = {}) {
     log(`Seeded quota presets: ${QUOTA_PRESETS.map((p) => p.name).join(', ')}`);
     // Create scenarios
     for (const scenario of SCENARIOS) {
+        const scenarioData = { ...scenario, isActive: true };
         await prisma.scenario.upsert({
             where: { slug: scenario.slug },
-            update: scenario,
-            create: scenario,
+            update: scenarioData,
+            create: scenarioData,
         });
     }
     log(`Seeded scenarios: ${SCENARIOS.map((s) => s.slug).join(', ')}`);

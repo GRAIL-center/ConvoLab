@@ -16,6 +16,38 @@ The API needs a Firestore project ID:
 FIRESTORE_PROJECT_ID=your-firebase-project-id
 ```
 
+For local emulator development, set the emulator host too:
+
+```env
+FIRESTORE_PROJECT_ID=convolab-dev
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+```
+
+The Google Cloud Firestore client automatically uses the emulator when
+`FIRESTORE_EMULATOR_HOST` is present. No Application Default Credentials are
+needed for emulator-only Firestore reads and writes. Keep
+`GOOGLE_CLOUD_PROJECT` reserved for Vertex AI; it is not needed for the
+Firestore emulator.
+
+Docker Compose sets `FIRESTORE_EMULATOR_HOST=firestore-emulator:8080` inside
+the API container and starts the emulator as a sibling service. Docker emulator
+data is exported to `.firestore-emulator-data/` on clean shutdown and imported
+again on the next start. The folder is gitignored. The Firebase Emulator UI is
+available at `http://localhost:4000`.
+
+The API auto-seeds an empty Docker emulator on startup. If scenarios are ever
+missing, seed Docker's emulator manually with:
+
+```bash
+docker compose exec api sh -c "pnpm -F @workspace/database seed"
+```
+
+To intentionally clear local emulator data, run:
+
+```bash
+task db:reset
+```
+
 For local development, authenticate with Application Default Credentials:
 
 ```bash
@@ -54,11 +86,41 @@ Seed reference data into the configured Firestore project:
 pnpm -F @workspace/database seed
 ```
 
+Seed reference data into the local Firestore emulator:
+
+```bash
+pnpm firestore:seed:emulator
+```
+
 ## Tests
 
 Unit tests use in-memory fake Firestore and do not touch Cloud Firestore, Cloud SQL, or local Postgres.
 
 API tests also run against fake Firestore through `packages/api/src/__tests__/setup.ts`.
+
+## Local Firestore Emulator
+
+Start the API, app, and Firestore emulator together from the repo root:
+
+```bash
+java -version
+pnpm dev:emulator
+```
+
+Firestore Emulator requires a local Java runtime. If `java -version` fails,
+install a JDK before starting the emulator.
+
+The emulator listens on `127.0.0.1:8080`. The Firebase Emulator UI is available
+at `http://localhost:4000`.
+
+The emulator starts empty. In another terminal, seed reference data when needed:
+
+```bash
+pnpm firestore:seed:emulator
+```
+
+Stop the emulator with `Ctrl+C`. Emulator data is local and disposable unless
+you add explicit import/export flags to the Firebase command.
 
 ## Testing Real Firestore
 

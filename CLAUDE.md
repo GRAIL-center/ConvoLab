@@ -84,10 +84,9 @@ functions/     → Firebase Cloud Functions (plain JS, outside workspace)
 ### Running It
 Docker Compose is the primary path:
 ```bash
-gcloud auth application-default login   # api container talks to real Firestore
-docker compose up --build               # api :3000, app :5173
+docker compose up --build               # api :3000, app :5173, Firestore emulator :8080
 ```
-`packages/database` changes need `docker compose restart api` (bind mount doesn't cover it). `Taskfile.yml` wraps common commands.
+Docker local development talks to the Firestore emulator and auto-seeds an empty emulator with sample scenarios. `packages/database` changes need `docker compose restart api` (bind mount doesn't cover it). `Taskfile.yml` wraps common commands.
 
 ### Ports & Routing
 Everything through frontend origin. Vite proxies `/api/*` and `/ws/*` to API.

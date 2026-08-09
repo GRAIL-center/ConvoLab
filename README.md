@@ -54,18 +54,21 @@ The AI uses large language models from Google and Anthropic, with automatic fall
 
 ## Quick Start
 
-Local development talks to real Firestore, so you need Google Cloud credentials first:
+Docker local development uses the Firestore emulator by default, so it does not write to production Firestore.
 
 ```bash
-gcloud auth application-default login
 cp .env.example .env   # add ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 docker compose up --build
 ```
 
-Then open http://localhost:5173.
+Then open http://localhost:5173. The API auto-seeds an empty emulator with sample scenarios, and emulator data persists locally in `.firestore-emulator-data/`. If scenarios are missing, manually seed the emulator:
+
+```bash
+docker compose exec api sh -c "cd packages/database && pnpm seed"
+```
 
 Notes:
-- The api container mounts `~/.config/gcloud` read-only for Firestore access.
+- The api container talks to `firestore-emulator:8080` for local data. `~/.config/gcloud` is still mounted for Google/Vertex flows when configured.
 - Source is bind-mounted for hot reload, but changes in `packages/database` need `docker compose restart api`.
 - After pulling new changes, use `docker compose up --build -V` to rebuild and reset volumes.
 - [Task](https://taskfile.dev) (`brew install go-task/tap/go-task`) wraps common commands: `task --list`.
@@ -135,7 +138,7 @@ CI runs the `vitest.safe` and `vitest.atomic` configs only.
 ## Implementation Status
 
 ### Done
-- [x] Full-stack foundation (Docker, tRPC, Google OAuth)
+- [x] Full-stack foundation (Docker, tRPC, Google OAuth, local Firestore emulator)
 - [x] Firestore migration (Prisma-shaped shim, fake-Firestore test suite)
 - [x] Multi-provider LLM streaming (Anthropic, Google via WebSocket, with fallback)
 - [x] Web-search grounding for partner and coach

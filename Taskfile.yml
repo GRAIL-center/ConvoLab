@@ -8,6 +8,7 @@ version: '3'
 vars:
   API_SERVICE: api
   APP_SERVICE: app
+  DB_SERVICE: firestore-emulator
 
 tasks:
   # === Quick Start ===
@@ -35,6 +36,9 @@ tasks:
       - 'echo "✓ Services starting in background"'
       - 'echo "  API: http://localhost:3000"'
       - 'echo "  App: http://localhost:5173"'
+      - 'echo "  Firestore emulator: localhost:8080"'
+      - echo ""
+      - echo "The API auto-seeds the emulator if it is empty"
 
   down:
     desc: "Stop all services"
@@ -45,6 +49,24 @@ tasks:
     desc: "Restart all services"
     cmds:
       - docker compose restart
+
+  # === Database ===
+
+  db:seed:
+    desc: "Re-run database seed (adds sample scenarios)"
+    cmds:
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
+
+  db:reset:
+    desc: "Reset Firestore emulator data (WARNING: deletes local emulator data)"
+    prompt: "This will delete ALL data. Continue?"
+    cmds:
+      - docker compose down -v
+      - rm -rf .firestore-emulator-data
+      - docker compose up -d --build
+      - echo "Waiting for services to be ready..."
+      - sleep 5
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
 
   # === Logs ===
 
@@ -62,6 +84,11 @@ tasks:
     desc: "View React app logs"
     cmds:
       - docker compose logs -f app
+
+  logs:db:
+    desc: "View Firestore emulator logs"
+    cmds:
+      - docker compose logs -f {{.DB_SERVICE}}
 
   # === Development ===
 
@@ -173,6 +200,7 @@ tasks:
       - 'echo "URLs:"'
       - 'echo "  App:  http://localhost:5173"'
       - 'echo "  API:  http://localhost:3000/health"'
+      - 'echo "  Firestore emulator: localhost:8080"'
 
   # === Local Development (without Docker) ===
 
@@ -185,6 +213,12 @@ tasks:
     desc: "Start dev servers locally (requires local pnpm install)"
     cmds:
       - pnpm dev
+
+  local:db:up:
+    desc: "Start only Firestore emulator (for local development)"
+    cmds:
+      - docker compose up -d firestore-emulator
+      - 'echo "✓ Firestore emulator running on localhost:8080"'
 
   # === Help ===
 
@@ -203,7 +237,12 @@ tasks:
         echo "🔄 Daily development:"
         echo "  task up           # Start (shows logs)"
         echo "  task logs:api     # Watch API logs"
+        echo "  task logs:db      # Watch Firestore emulator logs"
         echo "  task down         # Stop everything"
+        echo ""
+        echo "📝 Database operations:"
+        echo "  task db:seed      # Manually add sample data if needed"
+        echo "  task db:reset     # Fresh emulator data (deletes local data!)"
         echo ""
         echo "🧪 Testing & quality:"
         echo "  task test          # Run tests once"
