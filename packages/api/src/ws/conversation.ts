@@ -562,7 +562,11 @@ export class ConversationManager {
 			while (retries <= maxRetries) {
 				try {
 					fullContent = "";
-					const maxTokens = role === "coach" ? 300 : 600;
+					// Caps, not targets: prompts keep replies short, so non-thinking
+					// models are unaffected. Thinking models (Gemini 3+) spend part of
+					// this budget on reasoning — tight caps truncate their text
+					// mid-sentence (bug F9).
+					const maxTokens = role === "coach" ? 512 : 1024;
 
 					this.logger.info(
 						{
