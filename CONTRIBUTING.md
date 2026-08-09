@@ -64,9 +64,6 @@ task setup  # or: cp .env.example .env
 # Start services
 task up:bg  # or: docker compose up -d --build
 
-# Run migrations
-task migrate  # or: docker compose exec api sh -c "cd packages/database && pnpm migrate"
-
 # Verify everything works
 task status  # or: docker compose ps
 ```
@@ -78,6 +75,12 @@ Open http://localhost:5173 to see the app.
 ### Docker Development (Recommended)
 
 **Pros**: No local Node.js setup, matches production environment, isolated dependencies
+
+Docker development uses the Firestore Emulator by default, so local development
+does not write to production Firestore.
+
+Emulator data is persisted locally in `.firestore-emulator-data/` when the
+emulator shuts down cleanly. The folder is gitignored.
 
 ```bash
 # Start services
@@ -95,9 +98,63 @@ docker compose restart api
 task down
 ```
 
+You usually only need `task db:seed` the first time, after `task db:reset`, or
+after deleting `.firestore-emulator-data/`. The API also auto-seeds an empty
+emulator on startup, so manual seeding is only a fallback if scenarios are
+missing.
+
+Useful URLs:
+
+- App: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Firestore emulator: `localhost:8080`
+- Firebase Emulator UI: `http://localhost:4000`
+
 ### Local Development (Without Docker)
 
 **Pros**: Faster hot reloading, easier debugging, familiar IDE integration
+
+#### Recommended: Firestore Emulator
+
+Use this for normal laptop development so local app/API work cannot write to
+the real Cloud Firestore database:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Firestore Emulator requires a local Java runtime.
+java -version
+
+# Start Firestore emulator, API, and app
+pnpm dev:emulator
+```
+
+If `java -version` fails, install a JDK before starting the emulator.
+
+The emulator starts empty. Seed reference data in another terminal when needed:
+
+```bash
+pnpm firestore:seed:emulator
+```
+
+Useful URLs:
+
+- App: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Firebase Emulator UI: `http://localhost:4000`
+
+The `dev:emulator` script sets:
+
+```env
+FIRESTORE_PROJECT_ID=convolab-dev
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+```
+
+Leave `FIRESTORE_EMULATOR_HOST` unset when you intentionally want to use a real
+Cloud Firestore project.
+
+#### Cloud Firestore
 
 ```bash
 # Install dependencies

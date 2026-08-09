@@ -8,7 +8,7 @@ version: '3'
 vars:
   API_SERVICE: api
   APP_SERVICE: app
-  DB_SERVICE: db
+  DB_SERVICE: firestore-emulator
 
 tasks:
   # === Quick Start ===
@@ -36,8 +36,9 @@ tasks:
       - 'echo "✓ Services starting in background"'
       - 'echo "  API: http://localhost:3000"'
       - 'echo "  App: http://localhost:5173"'
+      - 'echo "  Firestore emulator: localhost:8080"'
       - echo ""
-      - echo "Run 'task migrate' to set up the database"
+      - echo "The API auto-seeds the emulator if it is empty"
 
   down:
     desc: "Stop all services"
@@ -52,14 +53,14 @@ tasks:
   # === Database ===
 
   migrate:
-    desc: "Run database migrations (creates tables + seeds data)"
+    desc: "Legacy Prisma migration command (not needed for Firestore emulator)"
     cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
+      - echo "Firestore emulator does not need migrations. Run 'task db:seed' instead."
 
   migrate:deploy:
-    desc: "Run migrations in production mode (no prompts)"
+    desc: "Legacy Prisma deploy migration command"
     cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate:deploy"
+      - echo "Firestore does not use Prisma deploy migrations."
 
   db:seed:
     desc: "Re-run database seed (adds sample scenarios)"
@@ -67,19 +68,20 @@ tasks:
       - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
 
   db:studio:
-    desc: "Open Prisma Studio (visual database browser)"
+    desc: "Legacy Prisma Studio command"
     cmds:
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm studio"
+      - echo "Prisma Studio is not used with Firestore. Use the emulator endpoint on localhost:8080."
 
   db:reset:
-    desc: "Reset database (WARNING: deletes all data)"
+    desc: "Reset Firestore emulator data (WARNING: deletes local emulator data)"
     prompt: "This will delete ALL data. Continue?"
     cmds:
       - docker compose down -v
-      - docker compose up -d db api
+      - rm -rf .firestore-emulator-data
+      - docker compose up -d --build
       - echo "Waiting for services to be ready..."
       - sleep 5
-      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm migrate"
+      - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
 
   # === Logs ===
 
@@ -99,9 +101,9 @@ tasks:
       - docker compose logs -f app
 
   logs:db:
-    desc: "View database logs"
+    desc: "View Firestore emulator logs"
     cmds:
-      - docker compose logs -f db
+      - docker compose logs -f {{.DB_SERVICE}}
 
   # === Development ===
 
@@ -213,7 +215,7 @@ tasks:
       - 'echo "URLs:"'
       - 'echo "  App:  http://localhost:5173"'
       - 'echo "  API:  http://localhost:3000/health"'
-      - 'echo "  DB:   localhost:5432"'
+      - 'echo "  Firestore emulator: localhost:8080"'
 
   # === Local Development (without Docker) ===
 
@@ -228,15 +230,15 @@ tasks:
       - pnpm dev
 
   local:db:up:
-    desc: "Start only database (for local development)"
+    desc: "Start only Firestore emulator (for local development)"
     cmds:
-      - docker compose up -d db
-      - 'echo "✓ Database running on localhost:5432"'
+      - docker compose up -d firestore-emulator
+      - 'echo "✓ Firestore emulator running on localhost:8080"'
 
   local:migrate:
-    desc: "Run migrations locally"
+    desc: "Legacy local migration command"
     cmds:
-      - pnpm db:migrate
+      - echo "Firestore emulator does not need migrations. Run 'task db:seed' instead."
 
   # === Help ===
 
@@ -250,19 +252,17 @@ tasks:
         echo "📦 First time setup:"
         echo "  task setup        # Create .env file"
         echo "  task up:bg        # Start services in background"
-        echo "  task migrate      # Set up database"
         echo "  task status       # Verify everything is running"
         echo ""
         echo "🔄 Daily development:"
         echo "  task up           # Start (shows logs)"
         echo "  task logs:api     # Watch API logs"
-        echo "  task db:studio    # Browse database"
+        echo "  task logs:db      # Watch Firestore emulator logs"
         echo "  task down         # Stop everything"
         echo ""
         echo "📝 Database operations:"
-        echo "  task migrate      # Run migrations"
-        echo "  task db:seed      # Add sample data"
-        echo "  task db:reset     # Fresh database (deletes data!)"
+        echo "  task db:seed      # Manually add sample data if needed"
+        echo "  task db:reset     # Fresh emulator data (deletes local data!)"
         echo ""
         echo "🧪 Testing & quality:"
         echo "  task test          # Run tests once"

@@ -1,4 +1,33 @@
 services:
+  firestore-emulator:
+    build:
+      context: .
+      dockerfile: docker/firestore-emulator.Dockerfile
+    container_name: conversation-coach-firestore
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        if [ -f /data/export/firebase-export-metadata.json ]; then
+          exec firebase emulators:start \
+            --only firestore \
+            --project convolab-dev \
+            --import /data/export \
+            --export-on-exit /data/export
+        fi
+        exec firebase emulators:start \
+          --only firestore \
+          --project convolab-dev \
+          --export-on-exit /data/export
+    ports:
+      - "8080:8080"
+      - "4000:4000"
+    volumes:
+      - ./.firestore-emulator-data:/data
+    networks:
+      - conversation-coach
+
   api:
     build:
       context: .
@@ -7,7 +36,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      FIRESTORE_PROJECT_ID: ${FIRESTORE_PROJECT_ID}
+      FIRESTORE_PROJECT_ID: convolab-dev
+      FIRESTORE_EMULATOR_HOST: firestore-emulator:8080
       PORT: 3000
       HOST: 0.0.0.0
       NODE_ENV: development
@@ -39,6 +69,8 @@ services:
       # read-only, so Firestore calls can authenticate.
       - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     # PostgreSQL service removed – DB fully migrated to Firestore
+    depends_on:
+      - firestore-emulator
     networks:
       - conversation-coach
 

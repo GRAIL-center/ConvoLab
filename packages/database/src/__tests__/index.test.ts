@@ -289,6 +289,19 @@ describe('upsert', () => {
     expect(updated.id).toBe('p2');
     expect(updated.label).toBe('Updated via unique field');
   });
+
+  it('treats an empty update object as a no-op when the document exists', async () => {
+    await prisma.user.create({ data: { id: 'u1', email: 'admin@example.com', role: 'ADMIN' } });
+
+    const updated = await prisma.user.upsert({
+      where: { id: 'u1' },
+      create: { id: 'u1', email: 'unused@example.com', role: 'USER' },
+      update: {},
+    });
+
+    expect(updated.email).toBe('admin@example.com');
+    expect(updated.role).toBe('ADMIN');
+  });
 });
 
 describe('updateMany', () => {

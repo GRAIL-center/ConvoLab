@@ -52,6 +52,14 @@ docker compose up --build
 ```
 
 Then open http://localhost:5173 — the app will guide you through configuration.
+Local Docker development uses the Firestore emulator by default, so it will not
+write to production Firestore. The API auto-seeds an empty emulator with sample
+scenarios, and emulator data persists locally in `.firestore-emulator-data/`.
+If scenarios are missing, manually seed the emulator:
+
+```bash
+docker compose exec api sh -c "cd packages/database && pnpm seed"
+```
 
 > After pulling new changes, use `docker compose up --build -V` to rebuild and reset volumes.
 
@@ -89,7 +97,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 **Stack:**
 - **Backend:** Fastify 5 + tRPC 11 + WebSocket
-- **Database:** PostgreSQL 17 + Prisma 7
+- **Database:** Cloud Firestore with a Prisma-shaped Firestore shim
 - **Frontend:** Vite 7 + React 19 + TanStack Query 5
 - **Landing:** Astro 5
 - **Auth:** Google OAuth + invitation links
@@ -100,7 +108,7 @@ See [conversation-coach-architecture.md](./conversation-coach-architecture.md) f
 
 ```
 packages/
-├── database/    # Prisma schema + types
+├── database/    # Firestore shim, seed data, and shared types
 ├── api/         # Fastify server
 ├── app/         # React SPA
 └── landing/     # Astro pages
@@ -117,7 +125,7 @@ Run `task --list` for all commands, or see [QUICKSTART.md](./QUICKSTART.md) for 
 ## Implementation Status
 
 ### Done
-- [x] Full-stack foundation (Docker, Prisma, tRPC, Google OAuth, auto-migrations)
+- [x] Full-stack foundation (Docker, Firestore, tRPC, Google OAuth, local emulator)
 - [x] Multi-provider LLM streaming (Anthropic, OpenAI, Google via WebSocket)
 - [x] Invitation system (magic links with token quotas)
 - [x] Conversation practice (dual AI partner + coach, custom scenarios)

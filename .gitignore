@@ -14,6 +14,9 @@ build/
 .next/
 .astro/
 
+# Local emulator data
+.firestore-emulator-data/
+
 # Logs
 logs/
 *.log

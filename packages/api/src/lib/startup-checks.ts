@@ -200,6 +200,20 @@ export function logStartupDiagnostics(log: {
 }
 
 /**
+ * Get a summary of the Firestore target for logging.
+ */
+export function getFirestoreTargetSummary(): string {
+  const projectId = process.env.FIRESTORE_PROJECT_ID || '(not set)';
+  const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+
+  if (emulatorHost) {
+    return `Firestore emulator at ${emulatorHost} using project ${projectId}`;
+  }
+
+  return `Cloud Firestore project ${projectId}`;
+}
+
+/**
  * Get a summary of configured AI providers for logging.
  */
 export function getAIProviderSummary(): string {

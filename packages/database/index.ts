@@ -348,8 +348,11 @@ async function update<T>(
   }
 ): Promise<T & { id: string }> {
   const ref = col(model).doc(toDocId(args.where.id));
+  const data = stripUndefined(args.data) as DocumentData;
 
-  await ref.update(stripUndefined(args.data) as DocumentData);
+  if (Object.keys(data).length > 0) {
+    await ref.update(data);
+  }
 
   const doc = await ref.get();
 
@@ -388,7 +391,10 @@ async function upsert<T extends Record<string, any>>(
   const doc = await ref.get();
 
   if (doc.exists) {
-    await ref.update(stripUndefined(args.update) as DocumentData);
+    const data = stripUndefined(args.update) as DocumentData;
+    if (Object.keys(data).length > 0) {
+      await ref.update(data);
+    }
   } else {
     await ref.set(stripUndefined(args.create) as WithFieldValue<DocumentData>);
   }
