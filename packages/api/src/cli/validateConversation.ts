@@ -14,6 +14,10 @@ interface RecordTurn {
 
 const PLACEHOLDER = /\[[A-Za-z][^\]]{1,40}\]/; // "[Relative's Name]", "[Name]" etc.
 const SENTENCE_END = /[.!?…"'’”)\]]$/;
+// A turn ending on a function word or hanging comma is cut mid-thought no
+// matter how short it is ("I've been thinking a", "the news being a lot,")
+const DANGLING_END =
+  /(\b(a|an|the|and|or|but|to|of|in|on|at|for|with|that|this|it|is|are|was|were|be|about|my|your|his|her|their|so|if|when|how|what|i|you|we|they)|[,;:—-])$/i;
 
 export function validateConversationRecord(record: Record<string, unknown>): string[] {
   const issues: string[] = [];
@@ -39,8 +43,9 @@ export function validateConversationRecord(record: Record<string, unknown>): str
     if (PLACEHOLDER.test(content)) {
       issues.push(`${where}: contains placeholder brackets`);
     }
-    // Truncation heuristic: long text that stops without any terminal punctuation
-    if (content.length > 60 && !SENTENCE_END.test(content)) {
+    // Truncation heuristic: no terminal punctuation AND (long, or ends on a
+    // dangling function word / hanging comma)
+    if (!SENTENCE_END.test(content) && (content.length > 60 || DANGLING_END.test(content))) {
       issues.push(`${where}: possibly truncated (no terminal punctuation)`);
     }
     if (content === prevContent) {
