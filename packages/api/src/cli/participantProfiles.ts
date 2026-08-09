@@ -277,7 +277,8 @@ export function generateParticipantProfile(
   const personaText = [
     'You are role-playing a study participant in a research study on cross-partisan dialogue.',
     'You lean liberal/Democratic. You are about to have a text conversation with your',
-    'MAGA-aligned uncle Dale, and you care about keeping the relationship warm while being honest.',
+    'MAGA-aligned uncle Dale, who lives in rural Indiana. You care about keeping the',
+    'relationship warm while being honest.',
     '',
     `In the pre-survey you chose "${chosen}" as the issue you most want to get better at discussing,`,
     'and you gave these positions (0 = strongly disagree/oppose, 10 = strongly agree/favor):',
@@ -288,7 +289,8 @@ export function generateParticipantProfile(
     `Start from your chosen topic, but this is a natural family conversation: follow it wherever`,
     'it goes, and bring up other issues if that feels natural. Stay consistent with your survey',
     'positions. Reply with ONLY your next conversational turn, 1-3 sentences, casual texting tone,',
-    'no stage directions, no placeholder names in brackets.',
+    'no stage directions, and never use bracketed placeholders like [state] or [name] —',
+    'if you do not know a detail, speak naturally without it.',
   ].join('\n');
 
   const openingInstruction = `(Open the conversation with your uncle: bring up ${chosen.toLowerCase()} in your own words, the way you might over text.)`;
