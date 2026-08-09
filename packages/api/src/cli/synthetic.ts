@@ -303,13 +303,26 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
     for await (const chunk of streamCompletion(opts.userModel, {
       systemPrompt: personaText,
       messages: participantView,
-      maxTokens: 300,
+      // Generous: thinking models (Gemini 3+) spend part of this budget on
+      // internal reasoning before any text appears. Free tier caps requests,
+      // not tokens, so headroom is free.
+      maxTokens: 800,
     })) {
       if (chunk.type === 'delta' && chunk.content) userText += chunk.content;
       if (chunk.type === 'error' && chunk.error) throw new Error(chunk.error.message);
     }
     userText = userText.trim();
     if (!userText) throw new Error(`Participant model returned empty turn ${turn}`);
+    // Backstop against maxTokens truncation: if the turn ends mid-sentence,
+    // trim back to the last complete sentence rather than emitting a fragment.
+    if (!/[.!?…)"']$/.test(userText)) {
+      const lastStop = Math.max(
+        userText.lastIndexOf('.'),
+        userText.lastIndexOf('!'),
+        userText.lastIndexOf('?')
+      );
+      if (lastStop >= 40) userText = userText.slice(0, lastStop + 1);
+    }
 
     const eventsBefore = collector.events.length;
     await manager.handleUserMessage(userText);
