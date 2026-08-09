@@ -12,8 +12,6 @@
     "test:api": "pnpm -F @workspace/api test",
     "firestore:emulator": "npx -y firebase-tools@latest emulators:start --only firestore",
     "firestore:seed:emulator": "FIRESTORE_PROJECT_ID=convolab-dev FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 pnpm -F @workspace/database seed",
-    "db:migrate": "pnpm -F @workspace/database migrate",
-    "db:studio": "pnpm -F @workspace/database studio",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write ."

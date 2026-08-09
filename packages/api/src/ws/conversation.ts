@@ -30,10 +30,33 @@ import { type HistoryMessage, type ScenarioInfo, send } from "./protocol.js";
 // Default models for custom scenarios
 const DEFAULT_PARTNER_MODEL = DEFAULT_GOOGLE_MODEL;
 const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
-const DEFAULT_SCORER_MODEL = DEFAULT_GOOGLE_MODEL;
-const FALLBACK_PARTNER_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_SCORER_MODEL =
+	process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
+// claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
+const FALLBACK_PARTNER_MODEL = "claude-sonnet-5";
 const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;
+// LAPP scorer instrument version — stored on every score row for reproducibility/
+// audit. Bump when the prompt, schema, model default, or sampling params change.
+const LAPP_SCORER_VERSION = "lapp-v1-2026-08-08";
+// Gemini structured-output schema: forces valid {l,a,p,pe: int, tone: enum} so the
+// scorer cannot return unparseable output (which previously triggered a fabricated
+// heuristic score). Types use Gemini's uppercase Type enum values.
+const LAPP_RESPONSE_SCHEMA = {
+	type: "OBJECT",
+	properties: {
+		l: { type: "INTEGER" },
+		a: { type: "INTEGER" },
+		p: { type: "INTEGER" },
+		pe: { type: "INTEGER" },
+		tone: {
+			type: "STRING",
+			enum: ["constructive", "warm", "neutral", "tense"],
+		},
+	},
+	required: ["l", "a", "p", "pe", "tone"],
+	propertyOrdering: ["l", "a", "p", "pe", "tone"],
+} as const;
 const CURRENT_FACT_CONTEXT = `
 Runtime factual context:
 - Today is August 6, 2026.
@@ -842,6 +865,8 @@ export class ConversationManager {
 					],
 					maxTokens: 256,
 					responseMimeType: "application/json",
+					responseSchema: LAPP_RESPONSE_SCHEMA,
+					temperature: 0,
 					signal: controller.signal,
 				})) {
 					if (chunk.type === "delta" && chunk.content) {
@@ -875,6 +900,7 @@ export class ConversationManager {
 				scores,
 				tone,
 				"ai",
+				model,
 			);
 			this.logTiming("lapp", startMs, {
 				userMessageId,
@@ -885,11 +911,9 @@ export class ConversationManager {
 				tone,
 			});
 		} catch (error) {
-			const fallback = this.computeFallbackLappScore(
-				userMessage,
-				partnerMessage,
-				turnNumber,
-			);
+			// Honesty over coverage: on genuine scorer failure we SKIP this turn
+			// rather than fabricate a heuristic score the participant would act on.
+			// A missing turn behaves like turn 1 (no score); the panel tolerates gaps.
 			this.logger.warn(
 				{
 					sessionId: this.session.id,
@@ -897,23 +921,14 @@ export class ConversationManager {
 					turnNumber,
 					model,
 					errorMsg: errorMessage(error),
-					fallbackScores: fallback.scores,
-					fallbackTone: fallback.tone,
 				},
-				"[lapp] AI scoring failed; using local fallback score",
-			);
-			await this.persistLappScore(
-				userMessageId,
-				turnNumber,
-				fallback.scores,
-				fallback.tone,
-				"fallback",
+				"[lapp] AI scoring failed; skipping this turn (no fabricated fallback)",
 			);
 			this.logTiming("lapp", startMs, {
 				userMessageId,
 				turnNumber,
 				model,
-				scorer: "fallback",
+				scorer: "skipped",
 			});
 		}
 	}
@@ -975,25 +990,40 @@ export class ConversationManager {
 			clearTimeout(timeout);
 		}
 
-		const trimmed = content.trim();
+		let trimmed = content.trim();
 		if (!trimmed || isLikelyIncompleteCoachMessage(trimmed)) {
-			this.logger.warn(
-				{
-					sessionId: this.session.id,
+			// Usually a maxTokens truncation mid-sentence. Salvage the complete
+			// sentences instead of silently giving the user no coaching this turn.
+			const lastStop = Math.max(
+				trimmed.lastIndexOf("."),
+				trimmed.lastIndexOf("!"),
+				trimmed.lastIndexOf("?"),
+			);
+			const salvaged = lastStop >= 24 ? trimmed.slice(0, lastStop + 1) : "";
+			if (!salvaged) {
+				this.logger.warn(
+					{
+						sessionId: this.session.id,
+						userMessageId: args.userMessageId,
+						turnNumber: args.turnNumber,
+						model,
+						contentPreview: trimmed.slice(0, 120),
+					},
+					"[coach] Dropping incomplete coach insight",
+				);
+				this.logTiming("coach", startMs, {
 					userMessageId: args.userMessageId,
 					turnNumber: args.turnNumber,
 					model,
-					contentPreview: trimmed.slice(0, 120),
-				},
-				"[coach] Dropping incomplete coach insight",
+					completed: false,
+				});
+				return;
+			}
+			this.logger.info(
+				{ sessionId: this.session.id, turnNumber: args.turnNumber, model },
+				"[coach] Salvaged truncated coach insight to last complete sentence",
 			);
-			this.logTiming("coach", startMs, {
-				userMessageId: args.userMessageId,
-				turnNumber: args.turnNumber,
-				model,
-				completed: false,
-			});
-			return;
+			trimmed = salvaged;
 		}
 
 		const message = await this.persistMessage("coach", trimmed);
@@ -1024,12 +1054,19 @@ export class ConversationManager {
 		scores: LappScores,
 		tone: LappTone,
 		scorer: "ai" | "fallback",
+		model: string,
 	): Promise<void> {
 		await createLappScore(String(this.session.id), {
 			userMessageId,
 			turnNumber,
 			...scores,
 			tone,
+			// Provenance for reproducibility/audit (Firestore is schemaless; these
+			// extra fields ride through the existing cast). `source` is always "ai"
+			// now that the fabricated fallback is gone, but kept for auditability.
+			source: scorer,
+			model,
+			scorerVersion: LAPP_SCORER_VERSION,
 		} as unknown as Parameters<typeof createLappScore>[1]);
 
 		send(this.ws, {
@@ -1050,57 +1087,6 @@ export class ConversationManager {
 			},
 			"[lapp] Score persisted and sent",
 		);
-	}
-
-	private computeFallbackLappScore(
-		userMessage: string,
-		partnerMessage: string,
-		turnNumber: number,
-	): { scores: LappScores; tone: LappTone } {
-		const normalizedUser = userMessage.toLowerCase();
-		const normalizedPartner = partnerMessage.toLowerCase();
-		const userWords = new Set(normalizedUser.match(/[a-z']{3,}/g) ?? []);
-		const partnerWords = new Set(normalizedPartner.match(/[a-z']{3,}/g) ?? []);
-		const overlap = [...userWords].filter((word) =>
-			partnerWords.has(word),
-		).length;
-		const hasQuestion =
-			/\?|\b(why|what|how|where|when|who|could|would|do you|can you)\b/i.test(
-				userMessage,
-			);
-		const hasAcknowledgment =
-			/\b(i hear|i get|that makes sense|fair|understand|sounds like|you feel|i see)\b/i.test(
-				userMessage,
-			);
-		const hasPersonalPerspective =
-			/\b(i think|i feel|i believe|to me|my view|i worry)\b/i.test(userMessage);
-		const tenseLanguage =
-			/\b(wrong|stupid|idiot|ridiculous|obviously|nonsense|lie|liar|dumb)\b/i.test(
-				userMessage,
-			);
-
-		const scores: LappScores = {
-			l: Math.min(
-				5,
-				Math.max(1, 2 + Math.min(2, overlap) + (hasAcknowledgment ? 1 : 0)),
-			),
-			a: hasAcknowledgment ? 4 : overlap > 0 ? 2 : 1,
-			p: hasQuestion ? 4 : turnNumber <= 2 ? 0 : 1,
-			pe: hasPersonalPerspective ? 4 : turnNumber <= 2 ? 0 : 2,
-		};
-		const scoredValues = Object.values(scores).filter((score) => score > 0);
-		const average =
-			scoredValues.reduce((sum, score) => sum + score, 0) /
-			Math.max(1, scoredValues.length);
-		const tone: LappTone = tenseLanguage
-			? "tense"
-			: hasAcknowledgment && hasQuestion
-				? "constructive"
-				: average >= 3
-					? "warm"
-					: "neutral";
-
-		return { scores, tone };
 	}
 
 	private buildContext(role: "partner" | "coach"): LLMMessage[] {

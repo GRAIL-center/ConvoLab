@@ -45,9 +45,14 @@ export const googleProvider: LLMProvider = {
 
 			// Configure tools (web search grounding if enabled)
 			const tools = params.useWebSearch ? [{ googleSearch: {} }] : undefined;
+			// 2.5-flash: disable thinking outright. Gemini 3+: thinkingBudget is
+			// replaced by thinkingLevel, and un-capped thinking eats the small
+			// maxOutputTokens our conversation lanes use (empty text, MAX_TOKENS).
 			const thinkingConfig = params.model.includes("gemini-2.5-flash")
 				? { thinkingBudget: 0 }
-				: undefined;
+				: /^gemini-[3-9]/.test(params.model)
+					? ({ thinkingLevel: "low" } as never)
+					: undefined;
 
 			console.log(
 				"[Google Provider] useWebSearch:",
@@ -65,6 +70,10 @@ export const googleProvider: LLMProvider = {
 					systemInstruction: params.systemPrompt,
 					maxOutputTokens: params.maxTokens ?? 1024,
 					responseMimeType: params.responseMimeType,
+					// Structured-output schema + deterministic sampling (used by the
+					// LAPP scorer). Both are omitted when undefined.
+					responseSchema: params.responseSchema as never,
+					temperature: params.temperature,
 					thinkingConfig,
 					tools,
 				},

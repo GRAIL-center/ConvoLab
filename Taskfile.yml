@@ -52,25 +52,10 @@ tasks:
 
   # === Database ===
 
-  migrate:
-    desc: "Legacy Prisma migration command (not needed for Firestore emulator)"
-    cmds:
-      - echo "Firestore emulator does not need migrations. Run 'task db:seed' instead."
-
-  migrate:deploy:
-    desc: "Legacy Prisma deploy migration command"
-    cmds:
-      - echo "Firestore does not use Prisma deploy migrations."
-
   db:seed:
     desc: "Re-run database seed (adds sample scenarios)"
     cmds:
       - docker compose exec {{.API_SERVICE}} sh -c "cd packages/database && pnpm seed"
-
-  db:studio:
-    desc: "Legacy Prisma Studio command"
-    cmds:
-      - echo "Prisma Studio is not used with Firestore. Use the emulator endpoint on localhost:8080."
 
   db:reset:
     desc: "Reset Firestore emulator data (WARNING: deletes local emulator data)"
@@ -234,11 +219,6 @@ tasks:
     cmds:
       - docker compose up -d firestore-emulator
       - 'echo "✓ Firestore emulator running on localhost:8080"'
-
-  local:migrate:
-    desc: "Legacy local migration command"
-    cmds:
-      - echo "Firestore emulator does not need migrations. Run 'task db:seed' instead."
 
   # === Help ===
 

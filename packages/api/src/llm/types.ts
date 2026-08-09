@@ -21,6 +21,16 @@ export interface StreamParams {
   signal?: AbortSignal;
   /** Provider-specific response MIME type, e.g. application/json for Gemini structured output */
   responseMimeType?: string;
+  /**
+   * Sampling temperature. Provider-specific; currently applied by Google/Gemini.
+   * Set 0 for deterministic, reproducible output (e.g. the LAPP scorer).
+   */
+  temperature?: number;
+  /**
+   * Provider-specific JSON schema to constrain structured output.
+   * Google/Gemini: passed as `responseSchema` alongside responseMimeType=application/json.
+   */
+  responseSchema?: unknown;
 }
 
 export interface StreamChunk {
