@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { testPrisma } from '../__tests__/setup.js';
+import { generateParticipantProfile, TOPICS } from './participantProfiles.js';
 import { runSyntheticConversation } from './synthetic.js';
 
 // End-to-end through the real ConversationManager pipeline (partner, coach,
@@ -53,6 +54,35 @@ describe('synthetic conversation CLI', () => {
     const turns = result.record.turns as Array<{ role: string; lapp?: unknown }>;
     expect(turns.some((t) => t.role === 'user' && t.lapp)).toBe(true);
   }, 30_000);
+
+  it('samples a survey-grounded profile when no persona is given', async () => {
+    const result = await runSyntheticConversation({
+      turns: 1,
+      userModel: 'fake:participant',
+      fakeLlm: true,
+    });
+    const profile = result.record.participant_profile as {
+      topic: string;
+      positions: Array<{ construct: string; score: number }>;
+    };
+    expect(Object.keys(TOPICS)).toContain(profile.topic);
+    expect(profile.positions).toHaveLength(4);
+    for (const p of profile.positions) {
+      expect(p.score).toBeGreaterThanOrEqual(0);
+      expect(p.score).toBeLessThanOrEqual(10);
+    }
+  }, 30_000);
+
+  it('generates profiles for all seven topics with consistent shape', () => {
+    expect(Object.keys(TOPICS)).toHaveLength(7);
+    for (const topic of Object.keys(TOPICS)) {
+      const profile = generateParticipantProfile(topic);
+      expect(profile.topic).toBe(topic);
+      expect(profile.personaText).toContain(topic);
+      expect(profile.personaText).toContain('LAPP');
+      expect(profile.openingInstruction.toLowerCase()).toContain(topic.toLowerCase());
+    }
+  });
 
   it('reuses the synthetic scenario across conversations', async () => {
     const first = await runSyntheticConversation({

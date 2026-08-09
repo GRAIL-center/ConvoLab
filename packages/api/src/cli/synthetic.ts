@@ -17,7 +17,8 @@
  *   --conversations <n>     conversations to generate (default 1)
  *   --turns <n>             user turns per conversation (default 4)
  *   --scenario <slug>       reuse an existing scenario by slug
- *   --persona <text>        participant persona for the simulated user
+ *   --persona <text>        fixed persona text (overrides the sampled survey profile)
+ *   --topic <name>          survey topic for the sampled profile (default: random of the 7)
  *   --user-model <model>    LLM for the simulated participant
  *   --partner-model <model> partner LLM for the CLI-owned synthetic scenario
  *   --coach-model <model>   coach LLM for the CLI-owned synthetic scenario
@@ -37,20 +38,14 @@ import { config } from 'dotenv';
 // not .env, and when set it overrides whatever project id .env names.
 config({ path: resolve(import.meta.dirname, '../../../../.env') });
 
-const DEFAULT_PARTICIPANT_PERSONA = [
-  'You are role-playing a study participant practicing a difficult cross-partisan',
-  'conversation with a MAGA-aligned relative (your uncle Dale). You lean liberal,',
-  'care about your relationship with him, and are trying (imperfectly) to listen,',
-  'acknowledge, and stay curious rather than lecture. Reply with ONLY your next',
-  'conversational turn, 1-3 sentences, no stage directions and no placeholder',
-  'names in brackets.',
-].join(' ');
+import { generateParticipantProfile, type ParticipantProfile } from './participantProfiles.js';
 
 interface CliOptions {
   conversations: number;
   turns: number;
   scenarioSlug?: string;
-  persona: string;
+  persona?: string;
+  topic?: string;
   userModel: string;
   partnerModel?: string;
   coachModel?: string;
@@ -69,6 +64,7 @@ function parseCliArgs(): CliOptions {
       turns: { type: 'string', default: '4' },
       scenario: { type: 'string' },
       persona: { type: 'string' },
+      topic: { type: 'string' },
       'user-model': { type: 'string' },
       'partner-model': { type: 'string' },
       'coach-model': { type: 'string' },
@@ -83,7 +79,8 @@ function parseCliArgs(): CliOptions {
     conversations: Number(values.conversations),
     turns: Number(values.turns),
     scenarioSlug: values.scenario,
-    persona: values.persona ?? DEFAULT_PARTICIPANT_PERSONA,
+    persona: values.persona,
+    topic: values.topic,
     userModel: values['user-model'] ?? (fakeLlm ? 'fake:participant' : 'google:gemini-2.5-flash'),
     partnerModel: values['partner-model'],
     coachModel: values['coach-model'],
@@ -165,7 +162,10 @@ export interface SyntheticResult {
 
 export interface RunOptions {
   turns: number;
-  persona: string;
+  /** Fixed persona text; when omitted, a survey-grounded profile is sampled */
+  persona?: string;
+  /** Preferred policy topic for the sampled profile (one of the 7 survey topics) */
+  topic?: string;
   userModel: string;
   fakeLlm: boolean;
   scenarioSlug?: string;
@@ -263,6 +263,16 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
   );
   await manager.initialize();
 
+  // Participant identity: explicit --persona text, or a sampled survey-grounded
+  // profile (topic choice + 0-10 positions on the V10 policy-belief items)
+  const profile: ParticipantProfile | null = opts.persona
+    ? null
+    : generateParticipantProfile(opts.topic);
+  const personaText = opts.persona ?? profile!.personaText;
+  if (profile) {
+    console.error(`participant profile: ${profile.topic} (${profile.intensity})`);
+  }
+
   // The simulated participant: its own turns are 'assistant', partner turns are 'user'
   const participantView: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
@@ -274,13 +284,14 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
       participantView.push({
         role: 'user',
         content:
+          profile?.openingInstruction ??
           '(Open the conversation with your relative: bring up how the country is doing, in your own words.)',
       });
     }
 
     let userText = '';
     for await (const chunk of streamCompletion(opts.userModel, {
-      systemPrompt: opts.persona,
+      systemPrompt: personaText,
       messages: participantView,
       maxTokens: 300,
     })) {
@@ -321,7 +332,7 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
   await completeSession(sessionId, endedAt);
 
   const lappScores = collector.events.filter((e) => e.type === 'score:update');
-  const record = await buildJsonlRecord(sessionId, scenario, startedAt, endedAt);
+  const record = await buildJsonlRecord(sessionId, scenario, startedAt, endedAt, profile);
   return {
     sessionId,
     scenarioId: (scenario as { id: string | number }).id,
@@ -348,7 +359,8 @@ async function buildJsonlRecord(
   sessionId: string,
   scenario: unknown,
   startedAt: Date,
-  endedAt: Date
+  endedAt: Date,
+  profile: ParticipantProfile | null
 ): Promise<Record<string, unknown>> {
   const { getMessagesForSession } = await import('../data/messages.js');
   const { getLappScoresForSession } = await import('../data/lappScores.js');
@@ -387,6 +399,9 @@ async function buildJsonlRecord(
   return {
     session_id: sessionId,
     participant: 'synthetic',
+    participant_profile: profile
+      ? { topic: profile.topic, intensity: profile.intensity, positions: profile.positions }
+      : undefined,
     scenario: sc.name,
     scenario_slug: sc.slug,
     partner_persona: sc.partnerPersona,
