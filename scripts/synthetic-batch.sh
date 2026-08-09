@@ -53,6 +53,26 @@ run_conv() { # $1 out-file, then model args...
   return 1
 }
 
+# Quarantine records the CLI's quality gate flagged (quality_issues non-empty).
+# Returns 0 (clean) or 1 (moved to rejected/); prints the issues on reject.
+quality_gate() { # $1 out-file
+  local out="$1"
+  local issues
+  issues=$(python3 -c "
+import json,sys
+r = json.load(open(sys.argv[1]))
+q = r.get('quality_issues') or []
+print('; '.join(q[:3]))
+" "$out" 2>/dev/null)
+  if [ -n "$issues" ]; then
+    mkdir -p "$OUT_DIR/rejected"
+    mv "$out" "$OUT_DIR/rejected/"
+    log "REJECTED $(basename "$out"): $issues"
+    return 1
+  fi
+  return 0
+}
+
 haiku_today() { ls "$OUT_DIR"/haiku-"$(date +%Y%m%d)"-*.jsonl 2>/dev/null | wc -l | tr -d ' '; }
 
 free_backoff_until=0
@@ -71,7 +91,7 @@ while true; do
         --user-model google:gemini-3-flash-preview \
         --partner-model google:gemini-3.6-flash \
         --coach-model google:gemini-3.1-flash-lite; then
-      log "free lane: OK conv-$ts"
+      quality_gate "$OUT_DIR/conv-$ts.jsonl" && log "free lane: OK conv-$ts"
     else
       free_backoff_until=$(( $(date +%s) + 14400 ))
       log "free lane: failed (likely daily quota) — backing off 4h"
@@ -86,7 +106,7 @@ while true; do
         --user-model "$HAIKU_MODEL" \
         --partner-model "$HAIKU_MODEL" \
         --coach-model "$HAIKU_MODEL"; then
-      log "haiku lane: OK haiku-$ts ($(haiku_today))/$HAIKU_PER_DAY today)"
+      quality_gate "$OUT_DIR/haiku-$ts.jsonl" && log "haiku lane: OK haiku-$ts ($(haiku_today))/$HAIKU_PER_DAY today)"
     else
       log "haiku lane: failed — retrying next cycle"
     fi

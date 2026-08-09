@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { testPrisma } from '../__tests__/setup.js';
 import { generateParticipantProfile, TOPICS } from './participantProfiles.js';
 import { runSyntheticConversation } from './synthetic.js';
+import { validateConversationRecord } from './validateConversation.js';
 
 // End-to-end through the real ConversationManager pipeline (partner, coach,
 // LAPP) with the deterministic fake LLM provider and FakeFirestore. No
@@ -95,6 +96,40 @@ describe('synthetic conversation CLI', () => {
     expect(generateParticipantProfile(undefined, 'skilled').personaText).toContain(
       'naturally good'
     );
+  });
+
+  it('marks pipeline-generated conversations as quality-clean', async () => {
+    const result = await runSyntheticConversation({
+      turns: 2,
+      persona: 'p',
+      userModel: 'fake:participant',
+      fakeLlm: true,
+    });
+    expect(result.record.quality_issues).toEqual([]);
+  }, 30_000);
+
+  it('quality gate catches truncation, placeholders, and missing lanes', () => {
+    // The bug-F7 shape: long participant turn cut mid-sentence, no scores
+    const issues = validateConversationRecord({
+      n_user_turns_main: 3,
+      turns: [
+        {
+          role: 'user',
+          type: 'main',
+          content:
+            'Hey Uncle Dale, I have been thinking a lot about healthcare lately and honestly I',
+        },
+        { role: 'partner', type: 'main', content: 'Well now, that is a big topic kiddo.' },
+        { role: 'user', type: 'main', content: 'Tell me more, [Relative’s Name].' },
+        { role: 'partner', type: 'main', content: 'Not much more to say about it, really.' },
+        { role: 'user', type: 'main', content: 'Okay, but what about the cost of insurance?' },
+        { role: 'partner', type: 'main', content: 'Costs are crazy, no argument there.' },
+      ],
+    });
+    expect(issues.some((i) => i.includes('possibly truncated'))).toBe(true);
+    expect(issues.some((i) => i.includes('placeholder'))).toBe(true);
+    expect(issues.some((i) => i.includes('LAPP'))).toBe(true);
+    expect(issues.some((i) => i.includes('coach'))).toBe(true);
   });
 
   it('reuses the synthetic scenario across conversations', async () => {

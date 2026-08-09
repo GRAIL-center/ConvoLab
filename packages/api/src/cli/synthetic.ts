@@ -44,6 +44,7 @@ import {
   generateParticipantProfile,
   type ParticipantProfile,
 } from './participantProfiles.js';
+import { validateConversationRecord } from './validateConversation.js';
 
 interface CliOptions {
   conversations: number;
@@ -356,6 +357,13 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
 
   const lappScores = collector.events.filter((e) => e.type === 'score:update');
   const record = await buildJsonlRecord(sessionId, scenario, startedAt, endedAt, profile);
+  const qualityIssues = validateConversationRecord(record);
+  record.quality_issues = qualityIssues;
+  console.error(
+    qualityIssues.length
+      ? `quality: ${qualityIssues.length} issue(s) — ${qualityIssues.slice(0, 3).join('; ')}`
+      : 'quality: OK'
+  );
   return {
     sessionId,
     scenarioId: (scenario as { id: string | number }).id,
