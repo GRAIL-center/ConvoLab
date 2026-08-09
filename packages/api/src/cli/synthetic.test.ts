@@ -80,8 +80,21 @@ describe('synthetic conversation CLI', () => {
       expect(profile.topic).toBe(topic);
       expect(profile.personaText).toContain(topic);
       expect(profile.personaText).toContain('LAPP');
+      expect(['novice', 'developing', 'skilled']).toContain(profile.skill);
       expect(profile.openingInstruction.toLowerCase()).toContain(topic.toLowerCase());
     }
+  });
+
+  it('reflects the pinned dialogue skill in the persona instructions', () => {
+    expect(generateParticipantProfile(undefined, 'novice').personaText).toContain(
+      'mostly forget it'
+    );
+    expect(generateParticipantProfile(undefined, 'developing').personaText).toContain(
+      'mixed success'
+    );
+    expect(generateParticipantProfile(undefined, 'skilled').personaText).toContain(
+      'naturally good'
+    );
   });
 
   it('reuses the synthetic scenario across conversations', async () => {

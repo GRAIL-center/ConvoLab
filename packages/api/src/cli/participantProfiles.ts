@@ -191,16 +191,56 @@ export const TOPICS: Record<string, TopicItem[]> = {
   ],
 };
 
+export type DialogueSkill = 'novice' | 'developing' | 'skilled';
+
 export interface ParticipantProfile {
   topic: string;
   intensity: 'moderate' | 'strong';
+  skill: DialogueSkill;
   positions: Array<{ construct: string; score: number }>;
   personaText: string;
   openingInstruction: string;
 }
 
+/**
+ * Real participants vary widely in dialogue skill and in how well they apply
+ * LAPP right after learning it. The corpus needs that spread — the scorer must
+ * see 0s and 1s, not just earnest 4s and 5s.
+ */
+const SKILL_INSTRUCTIONS: Record<DialogueSkill, string> = {
+  novice: [
+    'You skimmed the LAPP introduction (Listen, Acknowledge, Pivot to a question, share your',
+    'Perspective) but in the moment you mostly forget it. You lead with your own opinions,',
+    'correct facts you think are wrong, and cite things you read. When your uncle pushes',
+    'your buttons you get defensive or sarcastic, interrupt with counterpoints, and rarely',
+    'ask him anything about his experience. You do love him and occasionally catch yourself',
+    'and soften — but the old habits win most turns.',
+  ].join('\n'),
+  developing: [
+    'You just learned the LAPP method (Listen, Acknowledge, Pivot to a question, share your',
+    'Perspective) and are trying to use it, with mixed success. Some turns you genuinely ask',
+    'and acknowledge; other turns you slip — an "I hear you, but..." followed immediately by',
+    'a counterargument, a fact-check where a question would have worked, or a longer lecture',
+    'when a provocation lands. The effort is visible but inconsistent.',
+  ].join('\n'),
+  skilled: [
+    'You just refreshed the LAPP method (Listen, Acknowledge, Pivot to a question, share your',
+    'Perspective) and you are naturally good at this. You reflect back what your uncle actually',
+    'said, name the feeling or value underneath it, ask curious follow-up questions before',
+    'sharing your view, and when you do share it you use personal stories rather than',
+    'statistics. You stay warm even when provoked.',
+  ].join('\n'),
+};
+
 function randInt(lo: number, hi: number): number {
   return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+function sampleSkill(): DialogueSkill {
+  const r = Math.random();
+  if (r < 0.3) return 'novice';
+  if (r < 0.7) return 'developing';
+  return 'skilled';
 }
 
 function sampleScore(item: TopicItem, intensity: 'moderate' | 'strong'): number {
@@ -212,12 +252,17 @@ function sampleScore(item: TopicItem, intensity: 'moderate' | 'strong'): number 
 
 /**
  * Sample a liberal-leaning participant profile. Topic is random unless given;
- * intensity varies so the corpus isn't all strong partisans.
+ * intensity and dialogue skill vary so the corpus spans weak-to-strong LAPP
+ * performance, not just earnest practitioners.
  */
-export function generateParticipantProfile(topic?: string): ParticipantProfile {
+export function generateParticipantProfile(
+  topic?: string,
+  skill?: DialogueSkill
+): ParticipantProfile {
   const topics = Object.keys(TOPICS);
   const chosen = topic && TOPICS[topic] ? topic : topics[randInt(0, topics.length - 1)];
   const intensity: 'moderate' | 'strong' = Math.random() < 0.4 ? 'moderate' : 'strong';
+  const chosenSkill = skill ?? sampleSkill();
 
   const items = TOPICS[chosen];
   const positions = items.map((item) => ({
@@ -238,8 +283,7 @@ export function generateParticipantProfile(topic?: string): ParticipantProfile {
     'and you gave these positions (0 = strongly disagree/oppose, 10 = strongly agree/favor):',
     positionLines,
     '',
-    'You just learned the LAPP method (Listen, Acknowledge, Pivot to a question, share your',
-    'Perspective) and are trying to practice it — imperfectly, like a real person would.',
+    SKILL_INSTRUCTIONS[chosenSkill],
     '',
     `Start from your chosen topic, but this is a natural family conversation: follow it wherever`,
     'it goes, and bring up other issues if that feels natural. Stay consistent with your survey',
@@ -249,5 +293,12 @@ export function generateParticipantProfile(topic?: string): ParticipantProfile {
 
   const openingInstruction = `(Open the conversation with your uncle: bring up ${chosen.toLowerCase()} in your own words, the way you might over text.)`;
 
-  return { topic: chosen, intensity, positions, personaText, openingInstruction };
+  return {
+    topic: chosen,
+    intensity,
+    skill: chosenSkill,
+    positions,
+    personaText,
+    openingInstruction,
+  };
 }

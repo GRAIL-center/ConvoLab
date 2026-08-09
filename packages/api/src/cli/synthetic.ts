@@ -19,6 +19,7 @@
  *   --scenario <slug>       reuse an existing scenario by slug
  *   --persona <text>        fixed persona text (overrides the sampled survey profile)
  *   --topic <name>          survey topic for the sampled profile (default: random of the 7)
+ *   --skill <level>         pin dialogue skill: novice | developing | skilled (default: random)
  *   --user-model <model>    LLM for the simulated participant
  *   --partner-model <model> partner LLM for the CLI-owned synthetic scenario
  *   --coach-model <model>   coach LLM for the CLI-owned synthetic scenario
@@ -38,7 +39,11 @@ import { config } from 'dotenv';
 // not .env, and when set it overrides whatever project id .env names.
 config({ path: resolve(import.meta.dirname, '../../../../.env') });
 
-import { generateParticipantProfile, type ParticipantProfile } from './participantProfiles.js';
+import {
+  type DialogueSkill,
+  generateParticipantProfile,
+  type ParticipantProfile,
+} from './participantProfiles.js';
 
 interface CliOptions {
   conversations: number;
@@ -46,6 +51,7 @@ interface CliOptions {
   scenarioSlug?: string;
   persona?: string;
   topic?: string;
+  skill?: string;
   userModel: string;
   partnerModel?: string;
   coachModel?: string;
@@ -65,6 +71,7 @@ function parseCliArgs(): CliOptions {
       scenario: { type: 'string' },
       persona: { type: 'string' },
       topic: { type: 'string' },
+      skill: { type: 'string' },
       'user-model': { type: 'string' },
       'partner-model': { type: 'string' },
       'coach-model': { type: 'string' },
@@ -81,6 +88,7 @@ function parseCliArgs(): CliOptions {
     scenarioSlug: values.scenario,
     persona: values.persona,
     topic: values.topic,
+    skill: values.skill,
     userModel: values['user-model'] ?? (fakeLlm ? 'fake:participant' : 'google:gemini-2.5-flash'),
     partnerModel: values['partner-model'],
     coachModel: values['coach-model'],
@@ -166,6 +174,8 @@ export interface RunOptions {
   persona?: string;
   /** Preferred policy topic for the sampled profile (one of the 7 survey topics) */
   topic?: string;
+  /** Pin the sampled profile's dialogue skill: novice | developing | skilled */
+  skill?: string;
   userModel: string;
   fakeLlm: boolean;
   scenarioSlug?: string;
@@ -267,10 +277,10 @@ export async function runSyntheticConversation(opts: RunOptions): Promise<Synthe
   // profile (topic choice + 0-10 positions on the V10 policy-belief items)
   const profile: ParticipantProfile | null = opts.persona
     ? null
-    : generateParticipantProfile(opts.topic);
+    : generateParticipantProfile(opts.topic, opts.skill as DialogueSkill | undefined);
   const personaText = opts.persona ?? profile!.personaText;
   if (profile) {
-    console.error(`participant profile: ${profile.topic} (${profile.intensity})`);
+    console.error(`participant profile: ${profile.topic} (${profile.intensity}, ${profile.skill})`);
   }
 
   // The simulated participant: its own turns are 'assistant', partner turns are 'user'
@@ -400,7 +410,12 @@ async function buildJsonlRecord(
     session_id: sessionId,
     participant: 'synthetic',
     participant_profile: profile
-      ? { topic: profile.topic, intensity: profile.intensity, positions: profile.positions }
+      ? {
+          topic: profile.topic,
+          intensity: profile.intensity,
+          skill: profile.skill,
+          positions: profile.positions,
+        }
       : undefined,
     scenario: sc.name,
     scenario_slug: sc.slug,
