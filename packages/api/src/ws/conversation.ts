@@ -28,7 +28,10 @@ import { broadcast } from "./broadcaster.js";
 import { type HistoryMessage, type ScenarioInfo, send } from "./protocol.js";
 
 // Default models for custom scenarios
-const DEFAULT_PARTNER_MODEL = DEFAULT_GOOGLE_MODEL;
+// Study conversation partner pinned to Claude Sonnet (PAP v7.8; Hanna 9 Aug 2026).
+// With a Claude default here, resolveConfiguredModel no longer silently falls back
+// to Gemini for the partner — the partner REQUIRES ANTHROPIC_API_KEY to be set.
+const DEFAULT_PARTNER_MODEL = "claude-sonnet-5";
 const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
 const DEFAULT_SCORER_MODEL =
 	process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;

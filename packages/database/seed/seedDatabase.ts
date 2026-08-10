@@ -2,7 +2,10 @@ import type { PrismaClient } from '@workspace/database';
 
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
-  partnerModel: 'google:gemini-2.5-flash',
+  // Study conversation partner: Claude Sonnet (PAP v7.8 model pin; Hanna 9 Aug 2026).
+  // Inherited by all 5 partisan study scenarios. Re-seed (upserts by slug) to update
+  // existing scenario records in each environment.
+  partnerModel: 'claude-sonnet-5',
   partnerUseWebSearch: true,
   coachUseWebSearch: false,
 } as const;
