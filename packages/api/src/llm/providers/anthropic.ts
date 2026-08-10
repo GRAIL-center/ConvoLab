@@ -85,7 +85,16 @@ export const anthropicProvider: LLMProvider = {
         return;
       }
       const err = error as Error & { status?: number };
-      const retryable = err.status === 429 || err.status === 529 || err.status === 500;
+      // Transient statuses -> the caller retries the SAME model (no provider swap),
+      // which the pinned-Claude study partner depends on for reliability: rate limit
+      // (429), overloaded (529), service unavailable (503), server error (500),
+      // request timeout (408). Client errors (400/401/403/404) stay non-retryable.
+      const retryable =
+        err.status === 429 ||
+        err.status === 529 ||
+        err.status === 503 ||
+        err.status === 500 ||
+        err.status === 408;
       yield {
         type: 'error',
         error: {
