@@ -59,10 +59,13 @@ export function validateConversationRecord(record: Record<string, unknown>): str
     issues.push(`expected ${expectedUserTurns} user turns, found ${userTurns.length}`);
   }
 
-  // LAPP coverage: every user turn after the first should carry a score
+  // LAPP coverage: user turns after the first should carry scores. The pipeline
+  // deliberately skips a turn's score when the scorer call fails (no fabricated
+  // fallback — scorer-hardening decision, Aug 2026), so tolerate one gap and
+  // flag only the systematic case.
   const scored = userTurns.filter((t) => t.lapp).length;
   const expectedScored = Math.max(0, userTurns.length - 1);
-  if (scored < expectedScored) {
+  if (scored < expectedScored - 1) {
     issues.push(`only ${scored}/${expectedScored} user turns have LAPP scores`);
   }
 
