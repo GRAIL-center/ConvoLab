@@ -11,7 +11,7 @@ export type EntityId = string | number;
 
 // Server -> Client messages
 export type ServerMessage =
-  | { type: 'connected'; sessionId: EntityId; scenario: ScenarioInfo }
+  | { type: 'connected'; sessionId: EntityId; scenario: ScenarioInfo; study?: StudyInfo }
   | { type: 'history'; messages: HistoryMessage[] }
   | { type: 'partner:delta'; content: string }
   | { type: 'partner:retry' }
@@ -48,6 +48,17 @@ export interface ScenarioInfo {
   description: string;
   partnerPersona: string;
   isCustom?: boolean;
+}
+
+export interface StudyInfo {
+  source: 'qualtrics_prolific';
+  topic: string;
+  condition: 0 | 1;
+  coachEnabled: boolean;
+  participantTurnCount: number;
+  softCapSeconds: number;
+  hardStopSeconds: number;
+  minParticipantTurns: number;
 }
 
 export interface HistoryMessage {

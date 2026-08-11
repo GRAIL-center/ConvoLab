@@ -15,6 +15,7 @@ import { UserList } from './pages/admin/UserList';
 import { Conversation } from './pages//Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
+import { Study } from './pages/Study';
 import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
 import { ObserveSession } from './pages/research/ObserveSession';
@@ -134,6 +135,7 @@ export function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/invite/:token" element={<Invite />} />
+                      <Route path="/study" element={<Study />} />
                     </Routes>
                   </main>
                   <FeedbackButton />

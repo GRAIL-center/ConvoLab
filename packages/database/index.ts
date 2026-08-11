@@ -723,17 +723,17 @@ export function createPrismaClient(
 // path that isn't part of this package's public "exports" map.
 export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase';
 
-export type {
-  ConversationSession,
-  Message,
-  LappScore,
-  User,
-  Invitation,
-  TelemetryEvent,
-  Scenario,
-  UsageLog,
-  ObservationNote,
-  ExternalIdentity,
-  ContactMethod,
-  QuotaPreset,
-} from '@prisma/client';
+type FirestoreShimRecord = Record<string, any>;
+
+export type ConversationSession = FirestoreShimRecord;
+export type Message = FirestoreShimRecord;
+export type LappScore = FirestoreShimRecord;
+export type User = FirestoreShimRecord;
+export type Invitation = FirestoreShimRecord;
+export type TelemetryEvent = FirestoreShimRecord;
+export type Scenario = FirestoreShimRecord;
+export type UsageLog = FirestoreShimRecord;
+export type ObservationNote = FirestoreShimRecord;
+export type ExternalIdentity = FirestoreShimRecord;
+export type ContactMethod = FirestoreShimRecord;
+export type QuotaPreset = FirestoreShimRecord;

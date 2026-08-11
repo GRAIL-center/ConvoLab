@@ -6,6 +6,7 @@ interface MobileMessageInputProps {
   partnerName: string;
   disabled: boolean;
   isInsightsOpen: boolean;
+  coachEnabled?: boolean;
   onToggleInsights: () => void;
   onInputFocus?: () => void;
   onInputBlur?: () => void;
@@ -19,6 +20,7 @@ export function MobileMessageInput({
   partnerName,
   disabled,
   isInsightsOpen,
+  coachEnabled = true,
   onToggleInsights,
   onInputFocus,
   onInputBlur,
@@ -63,11 +65,18 @@ export function MobileMessageInput({
     setIsDropdownOpen(false);
   };
 
+  useEffect(() => {
+    if (!coachEnabled && recipient === 'coach') {
+      setRecipient('partner');
+    }
+  }, [coachEnabled, recipient]);
+
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
       {/* Input Row */}
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="relative" ref={dropdownRef}>
+        {coachEnabled ? (
+          <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -158,7 +167,8 @@ export function MobileMessageInput({
               </button>
             </div>
           )}
-        </div>
+          </div>
+        ) : null}
 
         <textarea
           value={content}
@@ -166,39 +176,43 @@ export function MobileMessageInput({
           onKeyDown={handleKeyDown}
           onFocus={onInputFocus}
           onBlur={onInputBlur}
-          placeholder={recipient === 'partner' ? `Reply to ${partnerName}...` : 'Ask the coach...'}
+          placeholder={
+            !coachEnabled || recipient === 'partner' ? `Reply to ${partnerName}...` : 'Ask the coach...'
+          }
           disabled={disabled}
           rows={1}
           className="flex-1 resize-none rounded-3xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-5 py-3 text-base shadow-sm focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-500"
         />
 
         {/* Insights Toggle */}
-        <button
-          type="button"
-          onClick={onToggleInsights}
-          className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-colors ${
-            isInsightsOpen
-              ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700'
-              : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-          }`}
-          aria-label="Toggle insights"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-6 h-6"
-            aria-hidden="true"
+        {coachEnabled && (
+          <button
+            type="button"
+            onClick={onToggleInsights}
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-colors ${
+              isInsightsOpen
+                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700'
+                : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+            }`}
+            aria-label="Toggle insights"
           >
-            <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
-            <path d="M9 18h6" />
-            <path d="M10 22h4" />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6"
+              aria-hidden="true"
+            >
+              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+              <path d="M9 18h6" />
+              <path d="M10 22h4" />
+            </svg>
+          </button>
+        )}
 
         <button
           type="submit"

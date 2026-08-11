@@ -194,6 +194,7 @@ function looksLikeCurrentFactQuestion(content: string): boolean {
 
 // Added missing fields to the interface to resolve TS2339 and TS2551
 interface SessionWithScenario extends ConversationSession {
+	id: string | number;
 	scenario: Scenario | null;
 	invitation: Invitation | null;
 	messages: Message[];
@@ -204,6 +205,10 @@ interface SessionWithScenario extends ConversationSession {
 	customDescription: string | null;
 	customPartnerPrompt: string | null;
 	customCoachPrompt: string | null;
+	studySource?: string | null;
+	studyTopic?: string | null;
+	studyCondition?: number | null;
+	studyCoachEnabled?: boolean | null;
 }
 
 export class ConversationManager {
@@ -257,6 +262,19 @@ export class ConversationManager {
 			type: "connected",
 			sessionId: this.session.id,
 			scenario: scenarioInfo,
+			study:
+				this.session.studySource === "qualtrics_prolific"
+					? {
+							source: "qualtrics_prolific",
+							topic: this.session.studyTopic ?? "",
+							condition: this.session.studyCondition === 1 ? 1 : 0,
+							coachEnabled: this.isCoachEnabled(),
+							participantTurnCount: this.countParticipantTurns(),
+							softCapSeconds: 7 * 60,
+							hardStopSeconds: 8 * 60,
+							minParticipantTurns: 6,
+						}
+					: undefined,
 		});
 
 		const historyMessages: HistoryMessage[] = this.session.messages.map(
@@ -410,16 +428,18 @@ export class ConversationManager {
 		partnerMessage: string;
 		turnNumber: number;
 	}): Promise<void> {
-		const coachJob = this.generateCoachInsight(args).catch((error: unknown) => {
-			this.logger.warn(
-				{
-					sessionId: this.session.id,
-					turnNumber: args.turnNumber,
-					errorMsg: errorMessage(error),
-				},
-				"[coach] Isolated coach job failed",
-			);
-		});
+		const coachJob = this.isCoachEnabled()
+			? this.generateCoachInsight(args).catch((error: unknown) => {
+					this.logger.warn(
+						{
+							sessionId: this.session.id,
+							turnNumber: args.turnNumber,
+							errorMsg: errorMessage(error),
+						},
+						"[coach] Isolated coach job failed",
+					);
+				})
+			: Promise.resolve();
 		const lappJob = this.runLappScorer(
 			args.userMessageId,
 			args.userMessage,
@@ -438,6 +458,18 @@ export class ConversationManager {
 		});
 
 		await Promise.allSettled([coachJob, lappJob]);
+	}
+
+	private isCoachEnabled(): boolean {
+		return this.session.studySource === "qualtrics_prolific"
+			? this.session.studyCoachEnabled === true && this.session.studyCondition === 1
+			: true;
+	}
+
+	private countParticipantTurns(): number {
+		return this.session.messages.filter(
+			(m) => m.role === "user" && m.messageType !== "aside",
+		).length;
 	}
 
 	async handleResume(afterMessageId?: string | number): Promise<void> {
@@ -1292,6 +1324,15 @@ export class ConversationManager {
 	}
 
 	async handleAsideStart(threadId: string, question: string): Promise<void> {
+		if (!this.isCoachEnabled()) {
+			send(this.ws, {
+				type: "aside:error",
+				threadId,
+				error: "Coach is not available for this session.",
+			});
+			return;
+		}
+
 		if (this.isProcessing || this.activeAsideThreadId) {
 			send(this.ws, {
 				type: "aside:error",
