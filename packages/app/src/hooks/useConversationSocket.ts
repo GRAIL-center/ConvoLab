@@ -18,6 +18,17 @@ export interface ScenarioInfo {
 	partnerPersona: string;
 }
 
+export interface StudyInfo {
+	source: "qualtrics_prolific";
+	topic: string;
+	condition: 0 | 1;
+	coachEnabled: boolean;
+	participantTurnCount: number;
+	softCapSeconds: number;
+	hardStopSeconds: number;
+	minParticipantTurns: number;
+}
+
 export interface Message {
 	id: EntityId;
 	role: "user" | "partner" | "coach";
@@ -44,7 +55,12 @@ interface TokenUsage {
 }
 
 type ServerMessage =
-	| { type: "connected"; sessionId: EntityId; scenario: ScenarioInfo }
+	| {
+			type: "connected";
+			sessionId: EntityId;
+			scenario: ScenarioInfo;
+			study?: StudyInfo;
+	  }
 	| { type: "history"; messages: Message[] }
 	| {
 			type: "score:update";
@@ -115,6 +131,7 @@ export interface AsideError {
 interface UseConversationSocketResult {
 	status: ConnectionStatus;
 	scenario: ScenarioInfo | null;
+	study: StudyInfo | null;
 	messages: Message[];
 	sendMessage: (content: string) => void;
 	isStreaming: boolean;
@@ -141,6 +158,7 @@ export function useConversationSocket(
 ): UseConversationSocketResult {
 	const [status, setStatus] = useState<ConnectionStatus>("connecting");
 	const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
+	const [study, setStudy] = useState<StudyInfo | null>(null);
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [isStreaming, setIsStreaming] = useState(false);
 	const [streamingRole, setStreamingRole] = useState<
@@ -349,6 +367,7 @@ export function useConversationSocket(
 					case "connected":
 						reconnectAttemptsRef.current = 0;
 						setScenario(msg.scenario);
+						setStudy(msg.study ?? null);
 						break;
 
 					case "history": {
@@ -702,6 +721,7 @@ export function useConversationSocket(
 	return {
 		status,
 		scenario,
+		study,
 		messages,
 		sendMessage,
 		isStreaming,

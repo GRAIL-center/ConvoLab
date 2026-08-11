@@ -1,5 +1,7 @@
+import { useMutation } from '@tanstack/react-query';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTRPC } from '../api/trpc';
 import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel';
 import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
@@ -141,13 +143,19 @@ export function Conversation() {
 
 function ConversationContent({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
+  const trpc = useTRPC();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputMode, setInputMode] = useState<'partner' | 'coach'>('partner');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [fallbackSurveyUrl, setFallbackSurveyUrl] = useState<string | null>(null);
+  const [isPostSurveyMissing, setIsPostSurveyMissing] = useState(false);
 
   const {
     status,
     scenario,
+    study,
     messages,
     sendMessage,
     isStreaming,
@@ -159,11 +167,40 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     startAside,
   } = useConversationSocket(sessionId);
 
+  const finishMutation = useMutation({
+    ...trpc.study.finish.mutationOptions(),
+    onSuccess: (data) => {
+      setIsRedirecting(true);
+      if (data.postSurveyUrl) {
+        setFallbackSurveyUrl(data.postSurveyUrl);
+        window.location.assign(data.postSurveyUrl);
+      } else {
+        setIsPostSurveyMissing(true);
+      }
+    },
+  });
+
   // Auto-scroll main messages
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll, not consumed in body
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!study) return;
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [study]);
+
+  useEffect(() => {
+    if (!study || isRedirecting || finishMutation.isPending) return;
+    if (elapsedSeconds >= study.hardStopSeconds && !isStreaming) {
+      finishMutation.mutate({ sessionId, endType: 'hard_stop' });
+    }
+  }, [elapsedSeconds, finishMutation, isRedirecting, isStreaming, sessionId, study]);
 
   const handleSend = () => {
     if (!inputRef.current?.value.trim()) return;
@@ -171,7 +208,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     const content = inputRef.current.value.trim();
     if (inputMode === 'partner') {
       sendMessage(content);
-    } else {
+    } else if (study?.coachEnabled !== false) {
       startAside(content);
     }
     inputRef.current.value = '';
@@ -188,10 +225,43 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const coachMessages = messages.filter((m) => m.role === 'coach');
   const shortName = getShortName(scenario);
   const isQuotaExhausted = quota?.exhausted === true;
+  const coachEnabled = study?.coachEnabled !== false;
+  const isStudySession = study?.source === 'qualtrics_prolific';
+  const participantTurnCount = mainMessages.filter((m) => m.role === 'user').length;
+  const canFinishStudy = !study || participantTurnCount >= study.minParticipantTurns;
+  const showWrapSoon =
+    !!study &&
+    elapsedSeconds >= Math.max(0, study.softCapSeconds - 90) &&
+    elapsedSeconds < study.softCapSeconds;
+  const hardStopped = !!study && elapsedSeconds >= study.hardStopSeconds;
 
   const isInputDisabled =
-    (inputMode === 'partner' && (isStreaming || isQuotaExhausted)) ||
-    (inputMode === 'coach' && isAsideStreaming);
+    (inputMode === 'partner' && (isStreaming || isQuotaExhausted || hardStopped)) ||
+    (inputMode === 'coach' && (isAsideStreaming || !coachEnabled));
+
+  const handleFinish = (endType: 'participant_finish' | 'early_exit' | 'soft_cap' | 'hard_stop') => {
+    if (!isStudySession || finishMutation.isPending || isRedirecting) return;
+    finishMutation.mutate({ sessionId, endType });
+  };
+
+  if (isRedirecting) {
+    return (
+      <FullScreenMessage
+        title="Taking you to the final survey..."
+        message={
+          isPostSurveyMissing ? (
+            'The final survey link is not configured yet.'
+          ) : fallbackSurveyUrl ? (
+            <a className="underline" href={fallbackSurveyUrl}>
+              Click here if you are not redirected.
+            </a>
+          ) : (
+            'Preparing redirect.'
+          )
+        }
+      />
+    );
+  }
 
   // Loading state
   if (status === 'connecting' && !scenario) {
@@ -244,16 +314,18 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                          border-b border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
       >
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className="p-2 rounded-full transition-colors
+          {!isStudySession && (
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 rounded-full transition-colors
                        text-[#1A1A1A] dark:text-[#EBEBEB]
                        hover:bg-[rgba(212,232,229,0.4)]"
-            type="button"
-            aria-label="Go back"
-          >
-            <ArrowLeftIcon />
-          </button>
+              type="button"
+              aria-label="Go back"
+            >
+              <ArrowLeftIcon />
+            </button>
+          )}
           <div>
             <h1 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">
               {scenario?.name || 'Conversation'}
@@ -265,19 +337,50 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             )}
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          {isStudySession && (
+            <button
+              type="button"
+              onClick={() => handleFinish('early_exit')}
+              disabled={finishMutation.isPending}
+              className="rounded-full border border-[rgba(200,220,210,0.8)] px-4 py-2 text-sm font-medium text-[#4A4A4A] transition-colors hover:bg-[rgba(212,232,229,0.35)] disabled:opacity-50 dark:border-[rgba(255,255,255,0.12)] dark:text-[#A0A0A0]"
+            >
+              End conversation early
+            </button>
+          )}
+          <ThemeToggle />
+        </div>
       </header>
+
+      {isStudySession && (
+        <div className="border-b border-[rgba(200,220,210,0.5)] bg-white/80 px-4 py-2 text-center text-sm text-[#4A4A4A] dark:border-[rgba(255,255,255,0.07)] dark:bg-[rgba(30,30,30,0.9)] dark:text-[#A0A0A0]">
+          {showWrapSoon ? (
+            <span>Wrapping up soon. Finish your current thought when ready.</span>
+          ) : !canFinishStudy ? (
+            <span>
+              {Math.max(0, (study?.minParticipantTurns ?? 6) - participantTurnCount)} more replies
+              before the final survey is available.
+            </span>
+          ) : hardStopped ? (
+            <span>The conversation window has ended. Continue to the final survey.</span>
+          ) : (
+            <span>You can continue the conversation or move to the final survey.</span>
+          )}
+        </div>
+      )}
 
       {/* Main content - THREE COLUMN LAYOUT (desktop) */}
       <div className="flex flex-1 overflow-hidden">
         {/* FAR LEFT: LAPP Metrics Panel (xl+) */}
-        <div
-          className="hidden xl:flex xl:w-[190px] flex-col overflow-hidden flex-shrink-0
+        {coachEnabled && (
+          <div
+            className="hidden xl:flex xl:w-[190px] flex-col overflow-hidden flex-shrink-0
                         bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(28,28,28,0.95)]
                         border-r border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
-        >
-          <LappMetricsPanel lappScores={lappScores} />
-        </div>
+          >
+            <LappMetricsPanel lappScores={lappScores} />
+          </div>
+        )}
 
         {/* CENTER: Main conversation */}
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -300,9 +403,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                           bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(30,30,30,0.95)]
                           border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
           >
-            <div className="mx-auto max-w-4xl space-y-3">
+            <div className={`mx-auto space-y-3 ${coachEnabled ? 'max-w-4xl' : 'max-w-5xl'}`}>
               {/* Mode selection buttons */}
-              <div className="flex gap-3">
+              {coachEnabled && (
+                <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -338,7 +442,8 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   <LightbulbIcon />
                   Ask the Coach
                 </button>
-              </div>
+                </div>
+              )}
 
               {isQuotaExhausted && (
                 <p className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-sm text-[#991B1B] dark:border-[#7F1D1D] dark:bg-[rgba(127,29,29,0.25)] dark:text-[#FCA5A5]">
@@ -355,7 +460,9 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   placeholder={
                     isQuotaExhausted && inputMode === 'partner'
                       ? 'Token quota exhausted'
-                      : inputMode === 'partner'
+                      : hardStopped
+                      ? 'Conversation window ended'
+                      : inputMode === 'partner' || !coachEnabled
                       ? mainMessages.length > 0
                         ? `Reply to ${shortName}...`
                         : "What's on your mind?"
@@ -391,6 +498,20 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   ? 'Choose a larger quota when starting the next conversation.'
                   : 'Press Enter to send • Shift+Enter for new line'}
               </p>
+              {isStudySession && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleFinish(hardStopped ? 'hard_stop' : elapsedSeconds >= (study?.softCapSeconds ?? Infinity) ? 'soft_cap' : 'participant_finish')
+                    }
+                    disabled={!canFinishStudy || finishMutation.isPending || isStreaming}
+                    className="rounded-full bg-[#1A1A1A] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#EBEBEB] dark:text-[#1A1A1A] dark:hover:bg-white"
+                  >
+                    Continue to final survey
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -398,10 +519,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           <div className="md:hidden">
             <MobileMessageInput
               onSendPartner={(content) => sendMessage(content)}
-              onSendCoach={(content) => startAside(content)}
+              onSendCoach={(content) => {
+                if (coachEnabled) startAside(content);
+              }}
               partnerName={shortName}
-              disabled={isStreaming || isAsideStreaming || isQuotaExhausted}
+              disabled={isStreaming || isAsideStreaming || isQuotaExhausted || hardStopped}
               isInsightsOpen={false}
+              coachEnabled={coachEnabled}
               onToggleInsights={() => {}}
               onInputFocus={() => {}}
               onInputBlur={() => {}}
@@ -410,17 +534,19 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         </div>
 
         {/* RIGHT: Desktop Coach Panel */}
-        <div
-          className="hidden lg:block lg:w-[380px] xl:w-[400px] p-4 overflow-hidden
+        {coachEnabled && (
+          <div
+            className="hidden lg:block lg:w-[380px] xl:w-[400px] p-4 overflow-hidden
                         bg-[#F8F8F8] dark:bg-[#1A1A1A]
                         border-l border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
-        >
-          <DesktopCoachPanel
-            coachMessages={coachMessages}
-            asideMessages={asideMessages}
-            lappScores={lappScores}
-          />
-        </div>
+          >
+            <DesktopCoachPanel
+              coachMessages={coachMessages}
+              asideMessages={asideMessages}
+              lappScores={lappScores}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

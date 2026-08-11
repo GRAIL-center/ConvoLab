@@ -5,6 +5,7 @@ import { invitationRouter } from './routers/invitation.js';
 import { observationRouter } from './routers/observation.js';
 import { scenarioRouter } from './routers/scenario.js';
 import { sessionRouter } from './routers/session.js';
+import { studyRouter } from './routers/study.js';
 import { telemetryRouter } from './routers/telemetry.js';
 import { userRouter } from './routers/user.js';
 
@@ -15,6 +16,7 @@ export const appRouter = router({
   observation: observationRouter,
   scenario: scenarioRouter,
   session: sessionRouter,
+  study: studyRouter,
   telemetry: telemetryRouter,
   user: userRouter,
 });
