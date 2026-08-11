@@ -1,5 +1,6 @@
 import path from "node:path";
 import dotenv from "dotenv";
+import { assertSafeFirestoreTestTarget } from './firestoreProductionGuard.js';
 import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
 import type { PrismaClient } from '@workspace/database';
 import { FakeFirestore } from './fakeFirestore.js';
@@ -7,6 +8,8 @@ import { FakeFirestore } from './fakeFirestore.js';
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
+
+assertSafeFirestoreTestTarget();
 
 const fakeDb = new FakeFirestore();
 
