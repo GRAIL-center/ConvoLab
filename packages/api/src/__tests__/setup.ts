@@ -1,10 +1,12 @@
 import path from "node:path";
 import dotenv from "dotenv";
+import { assertSafeFirestoreTestTarget } from './firestoreProductionGuard.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
+assertSafeFirestoreTestTarget();
 
 import { afterAll, beforeAll, beforeEach } from 'vitest';
 
