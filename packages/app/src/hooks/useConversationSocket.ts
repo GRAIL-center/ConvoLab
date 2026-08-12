@@ -419,14 +419,32 @@ export function useConversationSocket(
 					}
 
 					case "partner:retry":
-						// Fallback triggered (e.g. Gemini quota → Claude): clear partial content
+						// Sent on a model fallback (e.g. Gemini quota → Claude) and before
+						// every backoff retry. Clear any partial reply so the retry's output
+						// isn't appended to the failed attempt's text.
 						partnerStreamingContentRef.current = "";
+						setIsStreaming(true);
+						setStreamingRole("partner");
 						setMessages((prev) => {
 							const last = prev[prev.length - 1];
 							if (last?.role === "partner" && last.isStreaming) {
 								return [...prev.slice(0, -1), { ...last, content: "" }];
 							}
-							return prev;
+							// No partner bubble yet — the request failed before producing any
+							// text, which is what a rate-limit 429 looks like. Open an empty
+							// streaming bubble so the typing dots carry the participant
+							// through the backoff; without it they watch a frozen screen and
+							// the silent retry reads as the app being broken.
+							return [
+								...prev,
+								{
+									id: -1,
+									role: "partner",
+									content: "",
+									timestamp: new Date().toISOString(),
+									isStreaming: true,
+								},
+							];
 						});
 						break;
 

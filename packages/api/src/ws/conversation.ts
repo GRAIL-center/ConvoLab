@@ -24,6 +24,7 @@ import { getInvitationQuotaStatus, type Quota } from "../lib/quota.js";
 import { TelemetryEvents, track } from "../lib/telemetry.js";
 import { streamCompletion } from "../llm/registry.js";
 import type { LLMMessage, TokenUsage } from "../llm/types.js";
+import { retryBackoffMs } from "../lib/retryBackoff.js";
 import { broadcast } from "./broadcaster.js";
 import { type HistoryMessage, type ScenarioInfo, send } from "./protocol.js";
 
@@ -571,6 +572,18 @@ export class ConversationManager {
 		);
 	}
 
+	/**
+	 * Tell the client to discard the current partial reply and go back to the
+	 * typing state, so a retry reads as the partner still thinking rather than
+	 * as a glitch. Deltas already sent are live in the participant's bubble,
+	 * so without this a retry appends its output to the failed attempt's text.
+	 */
+	private sendRetrySignal(role: "partner" | "coach"): void {
+		const type = role === "partner" ? "partner:retry" : "coach:retry";
+		send(this.ws, { type });
+		broadcast(this.session.id, { type });
+	}
+
 	private async tryStreamWithFallback(
 		role: "partner" | "coach",
 		modelString: string,
@@ -688,16 +701,26 @@ export class ConversationManager {
 							}
 							if (chunk.error.retryable && retries < maxRetries) {
 								retries++;
+								const delayMs = retryBackoffMs(retries);
 								this.logger.info(
 									{
 										sessionId: this.session.id,
 										role,
 										model: currentModel,
 										retries,
+										delayMs,
 									},
 									"[stream] Retryable error — retrying",
 								);
-								await sleep(1000 * retries);
+								// Retry silently rather than surfacing the failure: ending a
+								// session costs a participant (Hanna, 11 Aug). The retry signal
+								// resets the bubble the same way a model fallback does, which
+								// both discards partial text from the failed attempt (it would
+								// otherwise be prefixed to the retry's output) and leaves the
+								// bubble in its empty isStreaming state, so the participant sees
+								// typing dots through the backoff rather than a frozen screen.
+								this.sendRetrySignal(role);
+								await sleep(delayMs);
 								continue;
 							}
 							throw new Error(chunk.error.message);
@@ -756,9 +779,8 @@ export class ConversationManager {
 						);
 						if (retries < maxRetries) {
 							retries++;
-							send(this.ws, { type: "coach:retry" });
-							broadcast(this.session.id, { type: "coach:retry" });
-							await sleep(500 * retries);
+							this.sendRetrySignal(role);
+							await sleep(retryBackoffMs(retries));
 							continue;
 						}
 						return null;
@@ -844,7 +866,19 @@ export class ConversationManager {
 
 					if (retries < maxRetries) {
 						retries++;
-						await sleep(1000 * retries);
+						const delayMs = retryBackoffMs(retries);
+						this.logger.info(
+							{
+								sessionId: this.session.id,
+								role,
+								model: currentModel,
+								retries,
+								delayMs,
+							},
+							"[stream] Provider error — retrying",
+						);
+						this.sendRetrySignal(role);
+						await sleep(delayMs);
 						continue;
 					}
 
@@ -1581,3 +1615,4 @@ export class ConversationManager {
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
