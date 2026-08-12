@@ -100,6 +100,18 @@ When someone raises a specific consequence of a current event — energy prices,
 Do not reveal your reasoning or show drafts. Only give the final response.`;
 }
 
+// Quota sizing, measured 11 Aug 2026 against the real study config
+// (populist-right-male, claude-sonnet-5, 6 turns — the PAP conversation length):
+//
+//   after turn 1:   5,306 tokens        after turn 4:  29,223
+//   after turn 2:  16,875               after turn 5:  35,794
+//   after turn 3:  22,898               after turn 6:  42,710
+//
+// The partisan personas are ~5,000 tokens and are charged on EVERY turn, so a
+// full 6-turn conversation needs ~43,000 and a search-heavy one nears 48,000.
+// The old 25,000 default cut participants off around turn 4, i.e. the study
+// design could not complete. These are ceilings, not spend: the same
+// conversation costs ~$0.04 in tokens, so there is no reason to run them tight.
 const QUOTA_PRESETS = [
   {
     name: 'test-quota',
@@ -112,14 +124,14 @@ const QUOTA_PRESETS = [
     name: 'quick-chat',
     label: 'Quick chat',
     description: 'Brief exploration of a scenario',
-    quota: { tokens: 10000 },
+    quota: { tokens: 25000 },
     sortOrder: 0,
   },
   {
     name: 'short-conversation',
     label: 'Short conversation',
-    description: 'Standard conversation length',
-    quota: { tokens: 25000 },
+    description: 'Standard study conversation (6 turns, ~43k measured)',
+    quota: { tokens: 100000 },
     isDefault: true,
     sortOrder: 1,
   },
@@ -127,7 +139,7 @@ const QUOTA_PRESETS = [
     name: 'therapy-session',
     label: 'Therapy session',
     description: 'Extended deep-dive conversation',
-    quota: { tokens: 50000 },
+    quota: { tokens: 200000 },
     sortOrder: 2,
   },
 ];
@@ -825,7 +837,7 @@ export async function seedTestData(prisma: PrismaClient, options: SeedOptions = 
         token: 'dev-test-invitation-token-00000000000000000',
         label: 'Dev test invitation',
         scenarioId: firstScenario.id,
-        quota: { tokens: 25000, label: 'Short conversation' },
+        quota: { tokens: 100000, label: 'Short conversation' },
         expiresAt,
         createdById: adminUser.id,
       },
