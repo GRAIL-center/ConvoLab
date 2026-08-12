@@ -38,6 +38,18 @@ const DEFAULT_SCORER_MODEL =
 	process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
 // claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
 const FALLBACK_PARTNER_MODEL = "claude-sonnet-5";
+// Emergency partner lane. Note FALLBACK_PARTNER_MODEL is now identical to
+// DEFAULT_PARTNER_MODEL, so it is a no-op for the pinned-Claude study partner:
+// once Sonnet has exhausted its retries there is nothing left to fall back to
+// and the turn fails. Drop to a different Claude model instead. Staying inside
+// the Claude family is the point — a Gemini partner mid-conversation would be a
+// different interlocutor in the middle of a study session (Hanna, 11 Aug).
+const EMERGENCY_PARTNER_MODEL = "claude-haiku-4-5";
+// Model switches per turn (initial model + one fallback). Falling out of this
+// loop returns null WITHOUT sending an error, so a switch must never be taken
+// on the final attempt — there would be no attempt left to run it on and the
+// participant would sit on the typing indicator forever.
+const MAX_STREAM_ATTEMPTS = 2;
 const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;
 // LAPP scorer instrument version — stored on every score row for reproducibility/
@@ -131,6 +143,28 @@ function hasAnthropicProvider(): boolean {
 function isAnthropicModel(modelString: string): boolean {
 	return (
 		modelString.startsWith("anthropic:") || modelString.startsWith("claude")
+	);
+}
+
+/**
+ * Whether a partner turn that has run out of retries should be retried once
+ * more on the emergency Claude model rather than surfacing an error. Coach
+ * turns are excluded: a missing coach note degrades the session, a missing
+ * partner reply ends it.
+ */
+function shouldEmergencyFallback(
+	role: "partner" | "coach",
+	currentModel: string,
+	alreadyUsed: boolean,
+	attempt: number,
+): boolean {
+	return (
+		role === "partner" &&
+		!alreadyUsed &&
+		attempt < MAX_STREAM_ATTEMPTS - 1 &&
+		hasAnthropicProvider() &&
+		isAnthropicModel(currentModel) &&
+		!currentModel.includes(EMERGENCY_PARTNER_MODEL)
 	);
 }
 
@@ -599,8 +633,9 @@ export class ConversationManager {
 			modelString.startsWith("google:") || modelString.includes("gemini");
 		let currentModel = modelString;
 		let usedFallback = false;
+		let usedEmergencyFallback = false;
 
-		for (let attempt = 0; attempt < 2; attempt++) {
+		for (let attempt = 0; attempt < MAX_STREAM_ATTEMPTS; attempt++) {
 			// On fallback attempt, signal frontend to clear partial content from first attempt
 			if (attempt === 1 && role === "partner") {
 				send(this.ws, { type: "partner:retry" });
@@ -722,6 +757,30 @@ export class ConversationManager {
 								this.sendRetrySignal(role);
 								await sleep(delayMs);
 								continue;
+							}
+							if (
+								shouldEmergencyFallback(
+									role,
+									currentModel,
+									usedEmergencyFallback,
+									attempt,
+								)
+							) {
+								this.logger.warn(
+									{
+										sessionId: this.session.id,
+										role,
+										failedModel: currentModel,
+										emergencyModel: EMERGENCY_PARTNER_MODEL,
+										errorCode: chunk.error.code,
+									},
+									"[stream] Partner model exhausted retries — switching to emergency Claude model",
+								);
+								currentModel = EMERGENCY_PARTNER_MODEL;
+								useWebSearch = false;
+								usedEmergencyFallback = true;
+								this.sendRetrySignal(role);
+								break;
 							}
 							throw new Error(chunk.error.message);
 						}
@@ -880,6 +939,31 @@ export class ConversationManager {
 						this.sendRetrySignal(role);
 						await sleep(delayMs);
 						continue;
+					}
+
+					if (
+						shouldEmergencyFallback(
+							role,
+							currentModel,
+							usedEmergencyFallback,
+							attempt,
+						)
+					) {
+						this.logger.warn(
+							{
+								sessionId: this.session.id,
+								role,
+								failedModel: currentModel,
+								emergencyModel: EMERGENCY_PARTNER_MODEL,
+								errorMsg,
+							},
+							"[stream] Partner model exhausted retries — switching to emergency Claude model",
+						);
+						currentModel = EMERGENCY_PARTNER_MODEL;
+						useWebSearch = false;
+						usedEmergencyFallback = true;
+						this.sendRetrySignal(role);
+						break;
 					}
 
 					// Fixed the incorrect object literal syntax here (TS2353)
