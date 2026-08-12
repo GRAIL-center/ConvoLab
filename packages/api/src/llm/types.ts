@@ -41,8 +41,18 @@ export interface StreamChunk {
 }
 
 export interface TokenUsage {
+  /**
+   * Total prompt tokens, including any served from or written to the prompt
+   * cache. Quota accounting (lib/quota.ts) sums input+output, so this stays a
+   * whole-prompt figure rather than the provider's uncached remainder —
+   * enabling caching must not silently widen a participant's token quota.
+   */
   inputTokens: number;
   outputTokens: number;
+  /** Prompt tokens served from cache this request (billed at ~0.1x). */
+  cacheReadInputTokens?: number;
+  /** Prompt tokens written to cache this request (billed at ~1.25x). */
+  cacheCreationInputTokens?: number;
 }
 
 export interface StreamError {

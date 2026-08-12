@@ -641,6 +641,13 @@ export class ConversationManager {
 									model: currentModel,
 									inputTokens: chunk.usage.inputTokens,
 									outputTokens: chunk.usage.outputTokens,
+									// Verifies prompt caching is live: on an Anthropic lane
+									// these should be 0 on the first turn (a write) and then
+									// roughly the persona size on every later turn. Staying 0
+									// past turn 1 means something is invalidating the prefix.
+									cacheReadInputTokens: chunk.usage.cacheReadInputTokens,
+									cacheCreationInputTokens:
+										chunk.usage.cacheCreationInputTokens,
 									contentLength: fullContent.length,
 								},
 								"[stream] LLM stream done",

@@ -23,9 +23,27 @@ export const anthropicProvider: LLMProvider = {
         ? [{ type: 'web_search_20250305' as const, name: 'web_search' as const }]
         : undefined;
 
+      // Cache the persona system prompt. It is built once per (scenario, role)
+      // from static scenario fields (conversation.ts buildSystemPrompt), so it
+      // is byte-identical on every turn of a conversation — the prefix-match
+      // requirement for caching. Caching does not change model output, so this
+      // is study-safe; it cuts cost and, more importantly, the per-turn input
+      // token count that drives 429s on the pinned-Claude partner.
+      //
+      // Prompts under the model's minimum cacheable prefix (1024 tokens for
+      // claude-sonnet-5) silently do not cache — no error, and cache_*_tokens
+      // stay 0. The partisan study personas are ~4.3-4.8k tokens so they
+      // cache; angry-uncle-thanksgiving and difficult-coworker are far below
+      // the floor and will not.
       const stream = getClient().messages.stream({
         model: params.model,
-        system: params.systemPrompt,
+        system: [
+          {
+            type: 'text',
+            text: params.systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         messages: params.messages.map((m) => ({
           role: m.role,
           content: m.content.trim(), // Trim to avoid "trailing whitespace" error
@@ -64,11 +82,19 @@ export const anthropicProvider: LLMProvider = {
       }
 
       const final = await stream.finalMessage();
+      // input_tokens is only the UNCACHED remainder — the three fields are
+      // disjoint and the whole prompt is their sum. Report the sum so quota
+      // accounting is unchanged by caching, and surface the cache fields
+      // separately so a hit rate can actually be verified.
+      const cacheRead = final.usage.cache_read_input_tokens ?? 0;
+      const cacheCreation = final.usage.cache_creation_input_tokens ?? 0;
       yield {
         type: 'done',
         usage: {
-          inputTokens: final.usage.input_tokens,
+          inputTokens: final.usage.input_tokens + cacheRead + cacheCreation,
           outputTokens: final.usage.output_tokens,
+          cacheReadInputTokens: cacheRead,
+          cacheCreationInputTokens: cacheCreation,
         },
       };
     } catch (error) {
