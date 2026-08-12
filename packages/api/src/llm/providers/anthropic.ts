@@ -14,14 +14,51 @@ function getClient(): Anthropic {
   return anthropic;
 }
 
+/**
+ * Models that support the 2026 web-search tool. Everything else — notably
+ * claude-haiku-4-5, the emergency partner lane — must get the basic 2025
+ * variant or the request is rejected.
+ */
+const DYNAMIC_SEARCH_MODELS = [
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
+];
+
+/**
+ * Pick the best web-search tool the model supports.
+ *
+ * `web_search_20260209` filters results before they reach the context window,
+ * where `web_search_20250305` dumps them in whole. That matters far more for
+ * quota than for cost: search results are billed as input, so a search turn
+ * measured 29,836 input tokens against ~5,000 for an ordinary turn, and
+ * invitation quotas are only 25,000. The 2026 tool cut the same question to
+ * 23,247 (22% less), verified against the API on claude-sonnet-5.
+ *
+ * SDK 0.71.2 only types the 2025 variant, so the newer type is cast past the
+ * type system. That is safe because the wire call was verified to be accepted,
+ * but it means a typo here fails at runtime rather than at compile time —
+ * hence the explicit model allowlist rather than a looser check.
+ */
+export function webSearchTool(model: string) {
+  const supportsDynamicFiltering = DYNAMIC_SEARCH_MODELS.some((m) => model.includes(m));
+  return supportsDynamicFiltering
+    ? ({ type: 'web_search_20260209', name: 'web_search' } as unknown as {
+        type: 'web_search_20250305';
+        name: 'web_search';
+      })
+    : ({ type: 'web_search_20250305', name: 'web_search' } as const);
+}
+
 export const anthropicProvider: LLMProvider = {
   id: 'anthropic',
 
   async *streamCompletion(params: StreamParams): AsyncIterable<StreamChunk> {
     try {
-      const tools = params.useWebSearch
-        ? [{ type: 'web_search_20250305' as const, name: 'web_search' as const }]
-        : undefined;
+      const tools = params.useWebSearch ? [webSearchTool(params.model)] : undefined;
 
       // Cache the persona system prompt. It is built once per (scenario, role)
       // from static scenario fields (conversation.ts buildSystemPrompt), so it
