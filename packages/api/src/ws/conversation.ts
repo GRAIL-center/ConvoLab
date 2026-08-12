@@ -195,8 +195,11 @@ function looksLikeCurrentFactQuestion(content: string): boolean {
 	);
 }
 
-// Added missing fields to the interface to resolve TS2339 and TS2551
-interface SessionWithScenario extends ConversationSession {
+// Added missing fields to the interface to resolve TS2339 and TS2551.
+// `id` is widened because Firestore returns string document ids while the
+// Prisma-derived ConversationSession still types it as number, so the base
+// field is omitted rather than re-declared (a plain override is a TS2430).
+interface SessionWithScenario extends Omit<ConversationSession, "id"> {
 	id: string | number;
 	scenario: Scenario | null;
 	invitation: Invitation | null;
