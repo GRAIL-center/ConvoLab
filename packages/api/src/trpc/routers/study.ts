@@ -22,7 +22,8 @@ const STUDY_PARAM_CONTRACT = {
 	topic: "Exact topic label from Qualtrics",
 	condition: "0 = control, 1 = coaching treatment",
 	partner: "0 = male partner, 1 = female partner",
-	party: "Participant party/ideology from Qualtrics; app maps to opposite partner ideology",
+	party: "Participant party stratum from Qualtrics; D, R, or I",
+	ideology: "Assigned partner ideology from Qualtrics; 0 = liberal-leaning partner, 1 = conservative-leaning partner",
 	rid: "Qualtrics pre-survey ResponseID",
 	owntopic: "Free text when topic is Pick your own topic",
 } as const;
@@ -36,6 +37,7 @@ const enterInput = z.object({
 	topic: z.enum(STUDY_TOPICS),
 	condition: z.union([z.literal("0"), z.literal("1"), z.number().int().min(0).max(1)]),
 	partner: z.union([z.literal("0"), z.literal("1"), z.number().int().min(0).max(1)]),
+	ideology: z.union([z.literal("0"), z.literal("1"), z.number().int().min(0).max(1)]),
 	party: z.string().trim().max(256).optional(),
 	rid: z.string().trim().max(256).optional(),
 	owntopic: z.string().trim().max(500).optional(),
@@ -50,50 +52,24 @@ function parseBinary(value: "0" | "1" | number): 0 | 1 {
 	return Number(value) === 1 ? 1 : 0;
 }
 
-function normalizePartySide(party: string | undefined): "left" | "right" | "independent" {
+function normalizePartySide(party: string | undefined): "left" | "right" | "independent" | "unknown" {
 	const value = (party ?? "").toLowerCase();
 
-	if (
-		value.includes("democrat") ||
-		value.includes("left") ||
-		value.includes("liberal") ||
-		value.includes("progressive")
-	) {
+	if (value === "d" || value.includes("democrat") || value.includes("left") || value.includes("liberal") || value.includes("progressive")) {
 		return "left";
 	}
 
-	if (
-		value.includes("republican") ||
-		value.includes("right") ||
-		value.includes("conservative") ||
-		value.includes("maga")
-	) {
+	if (value === "r" || value.includes("republican") || value.includes("right") || value.includes("conservative") || value.includes("maga")) {
 		return "right";
 	}
 
-	return "independent";
+	if (value === "i" || value.includes("independent")) return "independent";
+
+	return "unknown";
 }
 
-function assignPartnerIdeology(pid: string, party: string | undefined): {
-	participantIdeology: "left" | "right" | "independent";
-	partnerIdeology: PartnerIdeology;
-	randomized: boolean;
-} {
-	const participantIdeology = normalizePartySide(party);
-	if (participantIdeology === "left") {
-		return { participantIdeology, partnerIdeology: "right", randomized: false };
-	}
-	if (participantIdeology === "right") {
-		return { participantIdeology, partnerIdeology: "left", randomized: false };
-	}
-
-	// Deterministic by pid so re-entry cannot flip assignment before a row exists.
-	const codeSum = [...pid].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-	return {
-		participantIdeology,
-		partnerIdeology: codeSum % 2 === 0 ? "left" : "right",
-		randomized: true,
-	};
+function partnerIdeologyFromCode(value: "0" | "1" | number): PartnerIdeology {
+	return parseBinary(value) === 0 ? "left" : "right";
 }
 
 function scenarioSlug(ideology: PartnerIdeology, gender: PartnerGender): string {
@@ -144,10 +120,9 @@ export const studyRouter = router({
 		const condition = parseBinary(input.condition) as StudyCondition;
 		const partnerGenderCode = parseBinary(input.partner);
 		const partnerGender: PartnerGender = partnerGenderCode === 1 ? "female" : "male";
-		const { participantIdeology, partnerIdeology, randomized } = assignPartnerIdeology(
-			input.pid,
-			input.party,
-		);
+		const partnerIdeologyCode = parseBinary(input.ideology);
+		const partnerIdeology = partnerIdeologyFromCode(input.ideology);
+		const participantIdeology = normalizePartySide(input.party);
 
 		const existingSession = await ctx.prisma.conversationSession.findFirst({
 			where: { prolificPid: input.pid, studySource: "qualtrics_prolific" },
@@ -164,6 +139,7 @@ export const studyRouter = router({
 				condition,
 				partnerIdeology: existingSession.studyPartnerIdeology ?? partnerIdeology,
 				participantIdeology: existingSession.studyParticipantIdeology ?? participantIdeology,
+				partnerIdeologyCode: existingSession.studyPartnerIdeologyCode ?? partnerIdeologyCode,
 				topic: existingSession.studyTopic ?? input.topic,
 				ownTopic: existingSession.studyOwnTopic ?? input.owntopic,
 				partnerName: existingSession.customPartnerPersona ?? "Your AI partner",
@@ -214,7 +190,7 @@ export const studyRouter = router({
 			studyParticipantParty: input.party,
 			studyParticipantIdeology: participantIdeology,
 			studyPartnerIdeology: partnerIdeology,
-			studyPartnerIdeologyRandomized: randomized,
+			studyPartnerIdeologyCode: partnerIdeologyCode,
 			studyEnteredAt: new Date(),
 			studyEndType: null,
 			participantTurnCount: 0,
@@ -230,7 +206,7 @@ export const studyRouter = router({
 				partnerGender,
 				participantIdeology,
 				partnerIdeology,
-				partnerIdeologyRandomized: randomized,
+				partnerIdeologyCode,
 			},
 			{ userId, sessionId },
 		);
@@ -241,6 +217,7 @@ export const studyRouter = router({
 			condition,
 			partnerIdeology,
 			participantIdeology,
+			partnerIdeologyCode,
 			topic: input.topic,
 			ownTopic: input.owntopic,
 			partnerName: scenario.partnerPersona,
