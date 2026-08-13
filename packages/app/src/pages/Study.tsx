@@ -88,6 +88,7 @@ export function Study() {
     const topic = searchParams.get('topic')?.trim() ?? '';
     const condition = searchParams.get('condition')?.trim() ?? '';
     const partner = searchParams.get('partner')?.trim() ?? '';
+    const ideology = searchParams.get('ideology')?.trim() ?? '';
     const party = searchParams.get('party')?.trim() || undefined;
     const rid = searchParams.get('rid')?.trim() || undefined;
     const owntopic = searchParams.get('owntopic')?.trim() || undefined;
@@ -100,10 +101,13 @@ export function Study() {
     if (!isBinaryParam(partner)) {
       return { ok: false as const, error: 'Missing or invalid partner assignment.' };
     }
+    if (!isBinaryParam(ideology)) {
+      return { ok: false as const, error: 'Missing or invalid partner ideology assignment.' };
+    }
 
     return {
       ok: true as const,
-      input: { pid, topic, condition, partner, party, rid, owntopic },
+      input: { pid, topic, condition, partner, ideology, party, rid, owntopic },
     };
   }, [searchParams]);
 
