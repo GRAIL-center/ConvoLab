@@ -42,6 +42,7 @@ services:
       HOST: 0.0.0.0
       NODE_ENV: development
       FRONTEND_URL: http://localhost:5173
+      POST_SURVEY_URL: ${POST_SURVEY_URL}
       SESSION_KEY: ${SESSION_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}

@@ -105,7 +105,7 @@ export function InvitationDetail() {
       <div className="border-b border-gray-200 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <Link to="/research/invitations" className="text-sm text-indigo-600 hover:underline">
+            <Link to="/admin/invitations" className="text-sm text-indigo-600 hover:underline">
               &larr; Back to Invitations
             </Link>
             <h1 className="mt-1 text-xl font-semibold text-gray-900">
@@ -129,7 +129,7 @@ export function InvitationDetail() {
           {/* Watch Live button */}
           {hasActiveSession && (
             <Link
-              to={`/research/invitations/${invitationId}/observe`}
+              to={`/admin/invitations/${invitationId}/observe`}
               className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
             >
               <span className="relative flex h-2 w-2">

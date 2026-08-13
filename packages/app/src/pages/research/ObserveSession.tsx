@@ -64,7 +64,7 @@ export function ObserveSession() {
       <div className="flex h-full flex-col items-center justify-center">
         <div className="text-gray-500">No active session</div>
         <Link
-          to={`/research/invitations/${invitationId}`}
+          to={`/admin/invitations/${invitationId}`}
           className="mt-4 text-indigo-600 hover:underline"
         >
           &larr; Back to invitation
@@ -83,7 +83,7 @@ export function ObserveSession() {
         <div className="flex items-center justify-between">
           <div>
             <Link
-              to={`/research/invitations/${invitationId}`}
+              to={`/admin/invitations/${invitationId}`}
               className="text-sm text-indigo-600 hover:underline"
             >
               &larr; Back to invitation

@@ -207,7 +207,7 @@ export function InvitationList() {
             {invitationList.map((inv) => (
               <Link
                 key={inv.id}
-                to={`/research/invitations/${inv.id}`}
+                to={`/admin/invitations/${inv.id}`}
                 className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50"
               >
                 <div className="flex-shrink-0 rounded border border-gray-200 p-1">

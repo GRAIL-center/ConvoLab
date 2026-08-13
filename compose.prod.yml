@@ -17,6 +17,7 @@ services:
       HOST: 0.0.0.0
       NODE_ENV: production
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env.prod}
+      POST_SURVEY_URL: ${POST_SURVEY_URL:?Set POST_SURVEY_URL in .env.prod}
       SESSION_KEY: ${SESSION_KEY:?Set SESSION_KEY in .env.prod}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
