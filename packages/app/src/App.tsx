@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import type { AppRouter } from './api/trpc';
 import { TRPCProvider } from './api/trpc';
 import { FeedbackButton } from './components/FeedbackButton';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import { AdminLayout } from './layouts/AdminLayout';
-import { ResearchLayout } from './layouts/ResearchLayout';
 import { Feedback } from './pages/admin/Feedback';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
@@ -63,6 +62,16 @@ function getTRPCClient() {
 
 const siteBanner = import.meta.env.VITE_SITE_BANNER as string | undefined;
 
+function ResearchInvitationRedirect() {
+  const { invitationId } = useParams<{ invitationId: string }>();
+  return <Navigate to={`/admin/invitations/${invitationId}`} replace />;
+}
+
+function ResearchObserveRedirect() {
+  const { invitationId } = useParams<{ invitationId: string }>();
+  return <Navigate to={`/admin/invitations/${invitationId}/observe`} replace />;
+}
+
 export function App() {
   const queryClient = getQueryClient();
   const trpcClient = getTRPCClient();
@@ -80,17 +89,21 @@ export function App() {
               <Route index element={<Navigate to="users" replace />} />
               <Route path="users" element={<UserList />} />
               <Route path="users/:id" element={<UserDetail />} />
+              <Route path="invitations" element={<InvitationList />} />
+              <Route path="invitations/:invitationId" element={<InvitationDetail />} />
+              <Route path="invitations/:invitationId/observe" element={<ObserveSession />} />
               <Route path="telemetry" element={<Telemetry />} />
               <Route path="feedback" element={<Feedback />} />
             </Route>
 
-            {/* Research area with sidebar layout */}
-            <Route path="/research" element={<ResearchLayout />}>
-              <Route index element={<Navigate to="invitations" replace />} />
-              <Route path="invitations" element={<InvitationList />} />
-              <Route path="invitations/:invitationId" element={<InvitationDetail />} />
-              <Route path="invitations/:invitationId/observe" element={<ObserveSession />} />
-            </Route>
+            {/* Backward-compatible redirects for old research URLs */}
+            <Route path="/research" element={<Navigate to="/admin/invitations" replace />} />
+            <Route path="/research/invitations" element={<Navigate to="/admin/invitations" replace />} />
+            <Route path="/research/invitations/:invitationId" element={<ResearchInvitationRedirect />} />
+            <Route
+              path="/research/invitations/:invitationId/observe"
+              element={<ResearchObserveRedirect />}
+            />
 
             {/* Standard layout with header */}
             <Route

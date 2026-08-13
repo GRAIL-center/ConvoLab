@@ -162,23 +162,6 @@ export function UserMenu() {
                         </div>
                       </Link>
 
-                      {(user.role === 'ADMIN' || user.role === 'STAFF') && (
-                        <Link
-                          to="/research"
-                          onClick={() => setIsOpen(false)}
-                          className="mt-2 block rounded-lg border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]
-                                     p-3 hover:bg-[rgba(130,167,161,0.08)] dark:hover:bg-[rgba(212,232,229,0.05)]
-                                     transition-colors"
-                        >
-                          <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">
-                            Research
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-[#A0A0A0]">
-                            invitations, sessions
-                          </div>
-                        </Link>
-                      )}
-
                       {user.role === 'ADMIN' && (
                         <Link
                           to="/admin"
@@ -189,7 +172,7 @@ export function UserMenu() {
                         >
                           <div className="font-medium text-gray-900 dark:text-[#EBEBEB]">Admin</div>
                           <div className="text-xs text-gray-500 dark:text-[#A0A0A0]">
-                            users, telemetry
+                            users, invitations, feedback
                           </div>
                         </Link>
                       )}
