@@ -147,6 +147,7 @@ STUDY_FIELDS = {
     "studyParticipantParty": "participant_party",
     "studyParticipantIdeology": "participant_ideology",
     "studyPartnerIdeology": "partner_ideology",
+    "studyPartnerIdeologyCode": "partner_ideology_code",
     "studyPartnerIdeologyRandomized": "partner_ideology_randomized",
     "studyPartnerGender": "partner_gender",
     "studyPartnerGenderCode": "partner_gender_code",
