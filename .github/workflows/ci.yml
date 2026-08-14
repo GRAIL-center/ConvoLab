@@ -77,3 +77,28 @@ jobs:
 
       - name: Run Firestore atomicity tests
         run: pnpm -F @workspace/api exec vitest run --config vitest.atomic.config.ts
+
+  functions:
+    name: Cloud Functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint
+        working-directory: functions
+        run: npm run lint
+
+      - name: Test
+        working-directory: functions
+        run: npm test

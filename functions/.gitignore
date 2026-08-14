@@ -1,2 +1,9 @@
 node_modules/
 *.local
+
+# QUALTRICS_WEBHOOK_SECRET lives here for local dev / emulator use. Firebase
+# CLI loads .env / .env.<project-id> into process.env at deploy and runtime
+# automatically -- never commit the real value. See .env.example.
+.env
+.env.*
+!.env.example
