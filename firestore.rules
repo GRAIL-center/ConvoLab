@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Verified 13 Aug 2026 via the Firebase Rules API (projects/convolab-490517
+// /rulesets and /releases both returned {}): this project has NEVER had a
+// Firestore ruleset, in the console or anywhere else. Not "rules exist and
+// live only in the console" as prior notes assumed -- there is no ruleset at
+// all. This file is the first one.
+//
+// This is NOT currently a live vulnerability. Every Firestore access in this
+// app goes through packages/api using @google-cloud/firestore with a service
+// account (Application Default Credentials / IAM), which is Admin-SDK-style
+// access and BYPASSES these rules entirely by design -- rules only govern
+// client SDKs (firebase/firestore) authenticating as an end user. Confirmed
+// the frontend (packages/app, packages/landing) has zero "firebase/firestore"
+// or "firebase/app" imports and "firebase" is not a dependency of either.
+//
+// So today, deploying this file changes nothing observable: no code path
+// currently relies on rules-governed access. What it does is close the gap
+// for the future -- if anyone ever adds client-side Firebase SDK access (a
+// quick prototype, an admin tool, a mobile app), they hit a database with an
+// explicit, reviewed, deny-by-default policy instead of an undocumented void
+// whose actual behavior nobody has tested. Update this file deliberately
+// when that day comes; don't just add a client SDK and hope.
+//
+// NOT deployed by writing this file. Requires:
+//   firebase deploy --only firestore:rules
+// which is a live change to production security config and should be a
+// deliberate decision, not something to run reflexively.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

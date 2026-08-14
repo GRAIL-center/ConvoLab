@@ -12,4 +12,4 @@ RUN npm install -g firebase-tools@15.26.0
 
 WORKDIR /workspace
 
-COPY firebase.json firestore.indexes.json ./
+COPY firebase.json firestore.indexes.json firestore.rules ./
