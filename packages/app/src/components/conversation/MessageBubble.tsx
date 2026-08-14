@@ -10,6 +10,32 @@ const TONE_BORDER: Record<NonNullable<MessageTone>, string> = {
   tense: 'border-[rgba(234,88,12,0.7)] dark:border-[rgba(200,100,40,0.6)]',
 };
 
+const TONE_LABEL_STYLE: Record<
+  NonNullable<MessageTone>,
+  { dot: string; text: string; label: string }
+> = {
+  constructive: {
+    dot: 'bg-[#5fcf91]',
+    text: 'text-[#5fcf91]',
+    label: 'Constructive',
+  },
+  warm: {
+    dot: 'bg-[#6aa7e8]',
+    text: 'text-[#6aa7e8]',
+    label: 'Warm',
+  },
+  neutral: {
+    dot: 'bg-[#b9bbb5]',
+    text: 'text-[#b9bbb5]',
+    label: 'Neutral',
+  },
+  tense: {
+    dot: 'bg-[#f0ad5d]',
+    text: 'text-[#f0ad5d]',
+    label: 'Tense',
+  },
+};
+
 interface MessageBubbleProps {
   message: Message;
   partnerName?: string;
@@ -24,15 +50,25 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
   // User message - right-aligned, gray, tone-colored border
   if (isUser) {
     const borderClass = tone ? TONE_BORDER[tone] : TONE_BORDER.neutral;
+    const toneStyle = tone ? TONE_LABEL_STYLE[tone] : null;
     return (
-      <div className="flex justify-end mb-4">
-        <div
-          className={`max-w-[75%] rounded-xl rounded-tr-sm px-5 py-3.5
+      <div className="mb-4 flex justify-end">
+        <div className="flex max-w-[75%] flex-col items-end">
+          {toneStyle && (
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c877d] dark:text-[#8f8a82]">
+              <span className={`h-2 w-2 rounded-full ${toneStyle.dot}`} />
+              <span>You</span>
+              <span className={toneStyle.text}>{toneStyle.label}</span>
+            </div>
+          )}
+          <div
+            className={`rounded-xl rounded-tr-sm px-5 py-3.5
                         bg-[rgba(230,230,230,1)] dark:bg-[rgba(60,60,60,0.8)]
                         text-[#1A1A1A] dark:text-[#EBEBEB]
                         border ${borderClass}`}
-        >
-          <div className="text-base leading-relaxed whitespace-pre-wrap">{message.content}</div>
+          >
+            <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
+          </div>
         </div>
       </div>
     );

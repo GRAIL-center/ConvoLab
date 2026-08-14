@@ -74,6 +74,7 @@ export function App() {
           <Routes>
             {/* Full-screen conversation page (no main header) */}
             <Route path="/conversation/:sessionId" element={<Conversation />} />
+            <Route path="/study" element={<Study />} />
 
             {/* Admin area with sidebar layout */}
             <Route path="/admin" element={<AdminLayout />}>
@@ -135,7 +136,6 @@ export function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/invite/:token" element={<Invite />} />
-                      <Route path="/study" element={<Study />} />
                     </Routes>
                   </main>
                   <FeedbackButton />

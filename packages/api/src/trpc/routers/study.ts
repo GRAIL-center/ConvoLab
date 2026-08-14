@@ -125,7 +125,12 @@ export const studyRouter = router({
 		const participantIdeology = normalizePartySide(input.party);
 
 		const existingSession = await ctx.prisma.conversationSession.findFirst({
-			where: { prolificPid: input.pid, studySource: "qualtrics_prolific" },
+			where: {
+				prolificPid: input.pid,
+				studySource: "qualtrics_prolific",
+				status: "ACTIVE",
+				endedAt: null,
+			},
 			orderBy: { startedAt: "desc" },
 		});
 

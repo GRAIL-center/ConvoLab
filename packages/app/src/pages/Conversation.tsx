@@ -1,5 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel';
@@ -21,42 +28,6 @@ const ArrowLeftIcon = () => (
     aria-hidden="true"
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-  </svg>
-);
-
-const MessageSquareIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className="w-4 h-4"
-    aria-hidden="true"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
-    />
-  </svg>
-);
-
-const LightbulbIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className="w-4 h-4"
-    aria-hidden="true"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
-    />
   </svg>
 );
 
@@ -145,8 +116,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const trpc = useTRPC();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const coachInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [inputMode, setInputMode] = useState<'partner' | 'coach'>('partner');
+  const [partnerDraft, setPartnerDraft] = useState('');
+  const [coachDraft, setCoachDraft] = useState('');
+  const [hasActivatedRails, setHasActivatedRails] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [fallbackSurveyUrl, setFallbackSurveyUrl] = useState<string | null>(null);
@@ -202,27 +176,50 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     }
   }, [elapsedSeconds, finishMutation, isRedirecting, isStreaming, sessionId, study]);
 
-  const handleSend = () => {
-    if (!inputRef.current?.value.trim()) return;
-
-    const content = inputRef.current.value.trim();
-    if (inputMode === 'partner') {
-      sendMessage(content);
-    } else if (study?.coachEnabled !== false) {
-      startAside(content);
+  const activateRails = (value: string) => {
+    if (!hasActivatedRails && value.trim().length > 0) {
+      setHasActivatedRails(true);
     }
-    inputRef.current.value = '';
+  };
+
+  const handlePartnerDraftChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setPartnerDraft(value);
+    activateRails(value);
+  };
+
+  const handleSendPartner = () => {
+    const content = partnerDraft.trim();
+    if (!content || isInputDisabled) return;
+    activateRails(content);
+    sendMessage(content);
+    setPartnerDraft('');
+  };
+
+  const handleSendCoach = () => {
+    const content = coachDraft.trim();
+    if (!content || isAsideStreaming || !coachEnabled) return;
+    startAside(content);
+    setCoachDraft('');
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSendPartner();
+    }
+  };
+
+  const handleCoachKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendCoach();
     }
   };
 
   const mainMessages = messages.filter((m) => m.role !== 'coach');
   const coachMessages = messages.filter((m) => m.role === 'coach');
+  const railsVisible = hasActivatedRails || mainMessages.length > 0;
   const shortName = getShortName(scenario);
   const isQuotaExhausted = quota?.exhausted === true;
   const coachEnabled = study?.coachEnabled !== false;
@@ -235,11 +232,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     elapsedSeconds < study.softCapSeconds;
   const hardStopped = !!study && elapsedSeconds >= study.hardStopSeconds;
 
-  const isInputDisabled =
-    (inputMode === 'partner' && (isStreaming || isQuotaExhausted || hardStopped)) ||
-    (inputMode === 'coach' && (isAsideStreaming || !coachEnabled));
+  const isInputDisabled = isStreaming || isQuotaExhausted || hardStopped;
 
-  const handleFinish = (endType: 'participant_finish' | 'early_exit' | 'soft_cap' | 'hard_stop') => {
+  const handleFinish = (
+    endType: 'participant_finish' | 'early_exit' | 'soft_cap' | 'hard_stop'
+  ) => {
     if (!isStudySession || finishMutation.isPending || isRedirecting) return;
     finishMutation.mutate({ sessionId, endType });
   };
@@ -305,36 +302,45 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     );
   }
 
+  const lappRailWidth = railsVisible
+    ? coachEnabled
+      ? 'xl:w-[335px]'
+      : 'xl:w-[335px]'
+    : 'xl:w-0';
+  const coachRailWidth = railsVisible && coachEnabled ? 'lg:w-[360px] xl:w-[420px]' : 'lg:w-0';
+  const repliesRemaining = Math.max(0, (study?.minParticipantTurns ?? 8) - participantTurnCount);
+  const surveyUnlocked = !isStudySession || canFinishStudy || repliesRemaining === 0;
+
   return (
-    <div className="flex h-dvh flex-col bg-[#F8F8F8] dark:bg-[#1A1A1A]">
-      {/* Header - EXACT FIGMA */}
-      <header
-        className="flex items-center justify-between px-4 py-3 backdrop-blur-sm
-                         bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(30,30,30,0.95)]
-                         border-b border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
-      >
-        <div className="flex items-center gap-3">
+    <div className="flex h-dvh flex-col bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#dedbd4]">
+      <header className="flex items-center justify-between border-b border-[#ddd8cc] bg-[#fbfaf6]/95 px-6 py-4 dark:border-[#2b2925] dark:bg-[#151513]/95">
+        <div className="flex min-w-0 items-center gap-5">
           {!isStudySession && (
             <button
               onClick={() => navigate('/')}
-              className="p-2 rounded-full transition-colors
-                       text-[#1A1A1A] dark:text-[#EBEBEB]
-                       hover:bg-[rgba(212,232,229,0.4)]"
+              className="rounded-full p-2 text-[#5f5a51] transition-colors hover:bg-[#ece8dc] dark:text-[#aaa59b] dark:hover:bg-[#24231f]"
               type="button"
               aria-label="Go back"
             >
               <ArrowLeftIcon />
             </button>
           )}
-          <div>
-            <h1 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">
-              {scenario?.name || 'Conversation'}
-            </h1>
-            {scenario?.partnerPersona && (
-              <p className="text-sm text-[#6B6B6B] dark:text-[#A0A0A0]">
-                {scenario.partnerPersona}
-              </p>
-            )}
+          <div className="flex min-w-0 items-baseline gap-4">
+            <span className="font-semibold text-[#24221d] dark:text-[#f2efe7]">ConvoLab</span>
+            <span className="hidden border-l border-[#d6d1c4] pl-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a857b] dark:border-[#34312c] dark:text-[#77736b] sm:inline">
+              Practice
+            </span>
+            <span className="hidden h-5 border-l border-[#d6d1c4] dark:border-[#34312c] sm:block" />
+            <div className="min-w-0">
+              <h1 className="truncate font-serif text-2xl text-[#24221d] dark:text-[#f2efe7]">
+                {shortName}
+              </h1>
+              {scenario?.name && (
+                <p className="truncate text-sm text-[#6f6a61] dark:text-[#9a958c]">
+                  {scenario.name.replace(shortName, '').replace(/^(\s*[-·]\s*)/, '')}
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -343,7 +349,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               type="button"
               onClick={() => handleFinish('early_exit')}
               disabled={finishMutation.isPending}
-              className="rounded-full border border-[rgba(200,220,210,0.8)] px-4 py-2 text-sm font-medium text-[#4A4A4A] transition-colors hover:bg-[rgba(212,232,229,0.35)] disabled:opacity-50 dark:border-[rgba(255,255,255,0.12)] dark:text-[#A0A0A0]"
+              className="rounded-full px-4 py-2 text-sm font-medium text-[#6a655c] transition-colors hover:bg-[#ece8dc] disabled:opacity-50 dark:text-[#aaa59b] dark:hover:bg-[#24231f]"
             >
               End conversation early
             </button>
@@ -352,173 +358,172 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         </div>
       </header>
 
-      {isStudySession && (
-        <div className="border-b border-[rgba(200,220,210,0.5)] bg-white/80 px-4 py-2 text-center text-sm text-[#4A4A4A] dark:border-[rgba(255,255,255,0.07)] dark:bg-[rgba(30,30,30,0.9)] dark:text-[#A0A0A0]">
-          {showWrapSoon ? (
-            <span>Wrapping up soon. Finish your current thought when ready.</span>
-          ) : !canFinishStudy ? (
-            <span>
-              {Math.max(0, (study?.minParticipantTurns ?? 6) - participantTurnCount)} more replies
-              before the final survey is available.
-            </span>
-          ) : hardStopped ? (
-            <span>The conversation window has ended. Continue to the final survey.</span>
-          ) : (
-            <span>You can continue the conversation or move to the final survey.</span>
-          )}
+      {isStudySession && showWrapSoon && (
+        <div className="border-b border-[#ddd8cc] bg-[#fbfaf6] px-4 py-2 text-center text-sm text-[#6a655c] dark:border-[#2b2925] dark:bg-[#151513] dark:text-[#aaa59b]">
+          Wrapping up soon. Finish your current thought when ready.
         </div>
       )}
 
-      {/* Main content - THREE COLUMN LAYOUT (desktop) */}
       <div className="flex flex-1 overflow-hidden">
-        {/* FAR LEFT: LAPP Metrics Panel (xl+) */}
-        {coachEnabled && (
-          <div
-            className="hidden xl:flex xl:w-[190px] flex-col overflow-hidden flex-shrink-0
-                        bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(28,28,28,0.95)]
-                        border-r border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
-          >
-            <LappMetricsPanel lappScores={lappScores} />
-          </div>
-        )}
+        <aside
+          className={`hidden shrink-0 overflow-hidden border-r border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] xl:flex ${lappRailWidth} ${
+            railsVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+          aria-hidden={!railsVisible}
+        >
+          <LappMetricsPanel
+            lappScores={lappScores}
+            variant={coachEnabled ? 'full' : 'explanation'}
+          />
+        </aside>
 
-        {/* CENTER: Main conversation */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
-            <div className="mx-auto max-w-4xl">
-              <MessageList
-                messages={mainMessages}
-                partnerName={scenario?.partnerPersona}
-                isStreaming={isStreaming}
-                lappScores={lappScores}
-              />
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* DESKTOP Input area - SINGLE INPUT - EXACT FIGMA */}
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
-            className="hidden md:block px-6 py-4
-                          bg-[rgba(255,255,255,0.9)] dark:bg-[rgba(30,30,30,0.95)]
-                          border-t border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
+            className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 ${
+              railsVisible ? 'pb-56' : 'pb-8'
+            }`}
           >
-            <div className={`mx-auto space-y-3 ${coachEnabled ? 'max-w-4xl' : 'max-w-5xl'}`}>
-              {/* Mode selection buttons */}
-              {coachEnabled && (
-                <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInputMode('partner');
-                    inputRef.current?.focus();
-                  }}
-                  disabled={isStreaming || isQuotaExhausted}
-                  title={isQuotaExhausted ? 'Token quota exhausted' : undefined}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium transition-all
-                    ${
-                      inputMode === 'partner'
-                        ? 'bg-[rgba(212,232,229,0.6)] text-[#1A1A1A] dark:text-[#EBEBEB] hover:bg-[rgba(212,232,229,0.8)]'
-                        : 'bg-[rgba(240,240,240,1)] dark:bg-[rgba(40,40,40,0.5)] text-[#6B6B6B] dark:text-[#A0A0A0] hover:bg-[rgba(230,230,230,1)] dark:hover:bg-[rgba(40,40,40,0.7)]'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <MessageSquareIcon />
-                  Reply to {shortName}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInputMode('coach');
-                    inputRef.current?.focus();
-                  }}
-                  disabled={isAsideStreaming}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium transition-all border
-                    ${
-                      inputMode === 'coach'
-                        ? 'bg-[rgba(134,199,194,0.3)] border-[rgba(100,180,175,0.8)] text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.9)] hover:bg-[rgba(134,199,194,0.5)]'
-                        : 'bg-[rgba(240,240,240,1)] dark:bg-[rgba(40,40,40,0.5)] border-[rgba(200,220,210,0.6)] dark:border-[rgba(255,255,255,0.1)] text-[#6B6B6B] dark:text-[#A0A0A0] hover:bg-[rgba(230,230,230,1)] dark:hover:bg-[rgba(40,40,40,0.7)]'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <LightbulbIcon />
-                  Ask the Coach
-                </button>
+            {mainMessages.length === 0 ? (
+              <div
+                className={`flex h-full items-center justify-center transition-all duration-500 ${
+                  railsVisible ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'
+                }`}
+              >
+                <div className="w-full max-w-3xl -translate-y-12 pb-52 text-center">
+                  <h2 className="font-serif text-4xl text-[#2e2b25] dark:text-[#f2efe7]">
+                    {shortName} is ready when you are.
+                  </h2>
+                  <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-[#726d64] dark:text-[#9d9890]">
+                    Open with a question. Listen before you push.
+                  </p>
                 </div>
-              )}
+              </div>
+            ) : (
+              <div className="mx-auto max-w-4xl">
+                <MessageList
+                  messages={mainMessages}
+                  partnerName={scenario?.partnerPersona}
+                  isStreaming={isStreaming}
+                  lappScores={lappScores}
+                  showTone={coachEnabled}
+                />
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
 
+          <div
+            className={`absolute left-0 right-0 hidden px-6 transition-all duration-500 ease-out md:block ${
+              railsVisible
+                ? 'border-t border-[#ddd8cc] bg-[#fbfaf6]/95 py-4 dark:border-[#2b2925] dark:bg-[#151513]/95'
+                : 'pointer-events-none bg-transparent py-0'
+            }`}
+            style={{
+              top: railsVisible ? 'calc(100% - 196px)' : '58%',
+              transform: railsVisible ? 'translateY(0)' : 'translateY(-50%)',
+            }}
+          >
+            <div className="mx-auto max-w-4xl">
               {isQuotaExhausted && (
-                <p className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-sm text-[#991B1B] dark:border-[#7F1D1D] dark:bg-[rgba(127,29,29,0.25)] dark:text-[#FCA5A5]">
+                <p className="mb-3 rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-sm text-[#991B1B] dark:border-[#7F1D1D] dark:bg-[rgba(127,29,29,0.25)] dark:text-[#FCA5A5]">
                   Token quota exhausted. Start a new conversation with Quick chat or a larger quota
                   to keep replying to {shortName}.
                 </p>
               )}
-
-              {/* SINGLE input that changes based on mode - EXACT FIGMA */}
-              <div className="flex gap-2">
+              <div
+                className={`mb-3 flex items-center justify-between gap-3 text-sm text-[#77736b] transition-opacity duration-300 dark:text-[#8f8a82] ${
+                  railsVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <span>
+                  {surveyUnlocked ? 'Survey unlocked' : `${repliesRemaining} replies left`}
+                </span>
+                {isStudySession && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleFinish(
+                        hardStopped
+                          ? 'hard_stop'
+                          : elapsedSeconds >= (study?.softCapSeconds ?? Infinity)
+                            ? 'soft_cap'
+                            : 'participant_finish'
+                      )
+                    }
+                    disabled={!surveyUnlocked || finishMutation.isPending || isStreaming}
+                    className={`rounded-xl px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                      surveyUnlocked
+                        ? 'bg-[#f8f5ec] text-[#24221d] shadow-sm hover:bg-white dark:bg-[#f2efe7] dark:text-[#151513] dark:hover:bg-white'
+                        : 'border border-[#d8d3c8] text-[#6a655c] hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#9d9890] dark:hover:bg-[#22211d]'
+                    }`}
+                  >
+                    Continue to final survey
+                  </button>
+                )}
+              </div>
+              <div className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
                 <textarea
                   ref={inputRef}
+                  value={partnerDraft}
+                  onChange={handlePartnerDraftChange}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    isQuotaExhausted && inputMode === 'partner'
+                    isQuotaExhausted
                       ? 'Token quota exhausted'
                       : hardStopped
-                      ? 'Conversation window ended'
-                      : inputMode === 'partner' || !coachEnabled
-                      ? mainMessages.length > 0
-                        ? `Reply to ${shortName}...`
-                        : "What's on your mind?"
-                      : 'Ask the coach for guidance...'
+                        ? 'Conversation window ended'
+                        : `Reply to ${shortName}...`
                   }
-                  className={`flex-1 rounded-3xl px-6 py-4 text-base resize-none
-                    focus:outline-none focus:ring-2 focus:border-transparent
-                    text-[#1A1A1A] dark:text-[#EBEBEB]
-                    placeholder-[#6B6B6B] dark:placeholder-[#858585]
-                    ${
-                      inputMode === 'partner'
-                        ? 'bg-white dark:bg-[rgba(40,40,40,0.9)] border border-[rgba(200,220,210,0.6)] dark:border-[rgba(212,232,229,0.25)] focus:ring-[rgba(212,232,229,0.6)]'
-                        : 'bg-[rgba(134,199,194,0.3)] dark:bg-[rgba(134,199,194,0.1)] border border-[rgba(100,180,175,0.8)] dark:border-[rgba(134,199,194,0.2)] focus:ring-[rgba(134,199,194,0.5)]'
-                    }`}
                   rows={1}
                   disabled={isInputDisabled}
+                  className="min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-base text-[#24221d] outline-none placeholder:text-[#8c877d] disabled:opacity-50 dark:text-[#efece4] dark:placeholder:text-[#77736b]"
                 />
                 <button
                   type="button"
-                  onClick={handleSend}
-                  disabled={isInputDisabled}
-                  className="p-3 rounded-full transition-all flex-shrink-0
-                             bg-[rgba(212,232,229,0.4)] hover:bg-[rgba(212,232,229,0.6)]
-                             text-[#1A1A1A] dark:text-[#EBEBEB]
-                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleSendPartner}
+                  disabled={isInputDisabled || !partnerDraft.trim()}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#24221d] text-white transition-colors hover:bg-[#3a362f] disabled:bg-[#e0ddd4] disabled:text-[#928d84] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white dark:disabled:bg-[#2d2b27] dark:disabled:text-[#77736b]"
+                  aria-label={`Send reply to ${shortName}`}
                 >
                   <SendIcon />
                 </button>
               </div>
-
-              <p className="text-xs text-[#4A4A4A] dark:text-[#858585] text-center pb-2">
-                {isQuotaExhausted
-                  ? 'Choose a larger quota when starting the next conversation.'
-                  : 'Press Enter to send • Shift+Enter for new line'}
-              </p>
-              {isStudySession && (
-                <div className="flex justify-center">
+              <div
+                className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
+                  railsVisible ? 'hidden' : 'pointer-events-auto opacity-100'
+                }`}
+              >
+                {[
+                  'What changed at the plant?',
+                  'Who sets those wages?',
+                  'Tell me about your grandparents',
+                ].map((prompt) => (
                   <button
+                    key={prompt}
                     type="button"
-                    onClick={() =>
-                      handleFinish(hardStopped ? 'hard_stop' : elapsedSeconds >= (study?.softCapSeconds ?? Infinity) ? 'soft_cap' : 'participant_finish')
-                    }
-                    disabled={!canFinishStudy || finishMutation.isPending || isStreaming}
-                    className="rounded-full bg-[#1A1A1A] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#EBEBEB] dark:text-[#1A1A1A] dark:hover:bg-white"
+                    onClick={() => {
+                      setPartnerDraft(prompt);
+                      activateRails(prompt);
+                      inputRef.current?.focus();
+                    }}
+                    className="rounded-full border border-[#d8d3c8] px-5 py-2 text-sm text-[#6c675e] transition-colors hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#aaa59b] dark:hover:bg-[#22211d]"
                   >
-                    Continue to final survey
+                    {prompt}
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
+              <p className="pt-3 text-center text-xs text-[#8c877d] dark:text-[#77736b]">
+                Enter to send · goes to {shortName}
+              </p>
             </div>
           </div>
 
-          {/* MOBILE Input (unchanged) */}
           <div className="md:hidden">
             <MobileMessageInput
-              onSendPartner={(content) => sendMessage(content)}
+              onSendPartner={(content) => {
+                activateRails(content);
+                sendMessage(content);
+              }}
               onSendCoach={(content) => {
                 if (coachEnabled) startAside(content);
               }}
@@ -529,23 +534,31 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               onToggleInsights={() => {}}
               onInputFocus={() => {}}
               onInputBlur={() => {}}
+              onInputChange={activateRails}
             />
           </div>
-        </div>
+        </main>
 
-        {/* RIGHT: Desktop Coach Panel */}
         {coachEnabled && (
-          <div
-            className="hidden lg:block lg:w-[380px] xl:w-[400px] p-4 overflow-hidden
-                        bg-[#F8F8F8] dark:bg-[#1A1A1A]
-                        border-l border-[rgba(200,220,210,0.5)] dark:border-[rgba(255,255,255,0.07)]"
+          <aside
+            className={`hidden shrink-0 overflow-hidden border-l border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] lg:block ${coachRailWidth} ${
+              railsVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+            aria-hidden={!railsVisible}
           >
             <DesktopCoachPanel
               coachMessages={coachMessages}
               asideMessages={asideMessages}
               lappScores={lappScores}
+              coachDraft={coachDraft}
+              setCoachDraft={setCoachDraft}
+              onCoachKeyDown={handleCoachKeyDown}
+              onSendCoach={handleSendCoach}
+              coachInputRef={coachInputRef}
+              disabled={isAsideStreaming}
+              partnerName={shortName}
             />
-          </div>
+          </aside>
         )}
       </div>
     </div>

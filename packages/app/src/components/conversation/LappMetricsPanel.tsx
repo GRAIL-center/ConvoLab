@@ -1,494 +1,386 @@
-import type { LappScore } from "../../hooks/useConversationSocket";
+import type { LappScore } from '../../hooks/useConversationSocket';
 
 interface LappMetricsPanelProps {
-	lappScores: Map<string, LappScore>;
+  lappScores: Map<string, LappScore>;
+  variant?: 'full' | 'explanation';
 }
 
-type Tone = "constructive" | "warm" | "neutral" | "tense";
+type Tone = 'constructive' | 'warm' | 'neutral' | 'tense';
 
 // Compute per-dimension averages across all scored exchanges
 function computeAverages(scores: Map<string, LappScore>) {
-	const entries = [...scores.values()];
-	if (entries.length === 0) return { l: 0, a: 0, p: 0, pe: 0 };
+  const entries = [...scores.values()];
+  if (entries.length === 0) return { l: 0, a: 0, p: 0, pe: 0 };
 
-	let lSum = 0,
-		aSum = 0,
-		pSum = 0,
-		peSum = 0;
-	let lCount = 0,
-		aCount = 0,
-		pCount = 0,
-		peCount = 0;
+  let lSum = 0,
+    aSum = 0,
+    pSum = 0,
+    peSum = 0;
+  let lCount = 0,
+    aCount = 0,
+    pCount = 0,
+    peCount = 0;
 
-	for (const entry of entries) {
-		const { l, a, p, pe } = entry.scores;
-		if (l > 0) {
-			lSum += l;
-			lCount++;
-		}
-		if (a > 0) {
-			aSum += a;
-			aCount++;
-		}
-		if (p > 0) {
-			pSum += p;
-			pCount++;
-		}
-		if (pe > 0) {
-			peSum += pe;
-			peCount++;
-		}
-	}
+  for (const entry of entries) {
+    const { l, a, p, pe } = entry.scores;
+    if (l > 0) {
+      lSum += l;
+      lCount++;
+    }
+    if (a > 0) {
+      aSum += a;
+      aCount++;
+    }
+    if (p > 0) {
+      pSum += p;
+      pCount++;
+    }
+    if (pe > 0) {
+      peSum += pe;
+      peCount++;
+    }
+  }
 
-	return {
-		l: lCount > 0 ? lSum / lCount : 0,
-		a: aCount > 0 ? aSum / aCount : 0,
-		p: pCount > 0 ? pSum / pCount : 0,
-		pe: peCount > 0 ? peSum / peCount : 0,
-	};
+  return {
+    l: lCount > 0 ? lSum / lCount : 0,
+    a: aCount > 0 ? aSum / aCount : 0,
+    p: pCount > 0 ? pSum / pCount : 0,
+    pe: peCount > 0 ? peSum / peCount : 0,
+  };
 }
 
 // 0–5 score → 0–100 display percentage (score 0 = 0%, score 5 = 100%)
 function scoreToPercent(score: number): number {
-	return Math.round((score / 5) * 100);
+  return Math.round((score / 5) * 100);
 }
 
-function getCompositeStatus(avg: {
-	l: number;
-	a: number;
-	p: number;
-	pe: number;
-}) {
-	const scored = [avg.l, avg.a, avg.p, avg.pe].filter((v) => v > 0);
-	if (scored.length === 0)
-		return {
-			label: "Just starting",
-			color: "text-[#6B6B6B] dark:text-[#858585]",
-		};
-	const composite = scored.reduce((a, b) => a + b, 0) / scored.length;
-	if (composite >= 4)
-		return { label: "Going well", color: "text-[#16a34a] dark:text-[#4ade80]" };
-	if (composite >= 2.5)
-		return {
-			label: "Some friction",
-			color: "text-[#ca8a04] dark:text-[#facc15]",
-		};
-	return {
-		label: "Under pressure",
-		color: "text-[#ea580c] dark:text-[#fb923c]",
-	};
+function getCompositeStatus(avg: { l: number; a: number; p: number; pe: number }) {
+  const scored = [avg.l, avg.a, avg.p, avg.pe].filter((v) => v > 0);
+  if (scored.length === 0)
+    return {
+      label: 'Just starting',
+      color: 'text-[#6B6B6B] dark:text-[#858585]',
+    };
+  const composite = scored.reduce((a, b) => a + b, 0) / scored.length;
+  if (composite >= 4) return { label: 'Going well', color: 'text-[#16a34a] dark:text-[#4ade80]' };
+  if (composite >= 2.5)
+    return {
+      label: 'Some friction',
+      color: 'text-[#ca8a04] dark:text-[#facc15]',
+    };
+  return {
+    label: 'Under pressure',
+    color: 'text-[#ea580c] dark:text-[#fb923c]',
+  };
 }
 
 function getMostRecentTone(scores: Map<string, LappScore>): Tone | null {
-	const entries = [...scores.values()];
-	if (entries.length === 0) return null;
-	return entries[entries.length - 1].tone;
+  const entries = [...scores.values()];
+  if (entries.length === 0) return null;
+  return entries[entries.length - 1].tone;
 }
 
 const TONE_COLORS: Record<Tone, { bg: string; text: string; dot: string }> = {
-	constructive: {
-		bg: "bg-[rgba(220,252,231,0.8)] dark:bg-[rgba(40,100,60,0.4)]",
-		text: "text-[#166534] dark:text-[#4ade80]",
-		dot: "bg-[#16a34a]",
-	},
-	warm: {
-		bg: "bg-[rgba(212,232,229,0.6)] dark:bg-[rgba(212,232,229,0.15)]",
-		text: "text-[#0f766e] dark:text-[#5eead4]",
-		dot: "bg-[#0d9488]",
-	},
-	neutral: {
-		bg: "bg-[rgba(229,231,235,0.8)] dark:bg-[rgba(60,60,60,0.4)]",
-		text: "text-[#4B5563] dark:text-[#9CA3AF]",
-		dot: "bg-[#9CA3AF]",
-	},
-	tense: {
-		bg: "bg-[rgba(255,237,213,0.8)] dark:bg-[rgba(120,50,10,0.4)]",
-		text: "text-[#9a3412] dark:text-[#fb923c]",
-		dot: "bg-[#ea580c]",
-	},
+  constructive: {
+    bg: 'bg-[rgba(220,252,231,0.8)] dark:bg-[rgba(40,100,60,0.4)]',
+    text: 'text-[#166534] dark:text-[#4ade80]',
+    dot: 'bg-[#16a34a]',
+  },
+  warm: {
+    bg: 'bg-[rgba(212,232,229,0.6)] dark:bg-[rgba(212,232,229,0.15)]',
+    text: 'text-[#0f766e] dark:text-[#5eead4]',
+    dot: 'bg-[#0d9488]',
+  },
+  neutral: {
+    bg: 'bg-[rgba(229,231,235,0.8)] dark:bg-[rgba(60,60,60,0.4)]',
+    text: 'text-[#4B5563] dark:text-[#9CA3AF]',
+    dot: 'bg-[#9CA3AF]',
+  },
+  tense: {
+    bg: 'bg-[rgba(255,237,213,0.8)] dark:bg-[rgba(120,50,10,0.4)]',
+    text: 'text-[#9a3412] dark:text-[#fb923c]',
+    dot: 'bg-[#ea580c]',
+  },
 };
 
 const TONE_LABELS: Record<Tone, string> = {
-	constructive: "Constructive",
-	warm: "Warm",
-	neutral: "Neutral",
-	tense: "Tense",
+  constructive: 'Constructive',
+  warm: 'Warm',
+  neutral: 'Neutral',
+  tense: 'Tense',
 };
 
 // LAPP Radar (SVG diamond chart)
-function LappRadar({
-	l,
-	a,
-	p,
-	pe,
-}: {
-	l: number;
-	a: number;
-	p: number;
-	pe: number;
-}) {
-	const cx = 52;
-	const cy = 52;
-	const maxR = 30;
+function LappRadar({ l, a, p, pe }: { l: number; a: number; p: number; pe: number }) {
+  const cx = 52;
+  const cy = 52;
+  const maxR = 30;
 
-	// Convert scores (0–5) to coordinates
-	const lPt = { x: cx, y: cy - (l / 5) * maxR }; // top
-	const aPt = { x: cx + (a / 5) * maxR, y: cy }; // right
-	const pPt = { x: cx, y: cy + (p / 5) * maxR }; // bottom
-	const pePt = { x: cx - (pe / 5) * maxR, y: cy }; // left
+  // Convert scores (0–5) to coordinates
+  const lPt = { x: cx, y: cy - (l / 5) * maxR }; // top
+  const aPt = { x: cx + (a / 5) * maxR, y: cy }; // right
+  const pPt = { x: cx, y: cy + (p / 5) * maxR }; // bottom
+  const pePt = { x: cx - (pe / 5) * maxR, y: cy }; // left
 
-	const hasAny = l > 0 || a > 0 || p > 0 || pe > 0;
-	const polyPoints = `${lPt.x},${lPt.y} ${aPt.x},${aPt.y} ${pPt.x},${pPt.y} ${pePt.x},${pePt.y}`;
+  const hasAny = l > 0 || a > 0 || p > 0 || pe > 0;
+  const polyPoints = `${lPt.x},${lPt.y} ${aPt.x},${aPt.y} ${pPt.x},${pPt.y} ${pePt.x},${pePt.y}`;
 
-	// Grid rings at scores 1, 2, 3, 4, 5
-	const gridRings = [1, 2, 3, 4, 5].map((s) => {
-		const r = (s / 5) * maxR;
-		return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;
-	});
+  // Grid rings at scores 1, 2, 3, 4, 5
+  const gridRings = [1, 2, 3, 4, 5].map((s) => {
+    const r = (s / 5) * maxR;
+    return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;
+  });
 
-	return (
-		<svg
-			viewBox="-18 0 140 104"
-			className="w-full h-full"
-			role="img"
-			aria-labelledby="lapp-radar-title"
-		>
-			<title id="lapp-radar-title">LAPP skill radar</title>
-			{/* Grid diamonds */}
-			{gridRings.map((pts) => (
-				<polygon
-					key={pts}
-					points={pts}
-					fill="none"
-					stroke="rgba(180,200,195,0.4)"
-					strokeWidth="0.6"
-				/>
-			))}
+  return (
+    <svg
+      viewBox="-18 0 140 104"
+      className="w-full h-full"
+      role="img"
+      aria-labelledby="lapp-radar-title"
+    >
+      <title id="lapp-radar-title">
+        {`LAPP skill radar. Listen ${scoreToPercent(l)}%. Acknowledge ${scoreToPercent(a)}%. Pivot ${scoreToPercent(p)}%. Perspective ${scoreToPercent(pe)}%.`}
+      </title>
+      {/* Grid diamonds */}
+      {gridRings.map((pts) => (
+        <polygon
+          key={pts}
+          points={pts}
+          fill="none"
+          stroke="rgba(180,200,195,0.4)"
+          strokeWidth="0.6"
+        />
+      ))}
 
-			{/* Axis lines */}
-			<line
-				x1={cx}
-				y1={cy}
-				x2={cx}
-				y2={cy - maxR}
-				stroke="rgba(180,200,195,0.5)"
-				strokeWidth="0.6"
-			/>
-			<line
-				x1={cx}
-				y1={cy}
-				x2={cx + maxR}
-				y2={cy}
-				stroke="rgba(180,200,195,0.5)"
-				strokeWidth="0.6"
-			/>
-			<line
-				x1={cx}
-				y1={cy}
-				x2={cx}
-				y2={cy + maxR}
-				stroke="rgba(180,200,195,0.5)"
-				strokeWidth="0.6"
-			/>
-			<line
-				x1={cx}
-				y1={cy}
-				x2={cx - maxR}
-				y2={cy}
-				stroke="rgba(180,200,195,0.5)"
-				strokeWidth="0.6"
-			/>
+      {/* Axis lines */}
+      <line
+        x1={cx}
+        y1={cy}
+        x2={cx}
+        y2={cy - maxR}
+        stroke="rgba(180,200,195,0.5)"
+        strokeWidth="0.6"
+      />
+      <line
+        x1={cx}
+        y1={cy}
+        x2={cx + maxR}
+        y2={cy}
+        stroke="rgba(180,200,195,0.5)"
+        strokeWidth="0.6"
+      />
+      <line
+        x1={cx}
+        y1={cy}
+        x2={cx}
+        y2={cy + maxR}
+        stroke="rgba(180,200,195,0.5)"
+        strokeWidth="0.6"
+      />
+      <line
+        x1={cx}
+        y1={cy}
+        x2={cx - maxR}
+        y2={cy}
+        stroke="rgba(180,200,195,0.5)"
+        strokeWidth="0.6"
+      />
 
-			{/* Score polygon */}
-			{hasAny && (
-				<polygon
-					points={polyPoints}
-					fill="rgba(134,199,194,0.35)"
-					stroke="rgba(100,180,175,0.9)"
-					strokeWidth="1.2"
-				/>
-			)}
+      {/* Score polygon */}
+      {hasAny && (
+        <polygon
+          points={polyPoints}
+          fill="rgba(134,199,194,0.35)"
+          stroke="rgba(100,180,175,0.9)"
+          strokeWidth="1.2"
+        />
+      )}
 
-			{/* Center dot */}
-			<circle cx={cx} cy={cy} r="1.5" fill="rgba(100,180,175,0.7)" />
+      {/* Center dot */}
+      <circle cx={cx} cy={cy} r="1.5" fill="rgba(100,180,175,0.7)" />
 
-			{/* Axis labels */}
-			<text
-				x={cx}
-				y={cy - maxR - 5}
-				textAnchor="middle"
-				fontSize="7"
-				fill="currentColor"
-				className="text-[#6B6B6B] dark:text-[#858585]"
-			>
-				Listen
-			</text>
-			<text
-				x={cx + maxR + 4}
-				y={cy + 2.5}
-				textAnchor="start"
-				fontSize="7"
-				fill="currentColor"
-				className="text-[#6B6B6B] dark:text-[#858585]"
-			>
-				Ack.
-			</text>
-			<text
-				x={cx}
-				y={cy + maxR + 9}
-				textAnchor="middle"
-				fontSize="7"
-				fill="currentColor"
-				className="text-[#6B6B6B] dark:text-[#858585]"
-			>
-				Pivot
-			</text>
-			<text
-				x={cx - maxR - 4}
-				y={cy + 2.5}
-				textAnchor="end"
-				fontSize="7"
-				fill="currentColor"
-				className="text-[#6B6B6B] dark:text-[#858585]"
-			>
-				Persp.
-			</text>
-		</svg>
-	);
+      {/* Axis labels */}
+      <text
+        x={cx}
+        y={cy - maxR - 5}
+        textAnchor="middle"
+        fontSize="7"
+        fill="currentColor"
+        className="text-[#6B6B6B] dark:text-[#858585]"
+      >
+        Listen
+      </text>
+      <text
+        x={cx + maxR + 4}
+        y={cy + 2.5}
+        textAnchor="start"
+        fontSize="7"
+        fill="currentColor"
+        className="text-[#6B6B6B] dark:text-[#858585]"
+      >
+        Ack.
+      </text>
+      <text
+        x={cx}
+        y={cy + maxR + 9}
+        textAnchor="middle"
+        fontSize="7"
+        fill="currentColor"
+        className="text-[#6B6B6B] dark:text-[#858585]"
+      >
+        Pivot
+      </text>
+      <text
+        x={cx - maxR - 4}
+        y={cy + 2.5}
+        textAnchor="end"
+        fontSize="7"
+        fill="currentColor"
+        className="text-[#6B6B6B] dark:text-[#858585]"
+      >
+        Persp.
+      </text>
+    </svg>
+  );
 }
 
-function SkillBar({
-	label,
-	score,
-	tooltip,
-}: {
-	label: string;
-	score: number;
-	tooltip?: string;
-}) {
-	const pct = scoreToPercent(score);
-	return (
-		<div className="space-y-0.5">
-			<div className="flex justify-between items-center">
-				<div className="relative group">
-					<span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0] cursor-help underline decoration-dotted decoration-[#9CA3AF]">
-						{label}
-					</span>
-					{tooltip && (
-						<div className="absolute bottom-full left-0 mb-1.5 w-32 rounded-lg px-2.5 py-2 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-							{tooltip}
-						</div>
-					)}
-				</div>
-				<span className="text-[11px] font-medium text-[#4A4A4A] dark:text-[#A0A0A0]">
-					{pct}%
-				</span>
-			</div>
-			<div className="h-1 rounded-full bg-[rgba(200,220,215,0.4)] dark:bg-[rgba(255,255,255,0.07)]">
-				<div
-					className="h-1 rounded-full bg-[rgba(100,180,175,0.8)] dark:bg-[rgba(134,199,194,0.7)] transition-all duration-500"
-					style={{ width: `${pct}%` }}
-				/>
-			</div>
-		</div>
-	);
+const LAPP_ITEMS = [
+  {
+    letter: 'L',
+    label: 'Listen',
+    desc: 'Understand what actually matters to them - not to reload your rebuttal.',
+  },
+  {
+    letter: 'A',
+    label: 'Acknowledge',
+    desc: 'Name something real you can validate before you push back.',
+  },
+  {
+    letter: 'P',
+    label: 'Pivot',
+    desc: "Signal the turn - you'd like to share your own view now.",
+  },
+  {
+    letter: 'P',
+    label: 'Perspective',
+    desc: 'Share your side in "I" statements, not accusations.',
+  },
+];
+
+function LappExplanation() {
+  return (
+    <div className="space-y-2 px-1">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
+        What LAPP Means
+      </p>
+      <div className="space-y-2.5">
+        {LAPP_ITEMS.map((item, index) => (
+          <div key={`${item.letter}-${index}`} className="grid grid-cols-[24px_1fr] gap-3">
+            <div className="pt-0.5 font-serif text-base text-[#6e6a62] dark:text-[#9a968e]">
+              {item.letter}
+              <div className="mt-1 h-px w-6 bg-[#d8d4ca] dark:bg-[#3a3834]" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-[#282722] dark:text-[#dedbd4]">
+                {item.label}
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-[#6b675f] dark:text-[#9d9890]">
+                {item.desc}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function LappMetricsPanel({ lappScores }: LappMetricsPanelProps) {
-	const avg = computeAverages(lappScores);
-	const status = getCompositeStatus(avg);
-	const recentTone = getMostRecentTone(lappScores);
-	const toneStyle = recentTone ? TONE_COLORS[recentTone] : null;
+export function LappMetricsPanel({ lappScores, variant = 'full' }: LappMetricsPanelProps) {
+  const avg = computeAverages(lappScores);
+  const status = getCompositeStatus(avg);
+  const recentTone = getMostRecentTone(lappScores);
 
-	return (
-		<div
-			className="flex flex-col h-full overflow-y-auto py-4 px-3 space-y-4
-                    text-[#1A1A1A] dark:text-[#EBEBEB]"
-		>
-			{/* Header */}
-			<div className="px-1">
-				<div className="relative group w-fit">
-					<div className="flex items-center gap-2 mb-0.5 cursor-help">
-						<div
-							className="w-6 h-6 rounded-full flex items-center justify-center
-                            bg-[rgba(134,199,194,0.4)] dark:bg-[rgba(134,199,194,0.2)]"
-						>
-							<svg
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2"
-								className="w-3.5 h-3.5 text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.9)]"
-								aria-hidden="true"
-							>
-								<path d="M12 2L2 7l10 5 10-5-10-5z" />
-								<path d="M2 17l10 5 10-5" />
-								<path d="M2 12l10 5 10-5" />
-							</svg>
-						</div>
-						<span className="text-sm font-semibold underline decoration-dotted decoration-[#9CA3AF]">
-							LAPP Metrics
-						</span>
-					</div>
-					<p className="text-[11px] text-[#6B6B6B] dark:text-[#858585] pl-8">
-						Live session
-					</p>
-					<div className="absolute top-full left-0 mt-1.5 w-40 rounded-lg px-3 py-2.5 text-[10px] leading-relaxed text-white bg-gray-800 dark:bg-gray-900 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg space-y-1">
-						<p>
-							<span className="font-semibold">L</span>isten – really listen
-						</p>
-						<p>
-							<span className="font-semibold">A</span>cknowledge – show you
-							heard them
-						</p>
-						<p>
-							<span className="font-semibold">P</span>ivot – ask for your turn:
-							"can I share my take on this?"
-						</p>
-						<p>
-							<span className="font-semibold">P</span>erspective – share your
-							view
-						</p>
-					</div>
-				</div>
-			</div>
+  if (variant === 'explanation') {
+    return (
+    <div className="flex h-full flex-col overflow-y-auto px-7 py-7 text-[#1A1A1A] dark:text-[#EBEBEB]">
+        <LappExplanation />
+      </div>
+    );
+  }
 
-			<div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
+  return (
+    <div className="flex h-full flex-col overflow-hidden px-6 py-5 text-[#1A1A1A] dark:text-[#EBEBEB]">
+      <div className="space-y-3.5">
+        <div className="px-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
+            Conversation Health
+          </p>
+          <div className="mt-4 flex items-center gap-4">
+            <div
+              className={`h-14 w-14 rounded-full border-2 shadow-[0_0_28px_rgba(120,140,130,0.18)] ${
+                lappScores.size === 0
+                  ? 'border-[#8f948e] bg-[radial-gradient(circle_at_35%_28%,#f2efe7_0,#a5a7a0_30%,#54564f_68%,#24241f_100%)]'
+                  : status.label === 'Going well'
+                    ? 'border-[#60c990] bg-[radial-gradient(circle_at_35%_28%,#f2efe7_0,#75d79d_28%,#2c8b5d_62%,#123a2a_100%)]'
+                    : status.label === 'Some friction'
+                      ? 'border-[#f0ad5d] bg-[radial-gradient(circle_at_35%_28%,#f2efe7_0,#f0ad5d_32%,#855a24_70%,#2c2114_100%)]'
+                      : 'border-[#f97316] bg-[radial-gradient(circle_at_35%_28%,#f2efe7_0,#fb923c_32%,#9a3412_70%,#30170c_100%)]'
+              }`}
+            />
+            <div>
+              <p className="font-serif text-2xl text-[#282722] dark:text-[#dedbd4]">
+                {recentTone ? TONE_LABELS[recentTone] : status.label}
+              </p>
+              <p className="mt-0.5 text-sm text-[#6b675f] dark:text-[#9d9890]">
+                {lappScores.size === 0 ? 'tone appears after your first reply' : status.label}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-1.5">
+            {(['constructive', 'warm', 'neutral', 'tense'] as Tone[]).map((tone) => (
+              <div
+                key={tone}
+                className={`flex items-center justify-between rounded-lg px-3 py-1 text-sm ${
+                  recentTone === tone
+                    ? 'border border-[#d8d3c8] bg-[#f6f4ee] dark:border-[#34312c] dark:bg-[#1b1a17]'
+                    : ''
+                }`}
+              >
+                <span className="flex items-center gap-2 text-[#6b675f] dark:text-[#9d9890]">
+                  <span className={`h-2 w-2 rounded-full ${TONE_COLORS[tone].dot}`} />
+                  {TONE_LABELS[tone]}
+                </span>
+                {recentTone === tone && (
+                  <span className="text-[10px] uppercase tracking-widest text-[#8c877d]">Now</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
-			{/* Conversation Health */}
-			<div className="px-1 space-y-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B6B6B] dark:text-[#858585]">
-					Conversation Health
-				</p>
-				<div className="flex flex-col items-center gap-2 py-2">
-					{/* Health orb */}
-					<div
-						className={`w-10 h-10 rounded-full border-2 flex items-center justify-center
-            ${
-							lappScores.size === 0
-								? "border-[rgba(200,220,215,0.6)] bg-[rgba(240,240,240,0.6)] dark:bg-[rgba(60,60,60,0.4)]"
-								: status.label === "Going well"
-									? "border-[rgba(34,197,94,0.7)] bg-[rgba(220,252,231,0.5)] dark:bg-[rgba(40,100,60,0.3)]"
-									: status.label === "Some friction"
-										? "border-[rgba(234,179,8,0.7)] bg-[rgba(254,249,195,0.5)] dark:bg-[rgba(100,80,10,0.3)]"
-										: "border-[rgba(234,88,12,0.7)] bg-[rgba(255,237,213,0.5)] dark:bg-[rgba(120,40,10,0.3)]"
-						}`}
-					>
-						<div
-							className={`w-3 h-3 rounded-full
-              ${
-								lappScores.size === 0
-									? "bg-[rgba(200,200,200,0.8)]"
-									: status.label === "Going well"
-										? "bg-[#16a34a]"
-										: status.label === "Some friction"
-											? "bg-[#ca8a04]"
-											: "bg-[#ea580c]"
-							}`}
-						/>
-					</div>
-					<span className={`text-xs font-medium ${status.color}`}>
-						{status.label}
-					</span>
-					{toneStyle && recentTone && (
-						<span
-							className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${toneStyle.bg} ${toneStyle.text}`}
-						>
-							<span className={`w-1.5 h-1.5 rounded-full ${toneStyle.dot}`} />
-							{TONE_LABELS[recentTone]}
-						</span>
-					)}
-				</div>
-			</div>
+        <div className="border-t border-[#d8d3c8] dark:border-[#34312c]" />
 
-			<div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
+        <div className="px-1">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
+              Skills In Play
+            </p>
+            <span className="text-xs text-[#77736b] dark:text-[#8c8880]">
+              {lappScores.size === 0 ? 'no data yet' : `${lappScores.size} turns`}
+            </span>
+          </div>
+          <div
+            className="relative mx-auto h-28 w-36"
+            title={`Listen ${scoreToPercent(avg.l)}%. Acknowledge ${scoreToPercent(avg.a)}%. Pivot ${scoreToPercent(avg.p)}%. Perspective ${scoreToPercent(avg.pe)}%.`}
+          >
+            <LappRadar l={avg.l} a={avg.a} p={avg.p} pe={avg.pe} />
+          </div>
+        </div>
 
-			{/* Skill Balance */}
-			<div className="px-1 space-y-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B6B6B] dark:text-[#858585]">
-					Skill Balance
-				</p>
-				<div className="space-y-2">
-					<SkillBar
-						label="Listen"
-						score={avg.l}
-						tooltip="Listen – really listen"
-					/>
-					<SkillBar
-						label="Acknowledge"
-						score={avg.a}
-						tooltip="Acknowledge – show you heard them"
-					/>
-					<SkillBar
-						label="Pivot"
-						score={avg.p}
-						tooltip='Pivot – ask for your turn: "can I share my take on this?"'
-					/>
-					<SkillBar
-						label="Perspective"
-						score={avg.pe}
-						tooltip="Perspective – share your view"
-					/>
-				</div>
-			</div>
+        <div className="border-t border-[#d8d3c8] dark:border-[#34312c]" />
 
-			<div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
-
-			{/* LAPP Radar */}
-			<div className="px-1 space-y-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B6B6B] dark:text-[#858585]">
-					LAPP Radar
-				</p>
-				<div className="w-full aspect-square max-w-[140px] mx-auto">
-					<LappRadar l={avg.l} a={avg.a} p={avg.p} pe={avg.pe} />
-				</div>
-			</div>
-
-			<div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
-
-			{/* Message Tone Key */}
-			<div className="px-1 space-y-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B6B6B] dark:text-[#858585]">
-					Message Tone Key
-				</p>
-				<div className="space-y-1.5">
-					{(["constructive", "warm", "neutral", "tense"] as Tone[]).map(
-						(tone) => (
-							<div key={tone} className="flex items-center gap-2">
-								<span
-									className={`w-3 h-3 rounded-sm flex-shrink-0 ${TONE_COLORS[tone].dot}`}
-								/>
-								<span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0]">
-									{TONE_LABELS[tone]}
-								</span>
-							</div>
-						),
-					)}
-				</div>
-			</div>
-
-			<div className="border-t border-[rgba(200,220,210,0.4)] dark:border-[rgba(255,255,255,0.06)]" />
-
-			{/* Phrase Markers */}
-			<div className="px-1 space-y-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B6B6B] dark:text-[#858585]">
-					Phrase Markers
-				</p>
-				<div className="space-y-1.5">
-					<div className="flex items-center gap-2">
-						<span className="w-4 h-0.5 bg-[#0d9488] flex-shrink-0 rounded-full" />
-						<span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0]">
-							Strong move
-						</span>
-					</div>
-					<div className="flex items-center gap-2">
-						<span className="w-4 h-0.5 bg-[#ea580c] flex-shrink-0 rounded-full" />
-						<span className="text-[11px] text-[#4A4A4A] dark:text-[#A0A0A0]">
-							Opportunity
-						</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+        <LappExplanation />
+      </div>
+    </div>
+  );
 }

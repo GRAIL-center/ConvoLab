@@ -52,6 +52,7 @@ services:
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
+      POST_SURVEY_URL: ${POST_SURVEY_URL}
       # Points the Google Auth library at the ADC file mounted in below,
       # so the Firestore client can actually authenticate from inside the
       # container instead of crashing with "Could not load the default

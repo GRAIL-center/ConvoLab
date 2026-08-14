@@ -22,12 +22,15 @@ async function oauth(fastify: FastifyInstance) {
         id: clientId,
         secret: clientSecret,
       },
+      auth: {
+        authorizeHost: 'https://accounts.google.com',
+        authorizePath: '/o/oauth2/v2/auth',
+        tokenHost: 'https://oauth2.googleapis.com',
+        tokenPath: '/token',
+      },
     },
     // Don't use startRedirectPath - we'll create custom route with prompt param
     callbackUri: callbackUrl,
-    discovery: {
-      issuer: 'https://accounts.google.com',
-    },
   });
 
   // Custom auth start route that adds prompt=select_account

@@ -27,21 +27,18 @@ function isBinaryParam(value: string): value is BinaryParam {
 
 function StudyShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F8F8] dark:bg-[#1A1A1A]">
-      <header className="border-b border-[rgba(200,220,210,0.5)] bg-[rgba(255,255,255,0.9)] px-4 py-4 backdrop-blur-sm dark:border-[rgba(255,255,255,0.07)] dark:bg-[rgba(30,30,30,0.95)]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">
-              ConvoLab Study
-            </h1>
-            <p className="mt-0.5 text-sm text-[#6B6B6B] dark:text-[#A0A0A0]">
-              AI conversation setup
-            </p>
-          </div>
+    <div className="min-h-screen bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#f2efe7]">
+      <header className="border-b border-[#ddd8cc] bg-[#fbfaf6]/95 px-6 py-5 backdrop-blur-sm dark:border-[#2b2925] dark:bg-[#151513]/95">
+        <div className="mx-auto flex max-w-7xl items-center gap-5">
+          <h1 className="text-xl font-semibold">ConvoLab</h1>
+          <div className="h-7 w-px bg-[#d8d3c8] dark:bg-[#34312c]" />
+          <p className="text-[13px] font-semibold uppercase tracking-[0.28em] text-[#8a857b] dark:text-[#77736b]">
+            Conversation
+          </p>
         </div>
       </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-8">
-        <div className="w-full max-w-5xl">{children}</div>
+      <main className="px-5 py-10 sm:px-8 lg:py-14">
+        <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
     </div>
   );
@@ -50,30 +47,47 @@ function StudyShell({ children }: { children: ReactNode }) {
 function StatusPanel({ title, message }: { title: string; message: string }) {
   return (
     <StudyShell>
-      <div className="mx-auto max-w-lg rounded-lg border border-[rgba(200,220,210,0.6)] bg-white p-6 text-center shadow-sm dark:border-[rgba(255,255,255,0.07)] dark:bg-[rgba(30,30,30,0.95)]">
-        <h2 className="text-2xl font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">{title}</h2>
-        <p className="mt-3 text-[#6B6B6B] dark:text-[#A0A0A0]">{message}</p>
+      <div className="mx-auto max-w-lg rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-7 text-center shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
+        <h2 className="font-serif text-3xl text-[#24221d] dark:text-[#f2efe7]">{title}</h2>
+        <p className="mt-3 leading-7 text-[#6f6a61] dark:text-[#9d9890]">{message}</p>
       </div>
     </StudyShell>
   );
 }
 
-function StudyInfoPanel({
-  label,
-  title,
-  body,
-}: {
-  label: string;
-  title: string;
-  body: string;
-}) {
+function StudyInfoPanel({ label, title, body }: { label: string; title: string; body: string }) {
   return (
-    <section className="rounded-lg border border-[rgba(200,220,210,0.6)] bg-white p-5 shadow-sm dark:border-[rgba(255,255,255,0.07)] dark:bg-[rgba(30,30,30,0.95)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#6B6B6B] dark:text-[#A0A0A0]">
+    <section className="rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-6 dark:border-[#34312c] dark:bg-[#1b1a17]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
         {label}
       </p>
-      <h2 className="mt-2 text-lg font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-[#4A4A4A] dark:text-[#C9C9C9]">{body}</p>
+      <h2 className="mt-3 text-xl font-semibold text-[#24221d] dark:text-[#dedbd4]">{title}</h2>
+      <p className="mt-3 leading-7 text-[#6f6a61] dark:text-[#9d9890]">{body}</p>
+    </section>
+  );
+}
+
+function LappBrief() {
+  const items = [
+    ['Listen', 'Understand what actually matters to them.'],
+    ['Acknowledge', 'Name something real you can validate.'],
+    ['Pivot', 'Ask for your turn before making your point.'],
+    ['Perspective', 'Share your view in “I” statements, not accusations.'],
+  ] as const;
+
+  return (
+    <section className="rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-6 dark:border-[#34312c] dark:bg-[#1b1a17]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
+        What LAPP Means
+      </p>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        {items.map(([title, body]) => (
+          <div key={title}>
+            <p className="font-semibold text-[#24221d] dark:text-[#dedbd4]">{title}</p>
+            <p className="mt-1 text-sm leading-6 text-[#6f6a61] dark:text-[#9d9890]">{body}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -148,42 +162,43 @@ export function Study() {
 
     return (
       <StudyShell>
-        <div className="space-y-6">
-          <div>
-            <p className="text-sm font-medium text-[#6B6B6B] dark:text-[#A0A0A0]">
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="flex flex-col justify-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8a857b] dark:text-[#77736b]">
               Your conversation is ready
             </p>
-            <h2 className="mt-2 text-3xl font-semibold text-[#1A1A1A] dark:text-[#EBEBEB]">
-              Talk with {assignment.partnerName}
+            <h2 className="mt-5 font-serif text-5xl leading-tight text-[#24221d] dark:text-[#f2efe7] sm:text-6xl">
+              Talk with {assignment.partnerName}.
             </h2>
+            <p className="mt-6 text-lg leading-8 text-[#6f6a61] dark:text-[#aaa59b]">
+              You will have a focused conversation about {displayTopic}. Read the notes here, then
+              start when you are ready.
+            </p>
+            <div className="mt-9">
+              <button
+                type="button"
+                onClick={() => navigate(`/conversation/${assignment.sessionId}`, { replace: true })}
+                className="rounded-full bg-[#24221d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3a362f] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white"
+              >
+                Start conversation
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <StudyInfoPanel
-              label="Topic"
-              title={displayTopic}
-              body="Your chat will focus on this topic. The AI partner has already been assigned for this study session."
-            />
-            <StudyInfoPanel
-              label="Approach"
-              title="LAPP"
-              body="Use Listen, Acknowledge, Pivot, and Present: first show you understand the other view, then move into your own perspective clearly and respectfully."
-            />
-            <StudyInfoPanel
-              label="AI partner"
-              title={assignment.partnerName}
-              body={assignment.partnerSummary}
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => navigate(`/conversation/${assignment.sessionId}`, { replace: true })}
-              className="rounded-full bg-[#1A1A1A] px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#333] dark:bg-[#EBEBEB] dark:text-[#1A1A1A] dark:hover:bg-white"
-            >
-              Start conversation
-            </button>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <StudyInfoPanel
+                label="Topic"
+                title={displayTopic}
+                body="Your conversation will focus on this topic."
+              />
+              <StudyInfoPanel
+                label="AI partner"
+                title={assignment.partnerName}
+                body={assignment.partnerSummary}
+              />
+            </div>
+            <LappBrief />
           </div>
         </div>
       </StudyShell>

@@ -1,6 +1,8 @@
 ---
-const pageTitle = "Conversation Coach - Practice Difficult Conversations";
-const pageDescription = "Master challenging conversations with AI-powered role-play and real-time coaching.";
+const pageTitle = "ConvoLab Practice";
+const pageDescription =
+  "Practice a difficult political conversation with a guided persona and the LAPP framework.";
+const studyHref = import.meta.env.PUBLIC_STUDY_URL ?? "http://127.0.0.1:5173/study";
 ---
 
 <html lang="en">
@@ -10,41 +12,119 @@ const pageDescription = "Master challenging conversations with AI-powered role-p
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- SEO -->
     <title>{pageTitle}</title>
     <meta name="description" content={pageDescription} />
-
-    <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={pageDescription} />
-
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={pageDescription} />
   </head>
-  <body class="min-h-screen bg-gray-50">
-    <main class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <div class="text-center">
-        <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-          Conversation Coach
-        </h1>
-        <p class="mt-6 text-lg leading-8 text-gray-600">
-          Practice difficult conversations with AI-powered role-play and real-time coaching.
+  <body class="min-h-screen bg-[#11110f] text-[#f2efe7] antialiased">
+    <header class="border-b border-[#2b2925] bg-[#151513]/95 px-6 py-5 backdrop-blur-sm">
+      <div class="mx-auto flex max-w-7xl items-center gap-5">
+        <h1 class="text-xl font-semibold">ConvoLab</h1>
+        <div class="h-7 w-px bg-[#34312c]"></div>
+        <p class="text-[13px] font-semibold uppercase tracking-[0.28em] text-[#77736b]">
+          Conversation
         </p>
-        <div class="mt-10 flex items-center justify-center gap-x-6">
-          <a
-            href="/app"
-            class="rounded-md bg-amber-500 px-3.5 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
-          >
-            Get started
-          </a>
-          <a href="/scenarios" class="text-sm font-semibold leading-6 text-gray-900">
-            Browse scenarios <span aria-hidden="true">→</span>
-          </a>
-        </div>
       </div>
+    </header>
+    <main class="min-h-[calc(100vh-73px)]">
+      <section class="grid min-h-[calc(100vh-73px)] grid-cols-1 lg:grid-cols-[1fr_1.05fr]">
+        <div class="flex flex-col justify-between border-b border-[#2b2925] px-6 py-6 sm:px-10 lg:border-b-0 lg:border-r">
+          <div class="mx-auto w-full max-w-xl py-16 lg:py-20">
+            <p class="mb-5 text-sm font-semibold uppercase tracking-[0.26em] text-[#9d9890]">
+              Your conversation is ready
+            </p>
+            <h1 class="font-serif text-5xl leading-tight text-[#f2efe7] sm:text-6xl">
+              Talk with Marcus Johnson about immigration.
+            </h1>
+            <p class="mt-6 text-lg leading-8 text-[#aaa59b]">
+              Marcus believes immigration has lowered wages and made his town less secure. He is firm, skeptical, and reachable if you listen before pushing back.
+            </p>
+            <div class="mt-9 flex flex-wrap gap-3">
+              <a
+                href={studyHref}
+                data-study-link
+                class="rounded-full bg-[#eeeae1] px-5 py-3 text-sm font-semibold text-[#151513] transition hover:bg-white"
+              >
+                Start conversation
+              </a>
+            </div>
+          </div>
+
+          <div class="grid gap-3 text-sm text-[#9d9890] sm:grid-cols-3">
+            <div class="border-t border-[#2b2925] pt-3">
+              <p class="font-semibold text-[#dedbd4]">Topic</p>
+              <p class="mt-1">Immigration, wages, and community change.</p>
+            </div>
+            <div class="border-t border-[#2b2925] pt-3">
+              <p class="font-semibold text-[#dedbd4]">Persona</p>
+              <p class="mt-1">Marcus Johnson, a longtime local resident.</p>
+            </div>
+            <div class="border-t border-[#2b2925] pt-3">
+              <p class="font-semibold text-[#dedbd4]">LAPP</p>
+              <p class="mt-1">Listen, Acknowledge, Pivot, then share Perspective.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center bg-[#151513] px-4 py-8 sm:px-8">
+          <div class="w-full max-w-3xl space-y-4">
+            <section class="rounded-[28px] border border-[#2b2925] bg-[#11110f] p-8 shadow-2xl">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#77736b]">
+                Topic
+              </p>
+              <h2 class="mt-4 font-serif text-4xl text-[#f2efe7]">Immigration</h2>
+              <p class="mt-4 text-lg leading-8 text-[#aaa59b]">
+                Your conversation will focus on immigration, wages, and community change.
+              </p>
+            </section>
+            <section class="rounded-[28px] border border-[#2b2925] bg-[#11110f] p-8 shadow-2xl">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#77736b]">
+                Persona
+              </p>
+              <h2 class="mt-4 font-serif text-4xl text-[#f2efe7]">Marcus Johnson</h2>
+              <p class="mt-4 text-lg leading-8 text-[#aaa59b]">
+                Marcus believes immigration has lowered wages and made his town less secure. He is firm, skeptical, and reachable if you listen before pushing back.
+              </p>
+            </section>
+            <section class="rounded-[28px] border border-[#2b2925] bg-[#11110f] p-8 shadow-2xl">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#77736b]">
+                What LAPP Means
+              </p>
+              <div class="mt-6 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <p class="font-semibold text-[#dedbd4]">Listen</p>
+                  <p class="mt-1 text-sm leading-6 text-[#9d9890]">Understand what actually matters to them.</p>
+                </div>
+                <div>
+                  <p class="font-semibold text-[#dedbd4]">Acknowledge</p>
+                  <p class="mt-1 text-sm leading-6 text-[#9d9890]">Name something real you can validate.</p>
+                </div>
+                <div>
+                  <p class="font-semibold text-[#dedbd4]">Pivot</p>
+                  <p class="mt-1 text-sm leading-6 text-[#9d9890]">Ask for your turn before making your point.</p>
+                </div>
+                <div>
+                  <p class="font-semibold text-[#dedbd4]">Perspective</p>
+                  <p class="mt-1 text-sm leading-6 text-[#9d9890]">Share your view in “I” statements, not accusations.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
     </main>
+    <script define:vars={{ studyHref }}>
+      const link = document.querySelector("[data-study-link]");
+      if (link instanceof HTMLAnchorElement && window.location.search) {
+        const url = new URL(studyHref, window.location.href);
+        url.search = window.location.search;
+        link.href = url.toString();
+      }
+    </script>
   </body>
 </html>
