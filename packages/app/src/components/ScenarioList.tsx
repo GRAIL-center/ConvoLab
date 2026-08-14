@@ -11,7 +11,7 @@ import { useTRPC } from '../api/trpc';
 import { CustomScenarioForm, type ElaboratedScenario } from './CustomScenarioForm';
 
 interface Scenario {
-  id: number;
+  id: number | string;
   name: string;
   description: string | null;
   partnerPersona: string;

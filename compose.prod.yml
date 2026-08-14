@@ -28,6 +28,7 @@ services:
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
+      POST_SURVEY_URL: ${POST_SURVEY_URL:?Set POST_SURVEY_URL in .env.prod}
     networks:
       - ai-dialogues
 

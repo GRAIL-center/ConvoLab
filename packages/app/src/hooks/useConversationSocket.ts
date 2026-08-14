@@ -38,6 +38,7 @@ export interface Message {
 	messageType?: "main" | "aside";
 	asideThreadId?: string;
 	action?: string;
+	clientTone?: LappScore["tone"];
 }
 
 export interface AsideMessage {
@@ -153,6 +154,36 @@ interface UseConversationSocketResult {
 const MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
+function estimateProvisionalTone(content: string): LappScore["tone"] {
+	const text = content.toLowerCase();
+
+	if (
+		/\b(stupid|idiot|dumb|racist|liar|shut up|who cares|who gaf|fuck|shit)\b/.test(
+			text,
+		)
+	) {
+		return "tense";
+	}
+
+	if (
+		/\b(i hear|i get|that makes sense|fair|valid|understand|i see|sorry)\b/.test(
+			text,
+		)
+	) {
+		return "warm";
+	}
+
+	if (
+		/\b(can i|could i|what|why|how|where|when|tell me|i think|my view|from my perspective)\b/.test(
+			text,
+		)
+	) {
+		return "constructive";
+	}
+
+	return "neutral";
+}
+
 export function useConversationSocket(
 	sessionId: string,
 ): UseConversationSocketResult {
@@ -220,6 +251,7 @@ export function useConversationSocket(
 				content: content.trim(),
 				timestamp: new Date().toISOString(),
 				messageType: "main",
+				clientTone: estimateProvisionalTone(content.trim()),
 			};
 			setMessages((prev) => [...prev, userMessage]);
 
@@ -657,6 +689,30 @@ export function useConversationSocket(
 						break;
 
 					case "score:update":
+						setMessages((prev) => {
+							if (prev.some((message) => String(message.id) === String(msg.userMessageId))) {
+								return prev;
+							}
+
+							let userTurn = 0;
+							let matchedIndex = -1;
+							for (let index = 0; index < prev.length; index++) {
+								if (prev[index].role !== "user") continue;
+								userTurn++;
+								if (userTurn === msg.turnNumber) {
+									matchedIndex = index;
+									break;
+								}
+							}
+
+							if (matchedIndex === -1) return prev;
+
+							return prev.map((message, index) =>
+								index === matchedIndex
+									? { ...message, id: msg.userMessageId }
+									: message,
+							);
+						});
 						setLappScores((prev) => {
 							const next = new Map(prev);
 							next.set(String(msg.userMessageId), {

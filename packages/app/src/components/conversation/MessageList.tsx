@@ -7,9 +7,16 @@ interface MessageListProps {
   isStreaming: boolean;
   partnerName?: string;
   lappScores?: Map<string, LappScore>;
+  showTone?: boolean;
 }
 
-export function MessageList({ messages, isStreaming, partnerName, lappScores }: MessageListProps) {
+export function MessageList({
+  messages,
+  isStreaming,
+  partnerName,
+  lappScores,
+  showTone = true,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on messages change
@@ -37,8 +44,8 @@ export function MessageList({ messages, isStreaming, partnerName, lappScores }: 
     >
       {messages.map((message, index) => {
         const tone =
-          message.role === 'user' && lappScores
-            ? (lappScores.get(String(message.id))?.tone ?? null)
+          showTone && message.role === 'user' && lappScores
+            ? (lappScores.get(String(message.id))?.tone ?? message.clientTone ?? null)
             : null;
         return (
           <MessageBubble
