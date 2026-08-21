@@ -1,6 +1,6 @@
 import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify';
-import { db as prisma } from '../db/firestoreHelpers';
-import { getFirestore } from '../lib/firestore';
+import { db as prisma } from '../db/firestoreHelpers.js';
+import { getFirestore } from '../lib/firestore.js';
 
 export async function createContext({ req, res }: CreateFastifyContextOptions) {
   const userId = req.session.get('userId') ?? null;

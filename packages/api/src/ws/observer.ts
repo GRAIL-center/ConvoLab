@@ -1,4 +1,4 @@
-import type { PrismaClient } from '../db/firestoreHelpers';
+import type { PrismaClient } from '../db/firestoreHelpers.js';
 import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
