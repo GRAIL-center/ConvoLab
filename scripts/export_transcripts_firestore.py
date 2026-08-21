@@ -152,6 +152,10 @@ STUDY_FIELDS = {
     "studyPartnerGender": "partner_gender",
     "studyPartnerGenderCode": "partner_gender_code",
     "studyEnteredAt": "entered_at",
+    # entered_at is stamped at Qualtrics entry; conversation_started_at is stamped
+    # when the participant actually opens the conversation socket. The gap between
+    # them is landing-page reading time, which is not conversation dosage.
+    "studyConversationStartedAt": "conversation_started_at",
     # Set when the participant is sent back to Qualtrics. end_type separates a
     # completed conversation from a hard-stop or an abandonment, so it carries
     # the attrition analysis; participant_turn_count is the dosage measure.

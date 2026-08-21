@@ -353,8 +353,11 @@ export class ConversationManager {
 						condition: this.session.studyCondition === 1 ? 1 : 0,
 						coachEnabled: this.isCoachEnabled(),
 						participantTurnCount: this.countParticipantTurns(),
-						softCapSeconds: 7 * 60,
-						hardStopSeconds: 8 * 60,
+						// softCap is no longer a deadline: it is the point where the
+						// participant is free to finish. They may keep talking until
+						// hardStop, which is the only enforced limit.
+						softCapSeconds: 8 * 60,
+						hardStopSeconds: 12 * 60,
 						minParticipantTurns: 6,
 						elapsedSecondsAtConnect,
 					}

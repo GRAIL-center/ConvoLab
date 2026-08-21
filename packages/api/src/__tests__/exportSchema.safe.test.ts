@@ -19,6 +19,11 @@ import { describe, expect, it } from 'vitest';
 
 const REPO = resolve(import.meta.dirname, '../../../..');
 const STUDY_ROUTER = resolve(REPO, 'packages/api/src/trpc/routers/study.ts');
+// study.ts is not the only writer: the WebSocket layer stamps the conversation
+// clock anchor onto the session too. Scanning only the router left that field
+// unexported and invisible to this guard, which is the exact failure this file
+// exists to prevent, so both writers are scanned.
+const WS_CONVERSATION = resolve(REPO, 'packages/api/src/ws/conversation.ts');
 const EXPORTER = resolve(REPO, 'scripts/export_transcripts_firestore.py');
 
 /**
@@ -32,13 +37,15 @@ const DELIBERATELY_NOT_EXPORTED: Record<string, string> = {
   prolificPid: 'direct identifier; exported only as the salted survey_join_key',
 };
 
-/** Session fields written by the study flow, read out of study.ts. */
+/** Session fields written by the study flow, across every file that writes them. */
 function studyFieldsWrittenByApi(): Set<string> {
-  const src = readFileSync(STUDY_ROUTER, 'utf8');
   const fields = new Set<string>();
-  // Object-literal keys: `studyCondition: condition,` / `prolificPid: input.pid,`
-  const re = /^\s*(study[A-Z]\w*|prolificPid|participantTurnCount)\s*:/gm;
-  for (const m of src.matchAll(re)) fields.add(m[1]);
+  for (const file of [STUDY_ROUTER, WS_CONVERSATION]) {
+    const src = readFileSync(file, 'utf8');
+    // Object-literal keys: `studyCondition: condition,` / `prolificPid: input.pid,`
+    const re = /^\s*(study[A-Z]\w*|prolificPid|participantTurnCount)\s*:/gm;
+    for (const m of src.matchAll(re)) fields.add(m[1]);
+  }
   return fields;
 }
 
@@ -66,7 +73,7 @@ describe('study field export coverage', () => {
     );
     expect(
       unaccounted,
-      `study.ts writes ${unaccounted.join(', ')} but scripts/export_transcripts_firestore.py ` +
+      `the API writes ${unaccounted.join(', ')} but scripts/export_transcripts_firestore.py ` +
         'neither exports them nor lists them in DELIBERATELY_NOT_EXPORTED. Add them to ' +
         "STUDY_FIELDS, or record why they are excluded. Don't just delete this assertion: " +
         'an unexported arm or outcome field makes the RCT unanalysable.'

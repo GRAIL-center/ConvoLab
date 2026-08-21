@@ -243,11 +243,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const isStudySession = study?.source === 'qualtrics_prolific';
   const participantTurnCount = mainMessages.filter((m) => m.role === 'user').length;
   const canFinishStudy = !study || participantTurnCount >= study.minParticipantTurns;
-  const showWrapSoon =
-    !!study &&
-    elapsedSeconds >= Math.max(0, study.softCapSeconds - 90) &&
-    elapsedSeconds < study.softCapSeconds;
+  // The soft cap used to be a countdown to the end. It now marks the point where
+  // the participant may leave if they want to; the hard stop is the only limit
+  // that actually ends the conversation, so that is what we warn ahead of.
+  const pastSoftCap = !!study && elapsedSeconds >= study.softCapSeconds;
   const hardStopped = !!study && elapsedSeconds >= study.hardStopSeconds;
+  const showWrapSoon =
+    !!study && !hardStopped && elapsedSeconds >= Math.max(0, study.hardStopSeconds - 90);
+  const showCanFinishNotice = pastSoftCap && !showWrapSoon && !hardStopped;
 
   const isInputDisabled = isStreaming || isQuotaExhausted || hardStopped;
 
@@ -321,8 +324,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const lappRailWidth = railsVisible ? 'xl:w-[335px]' : 'xl:w-0';
   const coachRailWidth = railsVisible && coachEnabled ? 'lg:w-[360px] xl:w-[420px]' : 'lg:w-0';
-  const repliesRemaining = Math.max(0, (study?.minParticipantTurns ?? 8) - participantTurnCount);
-  const surveyUnlocked = !isStudySession || canFinishStudy || repliesRemaining === 0;
+  const repliesRemaining = Math.max(0, (study?.minParticipantTurns ?? 6) - participantTurnCount);
+  // Either enough turns or enough time is sufficient: a slow participant who has
+  // not reached the turn minimum by the soft cap can still choose to finish.
+  const surveyUnlocked = !isStudySession || canFinishStudy || pastSoftCap;
 
   return (
     <div className="flex h-dvh flex-col bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#dedbd4]">
@@ -371,9 +376,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         </div>
       </header>
 
-      {isStudySession && showWrapSoon && (
+      {isStudySession && (showCanFinishNotice || showWrapSoon) && (
         <div className="border-b border-[#ddd8cc] bg-[#fbfaf6] px-4 py-2 text-center text-sm text-[#6a655c] dark:border-[#2b2925] dark:bg-[#151513] dark:text-[#aaa59b]">
-          Wrapping up soon. Finish your current thought when ready.
+          {showWrapSoon
+            ? 'Wrapping up soon. Finish your current thought when ready.'
+            : 'You can continue as long as you like, or head to the survey whenever you are ready.'}
         </div>
       )}
 
@@ -449,20 +456,17 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                 }`}
               >
                 <span>
-                  {surveyUnlocked ? 'Survey unlocked' : `${repliesRemaining} replies left`}
+                  {surveyUnlocked
+                    ? 'Finish whenever you are ready'
+                    : `${repliesRemaining} replies left`}
                 </span>
                 {isStudySession && (
                   <button
                     type="button"
-                    onClick={() =>
-                      handleFinish(
-                        hardStopped
-                          ? 'hard_stop'
-                          : elapsedSeconds >= (study?.softCapSeconds ?? Infinity)
-                            ? 'soft_cap'
-                            : 'participant_finish'
-                      )
-                    }
+                    // Past the soft cap the button is a free choice, not a cap being
+                    // enforced, so it always records participant_finish. hard_stop is
+                    // recorded only by the automatic end-of-window effect above.
+                    onClick={() => handleFinish('participant_finish')}
                     disabled={!surveyUnlocked || finishMutation.isPending || isStreaming}
                     className={`rounded-xl px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
                       surveyUnlocked
