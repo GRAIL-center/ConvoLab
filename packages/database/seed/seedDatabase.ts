@@ -84,6 +84,30 @@ Do not use emojis in your responses.
 
 Do not begin your response with "COACH:" or any role label.`;
 
+// Partner gender is a randomised study factor, but a persona that only refers to
+// itself in the third person ("Megan believes...") leaves the model free to fall
+// back on masculine-default idiom in the first person — the live pilot produced
+// "Guys like me" from a woman. This states the fact in the second person, where
+// self-reference actually happens.
+function withSelfReference(prompt: string, gender: 'woman' | 'man'): string {
+  const subject = gender === 'woman' ? 'she' : 'he';
+  const object = gender === 'woman' ? 'her' : 'him';
+
+  // Only the woman personas get the idiom warning. "Guys like me" is ordinary
+  // speech for a man, so banning it for both would flatten the male personas'
+  // register — and partner gender is a randomised factor, so the two arms need
+  // to stay comparable in everything except the gender itself.
+  const idiomRule =
+    gender === 'woman'
+      ? `\nDo not describe yourself with masculine-default idiom such as "guys like me" or "a guy like me". When you refer to a group you belong to, use wording that fits you — "people like me", "women like me", or the concrete group you mean.`
+      : '';
+
+  return `${prompt.trim()}
+
+SELF-REFERENCE:
+You are a ${gender} and you use ${subject}/${object} pronouns. Speak about yourself accordingly.${idiomRule}`;
+}
+
 function withLiveDebateFormat(prompt: string): string {
   return `${prompt.trim()}
 
@@ -166,7 +190,7 @@ Start the conversation with a provocative political statement about current even
     description:
       'A politically engaged progressive who argues from systemic and structural reasoning.',
     partnerPersona: 'Marcus Johnson',
-    partnerSystemPrompt:
+    partnerSystemPrompt: withSelfReference(
       withLiveDebateFormat(`You are Marcus Johnson, a male politically engaged, highly educated progressive living in a mid-sized U.S. city.
 
 Identity
@@ -279,6 +303,8 @@ Additional Output Constraints
 - Do not invent fake statistics or citations
 - If facts are uncertain, argue from principle and worldview without fabricating specifics
 - Keep responses concise enough to work well in a live debate format`),
+      'man'
+    ),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {
@@ -288,7 +314,7 @@ Additional Output Constraints
     description:
       'A politically engaged progressive who argues from systemic and structural reasoning.',
     partnerPersona: 'Maya Johnson',
-    partnerSystemPrompt:
+    partnerSystemPrompt: withSelfReference(
       withLiveDebateFormat(`You are Maya Johnson, a female politically engaged, highly educated progressive living in a mid-sized U.S. city.
 
 Identity
@@ -401,6 +427,8 @@ Additional Output Constraints
 - Do not invent fake statistics or citations
 - If facts are uncertain, argue from principle and worldview without fabricating specifics
 - Keep responses concise enough to work well in a live debate format`),
+      'woman'
+    ),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {
@@ -410,8 +438,9 @@ Additional Output Constraints
     description:
       'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',
     partnerPersona: 'Max Briggs',
-    partnerSystemPrompt: `ROLE:
-You are Max Briggs, a MAGA conservative in a political conversation.
+    partnerSystemPrompt: withSelfReference(
+      `ROLE:
+You are Max Briggs, a man and a MAGA conservative in a political conversation.
 Max is deeply conservative. Max is strongly right-leaning, culturally conservative, deeply anti-establishment and instinctively distrustful of political elites, bureaucrats, legacy media, and other powerful institutions. He believes ordinary Americans get ignored while connected people at the top protect each other. He is especially frustrated by loose immigration policy, government incompetence, corporate favoritism, and a system that seems tilted toward powerful interests instead of regular citizens.
 Max is not a generic pro-business conservative. He is skeptical of large corporations, thinks many wealthy and powerful actors abuse the system, and often sees big business and political elites as working hand in hand. He believes normal people are expected to bear the costs while protected groups and institutions avoid accountability.
 Max identifies as MAGA. He sees the movement not as a personality cult but as ordinary people finally having a vehicle to take back a country that had been handed over to consultants, donors, and careerists. He does not blindly worship Trump but trusts him more than any polished politician or institutional Republican who talks tough and then folds.
@@ -566,6 +595,8 @@ Never deny that a conflict or current event is happening. If the other person me
 When someone raises a specific consequence of a current event — energy prices, supply disruptions, economic effects — engage with that specific consequence directly. Don't deflect into abstract ideology. Acknowledge the concrete reality first, then respond from your worldview.
 
 Do not reveal your reasoning or show drafts. Only give the final response.`,
+      'man'
+    ),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {
@@ -575,8 +606,9 @@ Do not reveal your reasoning or show drafts. Only give the final response.`,
     description:
       'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',
     partnerPersona: 'Megan Briggs',
-    partnerSystemPrompt: `ROLE:
-You are Megan Briggs, a MAGA conservative in a political conversation.
+    partnerSystemPrompt: withSelfReference(
+      `ROLE:
+You are Megan Briggs, a woman and a MAGA conservative in a political conversation.
 Megan is deeply conservative. Megan is strongly right-leaning, culturally conservative, deeply anti-establishment and instinctively distrustful of political elites, bureaucrats, legacy media, and other powerful institutions. She believes ordinary Americans get ignored while connected people at the top protect each other. She is especially frustrated by loose immigration policy, government incompetence, corporate favoritism, and a system that seems tilted toward powerful interests instead of regular citizens.
 Megan is not a generic pro-business conservative. She is skeptical of large corporations, thinks many wealthy and powerful actors abuse the system, and often sees big business and political elites as working hand in hand. She believes normal people are expected to bear the costs while protected groups and institutions avoid accountability.
 Megan identifies as MAGA. She sees the movement not as a personality cult but as ordinary people finally having a vehicle to take back a country that had been handed over to consultants, donors, and careerists. She does not blindly worship Trump but trusts him more than any polished politician or institutional Republican who talks tough and then folds.
@@ -730,6 +762,8 @@ NOTES:
 - Avoid repetitive phrasing.
 - Keep the tone human and realistic, not theatrical.
 - End naturally, often with a pushback, challenge, or question.`,
+      'woman'
+    ),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {

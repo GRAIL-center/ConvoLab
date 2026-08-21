@@ -89,6 +89,29 @@ function partnerSummary(ideology: PartnerIdeology, gender: PartnerGender): strin
 		: "Max is a MAGA-aligned right-populist who argues from fairness, accountability, local community, and distrust of powerful institutions.";
 }
 
+// The shared debate coach prompt is written in generic "they/their" because one
+// prompt serves all four study personas. That made the coach refer to a partner
+// the participant can plainly see is a woman as "they". Partner gender is a
+// randomised factor here, so the coach should reflect it rather than neutralise
+// it: name the partner and pin the pronouns, and say explicitly that this beats
+// the generic wording above it.
+function buildStudyCoachPrompt(
+	basePrompt: string,
+	partnerName: string,
+	gender: PartnerGender,
+): string {
+	const subject = gender === "female" ? "she" : "he";
+	const object = gender === "female" ? "her" : "him";
+	const possessive = gender === "female" ? "her" : "his";
+
+	return `${basePrompt.trim()}
+
+CONVERSATION PARTNER:
+The person the user is practising with is ${partnerName}, who uses ${subject}/${object} pronouns.
+When you refer to ${partnerName}, use ${partnerName}'s name or ${subject}/${object}/${possessive}. Do not call ${partnerName} "they" or "them".
+The framework guidance above is written with a generic "they" because it is shared across partners; ${partnerName}'s pronouns take precedence over that wording.`;
+}
+
 function buildStudyPrompt(basePrompt: string, topic: string, ownTopic?: string): string {
 	const resolvedTopic = topic === "Pick your own topic" ? ownTopic?.trim() || "the user's chosen political topic" : topic;
 
@@ -185,7 +208,11 @@ export const studyRouter = router({
 			customScenarioName: `${scenario.partnerPersona}: ${input.topic}`,
 			customPartnerPersona: scenario.partnerPersona,
 			customPartnerPrompt: buildStudyPrompt(scenario.partnerSystemPrompt, input.topic, input.owntopic),
-			customCoachPrompt: scenario.coachSystemPrompt,
+			customCoachPrompt: buildStudyCoachPrompt(
+				scenario.coachSystemPrompt,
+				scenario.partnerPersona,
+				partnerGender,
+			),
 			studySource: "qualtrics_prolific",
 			prolificPid: input.pid,
 			qualtricsResponseId: input.rid,

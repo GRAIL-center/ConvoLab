@@ -45,6 +45,13 @@ export interface Message {
 	asideThreadId?: string;
 	action?: string;
 	clientTone?: LappScore["tone"];
+	/**
+	 * True while this is the locally-added echo of a message the server has not
+	 * confirmed yet. Optimistic messages carry a client-generated id that can
+	 * never equal a Firestore document id, so id comparison alone cannot dedupe
+	 * them against a server copy. Cleared once score:update supplies the real id.
+	 */
+	isOptimistic?: boolean;
 }
 
 export interface AsideMessage {
@@ -258,6 +265,7 @@ export function useConversationSocket(
 				timestamp: new Date().toISOString(),
 				messageType: "main",
 				clientTone: estimateProvisionalTone(content.trim()),
+				isOptimistic: true,
 			};
 			setMessages((prev) => [...prev, userMessage]);
 
@@ -440,9 +448,33 @@ export function useConversationSocket(
 								const serverIds = new Set(
 									mainMessages.map((m) => String(m.id)),
 								);
-								const confirmed = prev.filter(
-									(m) => !serverIds.has(String(m.id)) && !m.isStreaming,
-								);
+								// An optimistic user message keeps a client-generated id, so it can
+								// never match a server id and would survive this merge as a visible
+								// duplicate of the same text. Match those by content instead, and
+								// only drop as many as the server actually sent, so a participant
+								// who genuinely repeats themselves keeps both turns.
+								const unclaimedServerText = new Map<string, number>();
+								for (const m of mainMessages) {
+									if (m.role !== "user") continue;
+									const key = m.content.trim();
+									unclaimedServerText.set(
+										key,
+										(unclaimedServerText.get(key) ?? 0) + 1,
+									);
+								}
+								const confirmed = prev.filter((m) => {
+									if (m.isStreaming) return false;
+									if (serverIds.has(String(m.id))) return false;
+									if (m.isOptimistic && m.role === "user") {
+										const key = m.content.trim();
+										const remaining = unclaimedServerText.get(key) ?? 0;
+										if (remaining > 0) {
+											unclaimedServerText.set(key, remaining - 1);
+											return false;
+										}
+									}
+									return true;
+								});
 								return [...confirmed, ...mainMessages];
 							});
 						}
@@ -696,8 +728,25 @@ export function useConversationSocket(
 
 					case "score:update":
 						setMessages((prev) => {
-							if (prev.some((message) => String(message.id) === String(msg.userMessageId))) {
-								return prev;
+							const confirmedIndex = prev.findIndex(
+								(message) => String(message.id) === String(msg.userMessageId),
+							);
+							if (confirmedIndex !== -1) {
+								// The server copy is already here (a reconnect replayed history
+								// before this score arrived). Bailing out used to leave the
+								// optimistic twin on screen, so the participant saw their own
+								// message twice. Drop the twin instead.
+								const confirmedText = prev[confirmedIndex].content.trim();
+								const deduped = prev.filter(
+									(message, index) =>
+										index === confirmedIndex ||
+										!(
+											message.isOptimistic &&
+											message.role === "user" &&
+											message.content.trim() === confirmedText
+										),
+								);
+								return deduped.length === prev.length ? prev : deduped;
 							}
 
 							let userTurn = 0;
@@ -715,7 +764,7 @@ export function useConversationSocket(
 
 							return prev.map((message, index) =>
 								index === matchedIndex
-									? { ...message, id: msg.userMessageId }
+									? { ...message, id: msg.userMessageId, isOptimistic: false }
 									: message,
 							);
 						});
