@@ -27,6 +27,12 @@ export interface StudyInfo {
 	softCapSeconds: number;
 	hardStopSeconds: number;
 	minParticipantTurns: number;
+	/**
+	 * Seconds already on the server-anchored clock when this socket connected.
+	 * Optional so an older API build (or a session created before the anchor
+	 * existed) degrades to counting from zero rather than crashing.
+	 */
+	elapsedSecondsAtConnect?: number;
 }
 
 export interface Message {

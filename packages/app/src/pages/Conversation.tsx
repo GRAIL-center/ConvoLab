@@ -71,6 +71,16 @@ function FullScreenMessage({
   );
 }
 
+// Opening suggestions for the non-study practice app. Deliberately NOT shown in
+// study sessions: an experimenter-supplied opener would shape the participant's
+// first turn, which is a scored turn, and would land in both arms unequally.
+// Kept topic-agnostic so they read sensibly for any partisan scenario.
+const OPENING_PROMPTS = [
+  'What matters most to you here?',
+  'How did you come to see it that way?',
+  'What do people get wrong about your side?',
+];
+
 // "Angry Uncle at Thanksgiving" → "Angry Uncle"
 function getShortName(
   scenario: { name?: string; partnerPersona?: string } | null | undefined
@@ -160,12 +170,19 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // The conversation clock is anchored server-side (see resolveStudyElapsedSeconds
+  // in the API). We resume from the elapsed seconds the server reports and add our
+  // own delta since connect, so refreshing the page no longer hands the participant
+  // a fresh 8 minutes, and a wrong device clock cannot shift the countdown.
   useEffect(() => {
     if (!study) return;
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
+    const baseSeconds = study.elapsedSecondsAtConnect ?? 0;
+    const connectedAt = Date.now();
+    const tick = () => {
+      setElapsedSeconds(baseSeconds + Math.floor((Date.now() - connectedAt) / 1000));
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
   }, [study]);
 
@@ -302,11 +319,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const lappRailWidth = railsVisible
-    ? coachEnabled
-      ? 'xl:w-[335px]'
-      : 'xl:w-[335px]'
-    : 'xl:w-0';
+  const lappRailWidth = railsVisible ? 'xl:w-[335px]' : 'xl:w-0';
   const coachRailWidth = railsVisible && coachEnabled ? 'lg:w-[360px] xl:w-[420px]' : 'lg:w-0';
   const repliesRemaining = Math.max(0, (study?.minParticipantTurns ?? 8) - participantTurnCount);
   const surveyUnlocked = !isStudySession || canFinishStudy || repliesRemaining === 0;
@@ -488,30 +501,28 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   <SendIcon />
                 </button>
               </div>
-              <div
-                className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
-                  railsVisible ? 'hidden' : 'pointer-events-auto opacity-100'
-                }`}
-              >
-                {[
-                  'What changed at the plant?',
-                  'Who sets those wages?',
-                  'Tell me about your grandparents',
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => {
-                      setPartnerDraft(prompt);
-                      activateRails(prompt);
-                      inputRef.current?.focus();
-                    }}
-                    className="rounded-full border border-[#d8d3c8] px-5 py-2 text-sm text-[#6c675e] transition-colors hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#aaa59b] dark:hover:bg-[#22211d]"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+              {!isStudySession && (
+                <div
+                  className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
+                    railsVisible ? 'hidden' : 'pointer-events-auto opacity-100'
+                  }`}
+                >
+                  {OPENING_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => {
+                        setPartnerDraft(prompt);
+                        activateRails(prompt);
+                        inputRef.current?.focus();
+                      }}
+                      className="rounded-full border border-[#d8d3c8] px-5 py-2 text-sm text-[#6c675e] transition-colors hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#aaa59b] dark:hover:bg-[#22211d]"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="pt-3 text-center text-xs text-[#8c877d] dark:text-[#77736b]">
                 Enter to send · goes to {shortName}
               </p>

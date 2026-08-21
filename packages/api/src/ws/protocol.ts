@@ -59,6 +59,13 @@ export interface StudyInfo {
   softCapSeconds: number;
   hardStopSeconds: number;
   minParticipantTurns: number;
+  /**
+   * Seconds already elapsed on the server-anchored conversation clock at the
+   * moment this payload was sent. The client adds its own wall-clock delta on
+   * top, so the timer survives a page refresh and is immune to a skewed client
+   * clock. 0 for sessions that predate the anchor being persisted.
+   */
+  elapsedSecondsAtConnect: number;
 }
 
 export interface HistoryMessage {

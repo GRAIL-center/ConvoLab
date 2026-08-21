@@ -14,6 +14,7 @@ import {
 	createMessage,
 	getLappScoresForSession,
 	getMessagesForSession,
+	updateSession,
 } from "../data/index.js";
 
 //import { DEFAULT_MODEL } from '../lib/constants.js';
@@ -250,6 +251,7 @@ interface SessionWithScenario extends Omit<ConversationSession, "id"> {
 	studyTopic?: string | null;
 	studyCondition?: number | null;
 	studyCoachEnabled?: boolean | null;
+	studyConversationStartedAt?: Date | string | null;
 }
 
 export class ConversationManager {
@@ -273,6 +275,42 @@ export class ConversationManager {
 		this.prisma = db;
 		this.session = session;
 		this.logger = logger;
+	}
+
+	/**
+	 * Seconds elapsed on the study conversation clock.
+	 *
+	 * The clock is anchored to the first time a participant opens the
+	 * conversation socket, and that anchor is persisted, so a page refresh or a
+	 * reconnect resumes the same countdown instead of restarting it. Sending
+	 * elapsed seconds rather than a timestamp keeps the client immune to a
+	 * skewed device clock.
+	 *
+	 * Fails soft: if the anchor cannot be persisted the conversation still runs,
+	 * it just falls back to per-connection timing as before.
+	 */
+	private async resolveStudyElapsedSeconds(): Promise<number> {
+		const existing = this.session.studyConversationStartedAt;
+		if (existing) {
+			const startedMs = new Date(toIsoString(existing)).getTime();
+			if (Number.isFinite(startedMs)) {
+				return Math.max(0, Math.floor((Date.now() - startedMs) / 1000));
+			}
+		}
+
+		const now = new Date();
+		this.session.studyConversationStartedAt = now;
+		try {
+			await updateSession(String(this.session.id), {
+				studyConversationStartedAt: now,
+			} as unknown as Partial<ConversationSession>);
+		} catch (error) {
+			this.logger.warn(
+				{ err: error, sessionId: this.session.id },
+				"[study] could not persist conversation clock anchor; timer will restart on refresh",
+			);
+		}
+		return 0;
 	}
 
 	async initialize(): Promise<void> {
@@ -299,23 +337,28 @@ export class ConversationManager {
 			throw new Error("Session has neither scenario nor custom prompts");
 		}
 
+		const isStudySession = this.session.studySource === "qualtrics_prolific";
+		const elapsedSecondsAtConnect = isStudySession
+			? await this.resolveStudyElapsedSeconds()
+			: 0;
+
 		send(this.ws, {
 			type: "connected",
 			sessionId: this.session.id,
 			scenario: scenarioInfo,
-			study:
-				this.session.studySource === "qualtrics_prolific"
-					? {
-							source: "qualtrics_prolific",
-							topic: this.session.studyTopic ?? "",
-							condition: this.session.studyCondition === 1 ? 1 : 0,
-							coachEnabled: this.isCoachEnabled(),
-							participantTurnCount: this.countParticipantTurns(),
-							softCapSeconds: 7 * 60,
-							hardStopSeconds: 8 * 60,
-							minParticipantTurns: 6,
-						}
-					: undefined,
+			study: isStudySession
+				? {
+						source: "qualtrics_prolific",
+						topic: this.session.studyTopic ?? "",
+						condition: this.session.studyCondition === 1 ? 1 : 0,
+						coachEnabled: this.isCoachEnabled(),
+						participantTurnCount: this.countParticipantTurns(),
+						softCapSeconds: 7 * 60,
+						hardStopSeconds: 8 * 60,
+						minParticipantTurns: 6,
+						elapsedSecondsAtConnect,
+					}
+				: undefined,
 		});
 
 		const historyMessages: HistoryMessage[] = this.session.messages.map(
