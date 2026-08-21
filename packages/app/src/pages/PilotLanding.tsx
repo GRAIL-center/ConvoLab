@@ -207,8 +207,9 @@ export function PilotLanding() {
                   A coach is available during the conversation.
                 </h3>
                 <p className="mt-2 text-base leading-7 text-[#aaa59b]">
-                  Open the Coach tab anytime you want help deciding what to say next or applying
-                  Listen, Acknowledge, Pivot, and Perspective.
+                  Once you send your first message, a coach appears beside the conversation with
+                  suggestions for what to say next and how to apply Listen, Acknowledge, Pivot, and
+                  Perspective. You can also ask it a question directly at any point.
                 </p>
               </div>
             )}
