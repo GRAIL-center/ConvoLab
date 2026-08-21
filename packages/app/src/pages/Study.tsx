@@ -25,6 +25,14 @@ function isBinaryParam(value: string): value is BinaryParam {
   return value === '0' || value === '1';
 }
 
+function getFirstSearchParam(searchParams: URLSearchParams, names: string[]) {
+  for (const name of names) {
+    const value = searchParams.get(name)?.trim();
+    if (value) return value;
+  }
+  return '';
+}
+
 function StudyShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#f2efe7]">
@@ -55,57 +63,22 @@ function StatusPanel({ title, message }: { title: string; message: string }) {
   );
 }
 
-function StudyInfoPanel({ label, title, body }: { label: string; title: string; body: string }) {
-  return (
-    <section className="rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-6 dark:border-[#34312c] dark:bg-[#1b1a17]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
-        {label}
-      </p>
-      <h2 className="mt-3 text-xl font-semibold text-[#24221d] dark:text-[#dedbd4]">{title}</h2>
-      <p className="mt-3 leading-7 text-[#6f6a61] dark:text-[#9d9890]">{body}</p>
-    </section>
-  );
-}
-
-function LappBrief() {
-  const items = [
-    ['Listen', 'Understand what actually matters to them.'],
-    ['Acknowledge', 'Name something real you can validate.'],
-    ['Pivot', 'Ask for your turn before making your point.'],
-    ['Perspective', 'Share your view in “I” statements, not accusations.'],
-  ] as const;
-
-  return (
-    <section className="rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-6 dark:border-[#34312c] dark:bg-[#1b1a17]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">
-        What LAPP Means
-      </p>
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        {items.map(([title, body]) => (
-          <div key={title}>
-            <p className="font-semibold text-[#24221d] dark:text-[#dedbd4]">{title}</p>
-            <p className="mt-1 text-sm leading-6 text-[#6f6a61] dark:text-[#9d9890]">{body}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function Study() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const trpc = useTRPC();
 
   const parsed = useMemo(() => {
-    const pid = searchParams.get('pid')?.trim() ?? '';
-    const topic = searchParams.get('topic')?.trim() ?? '';
-    const condition = searchParams.get('condition')?.trim() ?? '';
-    const partner = searchParams.get('partner')?.trim() ?? '';
-    const ideology = searchParams.get('ideology')?.trim() ?? '';
-    const party = searchParams.get('party')?.trim() || undefined;
-    const rid = searchParams.get('rid')?.trim() || undefined;
-    const owntopic = searchParams.get('owntopic')?.trim() || undefined;
+    const rid = getFirstSearchParam(searchParams, ['rid', 'ResponseID', 'responseId']) || undefined;
+    const pid =
+      getFirstSearchParam(searchParams, ['pid', 'PROLIFIC_PID', 'prolific_pid']) ||
+      (rid ? `qualtrics:${rid}` : '');
+    const topic = getFirstSearchParam(searchParams, ['topic', 'Topic']);
+    const condition = getFirstSearchParam(searchParams, ['condition', 'Condition']);
+    const partner = getFirstSearchParam(searchParams, ['partner', 'PartnerGender']);
+    const ideology = getFirstSearchParam(searchParams, ['ideology', 'PartnerIdeology']);
+    const party = getFirstSearchParam(searchParams, ['party', 'Party']) || undefined;
+    const owntopic = getFirstSearchParam(searchParams, ['owntopic', 'TopicOwn']) || undefined;
 
     if (!pid) return { ok: false as const, error: 'Missing participant ID.' };
     if (!isStudyTopic(topic)) return { ok: false as const, error: 'Missing or invalid topic.' };
@@ -130,10 +103,16 @@ export function Study() {
   });
 
   useEffect(() => {
-    if (parsed.ok && !enterMutation.isPending && !enterMutation.isSuccess) {
+    if (parsed.ok && !enterMutation.isPending && !enterMutation.isSuccess && !enterMutation.isError) {
       enterMutation.mutate(parsed.input);
     }
   }, [enterMutation, parsed]);
+
+  useEffect(() => {
+    if (enterMutation.data) {
+      navigate(`/conversation/${enterMutation.data.sessionId}`, { replace: true });
+    }
+  }, [enterMutation.data, navigate]);
 
   if (!parsed.ok) {
     return (
@@ -154,54 +133,11 @@ export function Study() {
   }
 
   if (enterMutation.data) {
-    const assignment = enterMutation.data;
-    const displayTopic =
-      assignment.topic === 'Pick your own topic' && assignment.ownTopic
-        ? assignment.ownTopic
-        : assignment.topic;
-
     return (
-      <StudyShell>
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="flex flex-col justify-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#8a857b] dark:text-[#77736b]">
-              Your conversation is ready
-            </p>
-            <h2 className="mt-5 font-serif text-5xl leading-tight text-[#24221d] dark:text-[#f2efe7] sm:text-6xl">
-              Talk with {assignment.partnerName}.
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-[#6f6a61] dark:text-[#aaa59b]">
-              You will have a focused conversation about {displayTopic}. Read the notes here, then
-              start when you are ready.
-            </p>
-            <div className="mt-9">
-              <button
-                type="button"
-                onClick={() => navigate(`/conversation/${assignment.sessionId}`, { replace: true })}
-                className="rounded-full bg-[#24221d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#3a362f] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white"
-              >
-                Start conversation
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <StudyInfoPanel
-                label="Topic"
-                title={displayTopic}
-                body="Your conversation will focus on this topic."
-              />
-              <StudyInfoPanel
-                label="AI partner"
-                title={assignment.partnerName}
-                body={assignment.partnerSummary}
-              />
-            </div>
-            <LappBrief />
-          </div>
-        </div>
-      </StudyShell>
+      <StatusPanel
+        title="ConvoLab Study"
+        message="Opening your conversation..."
+      />
     );
   }
 

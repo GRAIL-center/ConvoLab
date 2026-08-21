@@ -1,8 +1,8 @@
 import { FieldValue } from '@google-cloud/firestore';
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
-import { getFirestoreClient } from './src/firestoreClient';
+import { getFirestoreClient } from './src/firestoreClient.js';
 
-export { getFirestoreClient } from './src/firestoreClient';
+export { getFirestoreClient } from './src/firestoreClient.js';
 
 function getDb(): Firestore {
   return getFirestoreClient();
@@ -721,7 +721,7 @@ export function createPrismaClient(
 // '@workspace/database' directly at startup (auto-seeding reference/test
 // data). They were previously only reachable via a relative cross-package
 // path that isn't part of this package's public "exports" map.
-export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase';
+export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase.js';
 
 type FirestoreShimRecord = Record<string, any>;
 

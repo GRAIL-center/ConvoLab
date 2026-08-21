@@ -14,6 +14,7 @@ import { UserList } from './pages/admin/UserList';
 import { Conversation } from './pages//Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
+import { PilotLanding } from './pages/PilotLanding';
 import { Study } from './pages/Study';
 import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
@@ -83,6 +84,7 @@ export function App() {
           <Routes>
             {/* Full-screen conversation page (no main header) */}
             <Route path="/conversation/:sessionId" element={<Conversation />} />
+            <Route path="/pilot" element={<PilotLanding />} />
             <Route path="/study" element={<Study />} />
 
             {/* Admin area with sidebar layout */}
@@ -148,6 +150,7 @@ export function App() {
                   <main>
                     <Routes>
                       <Route path="/" element={<Home />} />
+                      <Route path="/login" element={<Home />} />
                       <Route path="/invite/:token" element={<Invite />} />
                     </Routes>
                   </main>

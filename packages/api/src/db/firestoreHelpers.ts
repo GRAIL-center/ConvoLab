@@ -16,7 +16,7 @@ import {
   getSession as getSessionData,
   createMessage as createMessageData,
   createLappScore as createLappScoreData,
-} from '../data';
+} from '../data/index.js';
 
 export type { PrismaClient } from '@workspace/database';
 

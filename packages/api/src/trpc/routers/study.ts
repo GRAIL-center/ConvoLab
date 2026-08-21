@@ -124,15 +124,19 @@ export const studyRouter = router({
 		const partnerIdeology = partnerIdeologyFromCode(input.ideology);
 		const participantIdeology = normalizePartySide(input.party);
 
-		const existingSession = await ctx.prisma.conversationSession.findFirst({
+		const existingSessions = await ctx.prisma.conversationSession.findMany({
 			where: {
 				prolificPid: input.pid,
-				studySource: "qualtrics_prolific",
-				status: "ACTIVE",
-				endedAt: null,
 			},
-			orderBy: { startedAt: "desc" },
 		});
+		const existingSession = existingSessions
+			.filter(
+				(session) =>
+					session.studySource === "qualtrics_prolific" &&
+					session.status === "ACTIVE" &&
+					!session.endedAt,
+			)
+			.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0];
 
 		if (existingSession) {
 			if (existingSession.userId) {
