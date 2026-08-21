@@ -18,6 +18,7 @@
     "studio": "prisma studio",
     "generate": "prisma generate",
     "seed": "tsx prisma/seed.ts",
+    "seed:reference": "tsx prisma/seedReference.ts",
     "test": "vitest run"
   },
   "bin": {
