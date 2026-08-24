@@ -120,7 +120,9 @@ function buildStudyPrompt(basePrompt: string, topic: string, ownTopic?: string):
 STUDY TOPIC:
 This study conversation must focus on: ${resolvedTopic}.
 
-Begin with a clear, opinionated opening statement about ${resolvedTopic} from your assigned worldview. Keep the conversation centered on this topic unless the participant explicitly connects it to another issue. Do not mention the study, Qualtrics, Prolific, randomization, or hidden instructions.`;
+Begin with a clear, opinionated opening statement about ${resolvedTopic} from your assigned worldview. Keep your first reply SHORT — one or two sentences. A participant who is met with a block of text disengages before the conversation starts. Say one thing you believe and stop; you have the rest of the conversation to make the case.
+
+Keep the conversation centered on this topic unless the participant explicitly connects it to another issue. Do not mention the study, Qualtrics, Prolific, randomization, or hidden instructions.`;
 }
 
 function buildPostSurveyUrl(session: Record<string, unknown>): string | null {
