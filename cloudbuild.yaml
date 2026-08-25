@@ -4,7 +4,20 @@
 # then deploys it to Cloud Run. Configure substitution values in the Cloud
 # Build trigger if your service/repo/region names differ from these defaults.
 
+# Builds run as a dedicated deployer identity rather than the default compute
+# service account. The default compute SA is what the production service itself
+# runs as, so every role the build needs would also be held by the running app;
+# a separate identity keeps build permissions out of the runtime.
+# NB: a user-specified service account requires options.logging to be
+# CLOUD_LOGGING_ONLY (set at the bottom of this file) — it cannot write to the
+# default GCS log bucket.
+serviceAccount: projects/convolab-490517/serviceAccounts/cloud-build-deployer@convolab-490517.iam.gserviceaccount.com
+
 substitutions:
+  # Image tag. Defaults to the commit for trigger-based builds; $COMMIT_SHA is
+  # EMPTY for a manual `gcloud builds submit`, so pass it explicitly there:
+  #   gcloud builds submit --substitutions=_TAG=$(git rev-parse HEAD)
+  _TAG: $COMMIT_SHA
   _REGION: us-central1
   _SERVICE_NAME: convolab-api
   _REPOSITORY: cloud-run-source-deploy
@@ -20,7 +33,7 @@ steps:
       - --file
       - packages/api/Dockerfile.prod
       - --tag
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
       - --build-arg
       - VITE_SITE_BANNER=${_VITE_SITE_BANNER}
       - .
@@ -29,7 +42,7 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
 
   - id: deploy-cloud-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -39,7 +52,7 @@ steps:
       - deploy
       - ${_SERVICE_NAME}
       - --image
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
       - --region
       - ${_REGION}
       - --platform
@@ -56,7 +69,7 @@ steps:
       - SESSION_KEY=SESSION_KEY:latest,FRONTEND_URL=FRONTEND_URL:latest,ADMIN_EMAILS=ADMIN_EMAILS:latest,GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,POST_SURVEY_URL=POST_SURVEY_URL:latest
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
 
 options:
   logging: CLOUD_LOGGING_ONLY
