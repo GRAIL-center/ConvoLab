@@ -44,7 +44,12 @@ steps:
       - ${_REGION}
       - --platform
       - managed
-      - --allow-unauthenticated
+      # No --allow-unauthenticated: that flag sets the service's IAM policy,
+      # which roles/run.developer deliberately cannot do. The service already
+      # has allUsers -> roles/run.invoker, and that binding survives redeploys
+      # untouched (verified 13 Aug 2026), so the flag was a no-op anyway.
+      # NB: if this service is ever deleted and recreated from scratch it will
+      # come up private, and the binding has to be restored by hand.
       - --set-env-vars
       - NODE_ENV=production,HOST=0.0.0.0,FIRESTORE_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_GOOGLE_CLOUD_LOCATION}
       - --set-secrets
