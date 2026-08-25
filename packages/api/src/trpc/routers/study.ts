@@ -112,8 +112,14 @@ When you refer to ${partnerName}, use ${partnerName}'s name or ${subject}/${obje
 The framework guidance above is written with a generic "they" because it is shared across partners; ${partnerName}'s pronouns take precedence over that wording.`;
 }
 
+// The literal value Qualtrics sends when the participant chose their own topic.
+// It is a real member of STUDY_TOPICS, not a sentinel we invented. Typing it as
+// a member of that list means renaming the option in STUDY_TOPICS without
+// updating this fails the build rather than silently breaking topic resolution.
+const PICK_YOUR_OWN_TOPIC: (typeof STUDY_TOPICS)[number] = "Pick your own topic";
+
 function buildStudyPrompt(basePrompt: string, topic: string, ownTopic?: string): string {
-	const resolvedTopic = topic === "Pick your own topic" ? ownTopic?.trim() || "the user's chosen political topic" : topic;
+	const resolvedTopic = topic === PICK_YOUR_OWN_TOPIC ? ownTopic?.trim() || "the user's chosen political topic" : topic;
 
 	return `${basePrompt.trim()}
 
@@ -129,9 +135,23 @@ function buildPostSurveyUrl(session: Record<string, unknown>): string | null {
 	const baseUrl = process.env.POST_SURVEY_URL ?? process.env.VITE_POST_SURVEY_URL;
 	if (!baseUrl) return null;
 
+	const topic = String(session.studyTopic ?? "");
+	const ownTopic = String(session.studyOwnTopic ?? "").trim();
+
+	// `Topic` stays exactly as before so existing display logic keyed on the
+	// seven canonical topics keeps working. But for a participant who picked
+	// their own topic it carries the literal placeholder "Pick your own topic",
+	// which is useless both for branching and for piped text — a participant who
+	// spent ten turns on Trump would be asked about "Pick your own topic".
+	// TopicLabel resolves that to what they actually discussed, so survey logic
+	// and question wording have one field that is always meaningful.
+	const topicLabel = topic === PICK_YOUR_OWN_TOPIC && ownTopic ? ownTopic : topic;
+
 	const url = new URL(baseUrl);
 	url.searchParams.set("PROLIFIC_PID", String(session.prolificPid ?? ""));
-	url.searchParams.set("Topic", String(session.studyTopic ?? ""));
+	url.searchParams.set("Topic", topic);
+	url.searchParams.set("OwnTopic", ownTopic);
+	url.searchParams.set("TopicLabel", topicLabel);
 	url.searchParams.set("Condition", String(session.studyCondition ?? ""));
 	url.searchParams.set("PartnerGender", String(session.studyPartnerGenderCode ?? ""));
 	url.searchParams.set("AppSessionID", String(session.id ?? ""));
