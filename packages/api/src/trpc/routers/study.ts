@@ -118,8 +118,25 @@ The framework guidance above is written with a generic "they" because it is shar
 // updating this fails the build rather than silently breaking topic resolution.
 const PICK_YOUR_OWN_TOPIC: (typeof STUDY_TOPICS)[number] = "Pick your own topic";
 
+/**
+ * The topic actually discussed, as a human would name it.
+ *
+ * `topic` is what Qualtrics assigned, which for an own-topic participant is the
+ * literal placeholder "Pick your own topic". Showing that to the participant, or
+ * sending it onward, describes them as discussing a menu option rather than the
+ * subject they chose. Falls back to the placeholder only when they picked their
+ * own topic and then left it blank, where nothing better exists.
+ */
+function resolveTopicLabel(topic: string, ownTopic?: string | null): string {
+	const own = String(ownTopic ?? "").trim();
+	return topic === PICK_YOUR_OWN_TOPIC && own ? own : topic;
+}
+
 function buildStudyPrompt(basePrompt: string, topic: string, ownTopic?: string): string {
-	const resolvedTopic = topic === PICK_YOUR_OWN_TOPIC ? ownTopic?.trim() || "the user's chosen political topic" : topic;
+	const resolvedTopic =
+		topic === PICK_YOUR_OWN_TOPIC && !ownTopic?.trim()
+			? "the user's chosen political topic"
+			: resolveTopicLabel(topic, ownTopic);
 
 	return `${basePrompt.trim()}
 
@@ -145,7 +162,7 @@ function buildPostSurveyUrl(session: Record<string, unknown>): string | null {
 	// spent ten turns on Trump would be asked about "Pick your own topic".
 	// TopicLabel resolves that to what they actually discussed, so survey logic
 	// and question wording have one field that is always meaningful.
-	const topicLabel = topic === PICK_YOUR_OWN_TOPIC && ownTopic ? ownTopic : topic;
+	const topicLabel = resolveTopicLabel(topic, ownTopic);
 
 	const url = new URL(baseUrl);
 	url.searchParams.set("PROLIFIC_PID", String(session.prolificPid ?? ""));
@@ -227,7 +244,7 @@ export const studyRouter = router({
 			userId,
 			status: "ACTIVE",
 			customDescription: `Study topic: ${input.topic}${input.owntopic ? ` (${input.owntopic})` : ""}`,
-			customScenarioName: `${scenario.partnerPersona}: ${input.topic}`,
+			customScenarioName: `${scenario.partnerPersona}: ${resolveTopicLabel(input.topic, input.owntopic)}`,
 			customPartnerPersona: scenario.partnerPersona,
 			customPartnerPrompt: buildStudyPrompt(scenario.partnerSystemPrompt, input.topic, input.owntopic),
 			customCoachPrompt: buildStudyCoachPrompt(
