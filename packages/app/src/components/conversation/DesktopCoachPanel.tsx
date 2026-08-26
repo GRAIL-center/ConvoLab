@@ -1,5 +1,6 @@
 import {
   type Dispatch,
+  Fragment,
   type KeyboardEvent,
   type RefObject,
   type SetStateAction,
@@ -177,6 +178,36 @@ export function DesktopCoachPanel({
   }, [coachMessages, asideMessages]);
 
   const hasContent = coachMessages.length > 0 || asideMessages.length > 0;
+
+  // Automatic insights and aside Q&A are two streams that interleave in time.
+  // They used to render as two fixed blocks — every insight above, all Q&A
+  // below — and because the panel auto-scrolls to the bottom, asking the coach
+  // one question pinned the view to the Q&A and every later insight was
+  // inserted off-screen above it. It looked exactly like the coach had stopped
+  // responding. Merging them chronologically keeps new insights where the
+  // participant is already looking.
+  //
+  // Tone: the Nth insight follows the (N+1)th scored turn, because the coach
+  // stays silent after the first exchange while the scorer does not. Indexing
+  // the two lists together, as this did before, tinted every insight with the
+  // previous turn's tone.
+  const scoresByTurn = [...lappScores.values()].sort((a, b) => a.turnNumber - b.turnNumber);
+  const panelItems = [
+    ...coachMessages.map((msg, index) => ({
+      kind: 'insight' as const,
+      key: msg.id !== -1 ? `insight-${msg.id}` : 'insight-streaming',
+      ts: msg.timestamp,
+      msg,
+      tone: (scoresByTurn[index + 1]?.tone ?? null) as Tone | null,
+    })),
+    ...asideMessages.map((msg, index) => ({
+      kind: 'aside' as const,
+      key: msg.id !== -1 ? `aside-${msg.id}` : `aside-streaming-${index}`,
+      ts: msg.timestamp,
+      msg,
+      tone: null as Tone | null,
+    })),
+  ].sort((a, b) => a.ts.localeCompare(b.ts));
   const quickPrompts = ['How am I doing?', 'What should I try next?', 'Was that too aggressive?'];
 
   return (
@@ -201,42 +232,40 @@ export function DesktopCoachPanel({
             </p>
           </div>
         ) : (
-          <>
-            {coachMessages.map((msg) => {
-              const scoreEntry = [...lappScores.values()].find((_, i) => {
-                const coachIdx = coachMessages.indexOf(msg);
-                return i === coachIdx;
-              });
-              const tone = scoreEntry?.tone ?? null;
+          panelItems.map((item, index) => {
+            const previous = panelItems[index - 1];
+            // A divider whenever the stream changes hands, so a run of Q&A is
+            // visually distinct without being banished to the bottom.
+            const divider =
+              previous && previous.kind !== item.kind ? (
+                <div className="flex items-center gap-2 py-1">
+                  <div className="flex-1 border-t border-[#d8d3c8] dark:border-[#34312c]" />
+                  <span className="text-[10px] text-[#77736b] dark:text-[#8f8a82] uppercase tracking-wider">
+                    {item.kind === 'aside' ? 'Q&A' : 'Coaching'}
+                  </span>
+                  <div className="flex-1 border-t border-[#d8d3c8] dark:border-[#34312c]" />
+                </div>
+              ) : null;
+
+            if (item.kind === 'insight') {
               return (
-                <CoachInsightCard
-                  key={msg.id !== -1 ? msg.id : `streaming-coach`}
-                  message={msg}
-                  tone={tone}
-                />
+                <Fragment key={item.key}>
+                  {divider}
+                  <CoachInsightCard message={item.msg} tone={item.tone} />
+                </Fragment>
               );
-            })}
-
-            {/* Aside Q&A divider */}
-            {asideMessages.length > 0 && coachMessages.length > 0 && (
-              <div className="flex items-center gap-2 py-1">
-                <div className="flex-1 border-t border-[#d8d3c8] dark:border-[#34312c]" />
-                <span className="text-[10px] text-[#77736b] dark:text-[#8f8a82] uppercase tracking-wider">
-                  Q&A
-                </span>
-                <div className="flex-1 border-t border-[#d8d3c8] dark:border-[#34312c]" />
-              </div>
-            )}
-
-            {/* Aside messages */}
-            {asideMessages.map((msg) =>
-              msg.role === 'user' ? (
-                <AsideQuestionCard key={msg.id} message={msg} />
-              ) : (
-                <AsideResponseCard key={msg.id} message={msg} />
-              )
-            )}
-          </>
+            }
+            return (
+              <Fragment key={item.key}>
+                {divider}
+                {item.msg.role === 'user' ? (
+                  <AsideQuestionCard message={item.msg} />
+                ) : (
+                  <AsideResponseCard message={item.msg} />
+                )}
+              </Fragment>
+            );
+          })
         )}
       </div>
 
