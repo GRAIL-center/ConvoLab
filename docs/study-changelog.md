@@ -17,6 +17,27 @@ keep whatever they started with.
 
 ---
 
+## 2026-08-26 19:03 UTC — revision `convolab-api-00063-m5b`
+
+**Participant-visible, treatment-affecting.** Automatic coach insights were
+being hidden once a participant used the one-on-one Q&A. The coach still
+generated them and they were persisted — the panel rendered all insights in a
+block above all Q&A while auto-scrolling to the bottom, so later insights landed
+off-screen. Treatment-arm participants who used the aside stopped seeing the
+per-turn coaching that is the intervention.
+
+Also corrected coach-insight tone tinting, which had been showing each insight
+with the previous turn's tone.
+
+Sessions before this time in which a treatment participant used the Q&A should
+be treated as having received reduced coaching *visibility* from that point on,
+even though the coaching was generated. Daniel's session
+`D7WHf1iUsbconj3bVXxD` (26 Aug) is one such case.
+
+Commit `bf868ea`.
+
+---
+
 ## 2026-08-25 19:06 UTC — revision `convolab-api-00062-m9d`
 
 **Participant-visible, cosmetic.** The conversation header and input placeholder
