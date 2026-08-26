@@ -17,6 +17,33 @@ keep whatever they started with.
 
 ---
 
+## 2026-08-26 23:24 UTC — revision `convolab-api-00065-bhr` — SURVEY PLATFORM MOVED
+
+Hanna's Purdue postdoc ended and her Qualtrics account was closed. Both surveys
+were re-uploaded to **Harvard Qualtrics** and have new ids.
+
+| | Old (Purdue) | New (Harvard) |
+|---|---|---|
+| Pre-survey | `SV_cTT6h3GdIPz4LUG` | `SV_9TQmgGn73T5VRoq` |
+| Post-survey | `SV_6RqHAgXaoysp5Ay` | `SV_0J6ib9FF8hWhqEm` |
+
+`POST_SURVEY_URL` is now Secret Manager version 2. The app never references the
+pre-survey — that link points *into* the app, so it changes on the Prolific side.
+
+**Responses collected before this point live in the Purdue account**, which
+Hanna can no longer access. The 24 Aug CSV export is a partial backup (114 rows,
+4 genuine). Anything after that date, including Daniel's 26 Aug session, needs
+retrieving by someone who still has Purdue access.
+
+**Treat Harvard responses as a separate collection wave.** They are in a
+different Qualtrics instance under different survey ids, and whether the
+question-level fixes made before 26 Aug survived the export/re-upload has to be
+re-verified rather than assumed.
+
+Commit `eb13472`.
+
+---
+
 ## 2026-08-26 19:03 UTC — revision `convolab-api-00063-m5b`
 
 **Participant-visible, treatment-affecting.** Automatic coach insights were
