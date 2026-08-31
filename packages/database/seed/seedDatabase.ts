@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   computeContentHash,
   currentSeedVersion,
@@ -15,6 +16,7 @@ import {
 } from './prompts/personaPrompts.js';
 
 const TEST_ADMIN_ID = 'test-admin-user';
+const DEV_TEST_INVITATION_LABEL = 'Dev test invitation';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
   // Study conversation partner: Claude Sonnet (PAP v7.8 model pin; Hanna 9 Aug 2026).
   // Inherited by all 5 partisan study scenarios. Re-seed (upserts by slug) to update
@@ -648,23 +650,31 @@ export async function seedTestData(prisma: PrismaClient, options: SeedOptions = 
   });
   log('Seeded test admin user: admin@example.com');
 
-  // Create a test invitation (refresh expiration on re-seed)
+  // Create a test invitation (refresh expiration on re-seed).
+  // Looked up by label, not token: the token is generated fresh per environment
+  // rather than hardcoded, so a leaked/committed value can never be live in any
+  // real project (see docs/bugs.md B9 -- a fixed token from an earlier version
+  // of this function ended up live in production via a stray seed run).
   const firstScenario = await prisma.scenario.findFirst({ orderBy: { id: 'asc' } });
   if (firstScenario) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const existing = await prisma.invitation.findFirst({
+      where: { label: DEV_TEST_INVITATION_LABEL },
+    });
+    const token = existing?.token ?? randomBytes(24).toString('base64url');
     await prisma.invitation.upsert({
-      where: { token: 'dev-test-invitation-token-00000000000000000' },
+      where: { token },
       update: { expiresAt, claimedAt: null, linkedUserId: null },
       create: {
-        token: 'dev-test-invitation-token-00000000000000000',
-        label: 'Dev test invitation',
+        token,
+        label: DEV_TEST_INVITATION_LABEL,
         scenarioId: firstScenario.id,
         quota: { tokens: 100000, label: 'Short conversation' },
         expiresAt,
         createdById: adminUser.id,
       },
     });
-    log('Seeded test invitation: dev-test-invitation-token-00000000000000000');
+    log(`Seeded test invitation: ${token}`);
   }
 }
 
