@@ -17,6 +17,47 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-03 — KNOWN CONDITION, not a change: partner name is confounded with ideology
+
+Identified, not introduced, on this date. It has applied to every study session
+so far and is **still live**.
+
+The master persona document deliberately holds the partner's name constant
+across the ideology manipulation — Max Briggs is both the right-leaning populist
+and the left-wing progressive, Megan Briggs likewise — so that only the politics
+differ. The code does not implement this. Production has one set of persona
+records, shared by the general app and the pilot, and their names are:
+
+| Slug | partnerPersona |
+|---|---|
+| `progressive-left-male` | Marcus Johnson |
+| `progressive-left-female` | Maya Johnson |
+| `populist-right-male` | Max Briggs |
+| `populist-right-female` | Megan Briggs |
+
+Partner ideology is randomised, so partner **name is perfectly correlated with
+the ideology condition**: left arm gets Johnson, right arm gets Briggs. The name
+appears in the conversation header and above every partner message, making it one
+of the most salient cues in the interface. Any difference measured between
+ideology conditions therefore includes whatever the name difference contributes,
+and the two cannot be separated after the fact because they never varied
+independently.
+
+**Sessions affected: all 16 to date** (14 Aug – 31 Aug), 12 with a right-leaning
+partner and 4 with a left-leaning one.
+
+Two related conditions apply to the same sessions:
+- The left personas are **not** the master document's Progressive Left. They are
+  a different, older persona (age 28, "a mid-sized U.S. city") rather than the
+  document's age-31 Youngstown one.
+- The left personas are roughly **half the length** of the right ones (~1,100
+  words vs ~2,400–2,600), so persona richness also varies with ideology.
+
+No fix applied yet — pending a decision on which persona generation is canonical.
+Logged as B21 and B22 in `docs/bugs.md`.
+
+---
+
 ## 2026-08-26 23:24 UTC — revision `convolab-api-00065-bhr` — SURVEY PLATFORM MOVED
 
 Hanna's Purdue postdoc ended and her Qualtrics account was closed. Both surveys
