@@ -86,8 +86,21 @@ Do not use emojis in your responses.
 
 Do not begin your response with "COACH:" or any role label.`;
 
-// Retain the existing response-length policy for the progressive personas.
-// The supplied Briggs prompts carry their own response-length instructions.
+// One response-length policy for ALL FOUR study personas. It must stay applied
+// to all four, and the reason is a study-design constraint rather than a style
+// preference.
+//
+// Partner ideology is randomised. If left-leaning partners are told 1-3
+// sentences while right-leaning ones follow the "3-6 sentences" line carried
+// inside the supplied Briggs documents, verbosity varies systematically with
+// ideology, and no analysis can separate an ideology effect from a
+// talkativeness effect. That is why this wraps every persona, including ones
+// that arrive with length guidance of their own.
+//
+// It also fixes what the pilot actually showed, measured over 97 real partner
+// turns: median 53 words with half of all turns inside a narrow 40-66 word
+// band, produced by a mandated four-beat structure and a doubled "3-6
+// sentences, 6-8 when challenged" rule.
 function withResponseLength(prompt: string): string {
   return `${prompt.trim()}
 
@@ -96,7 +109,9 @@ RESPONSE LENGTH:
 - Most replies should be 1-3 sentences. A single line is often the strongest answer.
 - Use 4 sentences only when you are directly challenged, correcting a misreading, or the point genuinely needs it. Do not go past 4.
 - Do not make every point you could make in one turn. Leave something for the next one.
-- Short does not mean shallow, and it does not mean backing down.`;
+- Short does not mean shallow, and it does not mean backing down.
+- This supersedes any other length guidance earlier in your instructions,
+  including any "3-6 sentences" rule. Where they disagree, follow this.`;
 }
 
 function withSelfReference(prompt: string, gender: 'woman' | 'man'): string {
@@ -452,7 +467,7 @@ Additional Output Constraints
     description:
       'An unapologetic MAGA / America First conservative with a business and manufacturing background.',
     partnerPersona: 'Max Briggs',
-    partnerSystemPrompt: withSelfReference(MAX_BRIGGS_PROMPT, 'man'),
+    partnerSystemPrompt: withResponseLength(withSelfReference(MAX_BRIGGS_PROMPT, 'man')),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {
@@ -462,7 +477,7 @@ Additional Output Constraints
     description:
       'An unapologetic MAGA / America First conservative with a steelworking, policing, and construction background.',
     partnerPersona: 'Megan Briggs',
-    partnerSystemPrompt: withSelfReference(MEGAN_BRIGGS_PROMPT, 'woman'),
+    partnerSystemPrompt: withResponseLength(withSelfReference(MEGAN_BRIGGS_PROMPT, 'woman')),
     coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
   },
   {
