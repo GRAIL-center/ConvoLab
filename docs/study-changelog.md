@@ -29,10 +29,15 @@ surnames and is common across racial groups, so it is less diagnostic than
 Briggs. This matters because none of the personas state race, so the name was
 doing that signalling implicitly.
 
-⚠️ **Not live until a re-seed.** Sessions collected before that keep the
-asymmetric naming described in the 2026-09-03 entry.
+✅ **LIVE from 2026-09-05 14:11 UTC** (revision `convolab-api-00066-6vv` plus a
+re-seed). Sessions entered before that time keep the asymmetric naming described
+in the 2026-09-03 entry; sessions after it have matched names.
 
-Commit `4d6f10e`.
+The same deploy moved the reply-length rule out of the persona text and into the
+runtime (`PARTNER_RESPONSE_POLICY`), so it now applies to all four personas
+identically and by construction. No change to what the rule says.
+
+Commits `4d6f10e` and `4c35a60`.
 
 ---
 
