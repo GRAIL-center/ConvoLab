@@ -185,7 +185,7 @@ Start the conversation with a provocative political statement about current even
   },
   {
     ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Mark Johnson',
+    name: 'Mark Johnson (Progressive)',
     slug: 'progressive-left-male',
     description:
       'A politically engaged progressive who argues from systemic and structural reasoning.',
@@ -309,7 +309,7 @@ Additional Output Constraints
   },
   {
     ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Megan Johnson',
+    name: 'Megan Johnson (Progressive)',
     slug: 'progressive-left-female',
     description:
       'A politically engaged progressive who argues from systemic and structural reasoning.',
@@ -433,7 +433,7 @@ Additional Output Constraints
   },
   {
     ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Mark Johnson',
+    name: 'Mark Johnson (Right-Populist)',
     slug: 'populist-right-male',
     description:
       'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',
@@ -597,7 +597,7 @@ Do not reveal your reasoning or show drafts. Only give the final response.`,
   },
   {
     ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Megan Johnson',
+    name: 'Megan Johnson (Right-Populist)',
     slug: 'populist-right-female',
     description:
       'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTRPC } from '../api/trpc';
 import { ScenarioList } from '../components/ScenarioList';
 import { SetupGuide } from '../components/SetupGuide';
+import { LappFramework } from '../components/LappFramework';
 import { YourSessions } from '../components/YourSessions';
 
 function GoogleLogo() {
@@ -175,6 +176,14 @@ function LandingPage() {
           </a>
         </p>
       </div>
+
+      {/* What the product actually is — a visitor deciding whether to sign in
+          otherwise sees only a login card. */}
+      <LappFramework
+        className="mt-10 w-full max-w-2xl"
+        heading="What you'll practise"
+        intro="Talk with an AI partner who genuinely disagrees with you, while a coach helps you stay in the conversation. The goal is not to win the argument."
+      />
     </div>
   );
 }
@@ -189,6 +198,8 @@ function AuthenticatedHome() {
     <div className="w-full py-10 px-6 sm:px-10 lg:px-16">
       <SetupGuide />
       <YourSessions />
+      <LappFramework className="mb-10" />
+
       <>
         {/* SECTION HEADING SIZE → text-2xl, try text-3xl to go bigger */}
         <h2 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-[#EBEBEB]">
