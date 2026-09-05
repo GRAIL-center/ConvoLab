@@ -17,6 +17,25 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-05 — partner names matched across ideology (code only, not yet live)
+
+All four personas are now **Mark Johnson** (male) and **Megan Johnson**
+(female), replacing Marcus/Maya Johnson on the left and Max/Megan Briggs on the
+right. The name now carries only the gender manipulation, which participants
+need to perceive, and none of the ideology manipulation.
+
+Name pair chosen on prototypicality grounds: Johnson is among the most common US
+surnames and is common across racial groups, so it is less diagnostic than
+Briggs. This matters because none of the personas state race, so the name was
+doing that signalling implicitly.
+
+⚠️ **Not live until a re-seed.** Sessions collected before that keep the
+asymmetric naming described in the 2026-09-03 entry.
+
+Commit `4d6f10e`.
+
+---
+
 ## 2026-09-03 — KNOWN CONDITION, not a change: partner name is confounded with ideology
 
 Identified, not introduced, on this date. It has applied to every study session
