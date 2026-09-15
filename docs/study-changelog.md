@@ -17,6 +17,20 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-15 19:57 UTC — revision `convolab-api-00067-qt8` — pilot landing page names
+
+The `/pilot` landing page introduced the partner with the pre-2026-09-05 first
+names (Marcus or Maya on the left, Max or Megan on the right) while the
+conversation itself has used Mark Johnson and Megan Johnson since the 5 Sep
+re-seed. Three of the four cells therefore showed one first name on the landing
+page and another in the chat. The preview now says Mark or Megan, matching the
+stored personas. Code only; no re-seed.
+
+Sessions entered between 2026-09-05 14:11 UTC and 2026-09-15 19:57 UTC saw the
+mismatch. Commit `280e489`.
+
+---
+
 ## 2026-09-05 — partner names matched across ideology (code only, not yet live)
 
 All four personas are now **Mark Johnson** (male) and **Megan Johnson**
