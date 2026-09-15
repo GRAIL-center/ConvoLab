@@ -15,10 +15,11 @@ import { Conversation } from './pages//Conversation';
 import { Home } from './pages/Home';
 import { Invite } from './pages/Invite';
 import { PilotLanding } from './pages/PilotLanding';
-import { Study } from './pages/Study';
+import { PracticeLanding } from './pages/PracticeLanding';
 import { InvitationDetail } from './pages/research/InvitationDetail';
 import { InvitationList } from './pages/research/InvitationList';
 import { ObserveSession } from './pages/research/ObserveSession';
+import { Study } from './pages/Study';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -85,6 +86,9 @@ export function App() {
             {/* Full-screen conversation page (no main header) */}
             <Route path="/conversation/:sessionId" element={<Conversation />} />
             <Route path="/pilot" element={<PilotLanding />} />
+            {/* Public practice landing is the app entry; /practice kept as alias */}
+            <Route path="/" element={<PracticeLanding />} />
+            <Route path="/practice" element={<Navigate to="/" replace />} />
             <Route path="/study" element={<Study />} />
 
             {/* Admin area with sidebar layout */}
@@ -101,8 +105,14 @@ export function App() {
 
             {/* Backward-compatible redirects for old research URLs */}
             <Route path="/research" element={<Navigate to="/admin/invitations" replace />} />
-            <Route path="/research/invitations" element={<Navigate to="/admin/invitations" replace />} />
-            <Route path="/research/invitations/:invitationId" element={<ResearchInvitationRedirect />} />
+            <Route
+              path="/research/invitations"
+              element={<Navigate to="/admin/invitations" replace />}
+            />
+            <Route
+              path="/research/invitations/:invitationId"
+              element={<ResearchInvitationRedirect />}
+            />
             <Route
               path="/research/invitations/:invitationId/observe"
               element={<ResearchObserveRedirect />}
@@ -149,7 +159,7 @@ export function App() {
                   </header>
                   <main>
                     <Routes>
-                      <Route path="/" element={<Home />} />
+                      <Route path="/home" element={<Home />} />
                       <Route path="/login" element={<Home />} />
                       <Route path="/invite/:token" element={<Invite />} />
                     </Routes>
