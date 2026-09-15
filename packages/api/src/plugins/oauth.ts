@@ -34,21 +34,30 @@ async function oauth(fastify: FastifyInstance) {
   });
 
   // Custom auth start route that adds prompt=select_account
-  fastify.get('/api/auth/google', async (request, reply) => {
-    if (!fastify.googleOAuth2) {
-      fastify.log.error('Google OAuth2 not configured');
-      return reply.status(503).send({ error: 'OAuth not configured' });
+  fastify.get<{ Querystring: { next?: string } }>(
+    '/api/auth/google',
+    async (request, reply) => {
+      if (!fastify.googleOAuth2) {
+        fastify.log.error('Google OAuth2 not configured');
+        return reply.status(503).send({ error: 'OAuth not configured' });
+      }
+      try {
+        const next = request.query.next?.trim();
+        // Only allow same-origin relative paths so this can't be used as an open redirect.
+        if (next && next.startsWith('/') && !next.startsWith('//')) {
+          request.session.set('authNext', next);
+        }
+
+        const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);
+        const url = new URL(authUrl);
+        url.searchParams.set('prompt', 'select_account');
+        return reply.redirect(url.toString());
+      } catch (e) {
+        fastify.log.error(e, 'Failed to generate Google auth URL');
+        return reply.status(500).send({ error: 'Internal Server Error' });
+      }
     }
-    try {
-      const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);
-      const url = new URL(authUrl);
-      url.searchParams.set('prompt', 'select_account');
-      return reply.redirect(url.toString());
-    } catch (e) {
-      fastify.log.error(e, 'Failed to generate Google auth URL');
-      return reply.status(500).send({ error: 'Internal Server Error' });
-    }
-  });
+  );
 }
 
 export default fp(oauth, {
