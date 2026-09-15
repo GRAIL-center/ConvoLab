@@ -77,20 +77,20 @@ function partnerPreview(ideologyCode: string, genderCode: string) {
 
   if (isLeft) {
     return {
-      name: isFemale ? 'Maya' : 'Marcus',
+      name: isFemale ? 'Megan' : 'Mark',
       label: 'Progressive conversation partner',
       body: isFemale
-        ? 'Maya is a politically engaged progressive who talks through policy, systems, and structural inequality with clear conviction.'
-        : 'Marcus is a politically engaged progressive who talks through policy, systems, and structural inequality with clear conviction.',
+        ? 'Megan is a politically engaged progressive who talks through policy, systems, and structural inequality with clear conviction.'
+        : 'Mark is a politically engaged progressive who talks through policy, systems, and structural inequality with clear conviction.',
     };
   }
 
   return {
-    name: isFemale ? 'Megan' : 'Max',
+    name: isFemale ? 'Megan' : 'Mark',
     label: 'Right-populist conversation partner',
     body: isFemale
       ? 'Megan is a MAGA-aligned right-populist who argues from fairness, accountability, local community, and distrust of powerful institutions.'
-      : 'Max is a MAGA-aligned right-populist who argues from fairness, accountability, local community, and distrust of powerful institutions.',
+      : 'Mark is a MAGA-aligned right-populist who argues from fairness, accountability, local community, and distrust of powerful institutions.',
   };
 }
 
