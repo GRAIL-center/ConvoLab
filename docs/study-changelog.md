@@ -34,8 +34,8 @@ since free text cannot be slotted into the sentence safely. Identical in both
 arms; the old copy was also shown to both arms. Wording agreed by the team,
 15 Sep 2026.
 
-Public-app sessions with a partisan persona get the same intro without a topic
-clause; the angry uncle, coworker and custom scenarios keep the old copy.
+Public-app sessions with a partisan persona get the same intro with "sees things
+differently from you" and no topic clause; the angry uncle, coworker and custom scenarios keep the old copy.
 Participant turns are still the participant's own: the intro is text on the
 page, not a message, and is not part of the transcript.
 

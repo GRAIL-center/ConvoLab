@@ -42,7 +42,10 @@ export function buildConversationIntro(input: IntroInput): ConversationIntro {
   const pronoun = input.gender === 'female' ? 'She' : 'He';
   const ideology = IDEOLOGY_LABELS[input.ideology];
   const topicPhrase = input.topic ? TOPIC_PHRASES[input.topic] : undefined;
-  const sees = topicPhrase ?? 'politics';
+  // No usable topic (public app, or a free-text own topic): "sees things
+  // differently" for the public app (Hanna, 16 Sep 2026); the own-topic case
+  // keeps "politics" and points at the topic shown in the header.
+  const sees = topicPhrase ?? (input.topic ? 'politics' : 'things');
   const cameUp = topicPhrase
     ? 'the topic has come up'
     : input.topic
