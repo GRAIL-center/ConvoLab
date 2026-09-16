@@ -411,10 +411,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               >
                 <div className="w-full max-w-3xl -translate-y-12 pb-52 text-center">
                   <h2 className="font-serif text-4xl text-[#2e2b25] dark:text-[#f2efe7]">
-                    {shortName} is ready when you are.
+                    {scenario?.intro
+                      ? scenario.intro.heading
+                      : `${shortName} is ready when you are.`}
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-[#726d64] dark:text-[#9d9890]">
-                    Open with a question. Listen before you push.
+                    {scenario?.intro
+                      ? scenario.intro.body
+                      : 'Open with a question. Listen before you push.'}
                   </p>
                 </div>
               </div>
