@@ -16,6 +16,8 @@ export interface ScenarioInfo {
 	name: string;
 	description: string;
 	partnerPersona: string;
+	/** Scene-setting text for the empty conversation; absent for non-partisan scenarios. */
+	intro?: { heading: string; body: string };
 }
 
 export interface StudyInfo {

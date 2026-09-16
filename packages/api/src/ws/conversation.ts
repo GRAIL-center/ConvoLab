@@ -50,13 +50,27 @@ Do not ask follow-up questions.`;
 const DEFAULT_GOOGLE_MODEL = 'google:gemini-2.5-flash';
 const DEFAULT_MODEL = DEFAULT_GOOGLE_MODEL;
 
+import {
+  buildConversationIntro,
+  type IntroGender,
+  type IntroIdeology,
+  personaFromScenarioSlug,
+} from '../lib/conversationIntro.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
+import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
-import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
+
+function isIntroGender(value: unknown): value is IntroGender {
+  return value === 'male' || value === 'female';
+}
+
+function isIntroIdeology(value: unknown): value is IntroIdeology {
+  return value === 'left' || value === 'right';
+}
 
 // Default models for custom scenarios
 // Study conversation partner pinned to Claude Sonnet (PAP v7.8; Hanna 9 Aug 2026).
@@ -264,6 +278,9 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
   customCoachPrompt: string | null;
   studySource?: string | null;
   studyTopic?: string | null;
+  studyOwnTopic?: string | null;
+  studyPartnerGender?: string | null;
+  studyPartnerIdeology?: string | null;
   studyCondition?: number | null;
   studyCoachEnabled?: boolean | null;
   studyConversationStartedAt?: Date | string | null;
@@ -353,6 +370,24 @@ export class ConversationManager {
 
     const isStudySession = this.session.studySource === 'qualtrics_prolific';
     const elapsedSecondsAtConnect = isStudySession ? await this.resolveStudyElapsedSeconds() : 0;
+
+    // Scene-setting text for the empty conversation. Study sessions carry the
+    // partner's gender, ideology and topic on the session; public-app sessions
+    // recover gender and ideology from the partisan scenario slug and have no
+    // topic. Other scenarios (angry uncle, custom) get none.
+    const persona = isStudySession
+      ? isIntroGender(this.session.studyPartnerGender) &&
+        isIntroIdeology(this.session.studyPartnerIdeology)
+        ? { gender: this.session.studyPartnerGender, ideology: this.session.studyPartnerIdeology }
+        : null
+      : personaFromScenarioSlug(scenario?.slug);
+    if (persona) {
+      scenarioInfo.intro = buildConversationIntro({
+        partnerName: scenarioInfo.partnerPersona,
+        ...persona,
+        topic: isStudySession ? this.session.studyTopic : undefined,
+      });
+    }
 
     send(this.ws, {
       type: 'connected',

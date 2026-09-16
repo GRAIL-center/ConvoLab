@@ -17,6 +17,30 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-16 — scene-setting intro replaces the empty-conversation copy (code only, not yet live)
+
+Before the participant's first message the conversation page used to read
+"<Name> is ready when you are. Open with a question. Listen before you push."
+It now reads, for a study session:
+
+> **Meet Megan.** She is a conservative who sees immigration differently from
+> you. You have just sat down together and the topic has come up. Imagine this
+> is a real conversation. How do you begin?
+
+Name, pronoun, ideology label (liberal / conservative) and topic come from the
+session's partner assignment. For "Pick your own topic" the sentence says
+"sees politics differently from you" and "the topic you chose has come up",
+since free text cannot be slotted into the sentence safely. Identical in both
+arms; the old copy was also shown to both arms. Wording agreed by the team,
+15 Sep 2026.
+
+Public-app sessions with a partisan persona get the same intro without a topic
+clause; the angry uncle, coworker and custom scenarios keep the old copy.
+Participant turns are still the participant's own: the intro is text on the
+page, not a message, and is not part of the transcript.
+
+---
+
 ## 2026-09-15 19:57 UTC — revision `convolab-api-00067-qt8` — pilot landing page names
 
 The `/pilot` landing page introduced the partner with the pre-2026-09-05 first
