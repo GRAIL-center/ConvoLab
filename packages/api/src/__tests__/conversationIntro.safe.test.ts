@@ -46,7 +46,7 @@ describe('buildConversationIntro', () => {
     });
     expect(intro).toEqual({
       heading: 'Meet Ashley.',
-      body: 'She is a conservative who sees politics differently from you. You have just sat down together and politics has come up. Imagine this is a real conversation. How do you begin?',
+      body: 'She is a conservative who sees things differently from you. You have just sat down together and politics has come up. Imagine this is a real conversation. How do you begin?',
     });
   });
 });
