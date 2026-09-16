@@ -312,7 +312,7 @@ export function PracticeLanding() {
           </div>
 
           {awaitingAuthChoice && !isSignedIn ? (
-            <>
+            <div className="flex flex-1 flex-col items-center justify-center pb-16">
               <h2 className="text-center font-[Newsreader,Georgia,serif] text-[clamp(1.9rem,4vw,2.6rem)] font-medium tracking-[-0.02em]">
                 How do you want to continue?
               </h2>
@@ -324,7 +324,7 @@ export function PracticeLanding() {
                 . Sign in to keep your conversations, or continue as a guest.
               </p>
 
-              <div className="mx-auto mt-auto flex w-full max-w-sm flex-col items-center gap-3 pt-10">
+              <div className="mx-auto mt-8 flex w-full max-w-sm flex-col items-center gap-3">
                 {recaptchaSiteKey ? <Recaptcha onChange={setRecaptchaToken} /> : null}
                 <a
                   href={`/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`}
@@ -348,7 +348,7 @@ export function PracticeLanding() {
                   <p className="text-sm text-[#a36b55]">Couldn’t start. Try again.</p>
                 ) : null}
               </div>
-            </>
+            </div>
           ) : (
             <>
               <h2 className="text-center font-[Newsreader,Georgia,serif] text-[clamp(1.9rem,4vw,2.6rem)] font-medium tracking-[-0.02em]">
