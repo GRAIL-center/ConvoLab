@@ -17,6 +17,23 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-16 — NOT A STUDY CHANGE: public-app personas get their own names (code only, not yet live)
+
+The four study personas now exist twice in the seed. The pilot records
+(`progressive-left-*`, `populist-right-*`) are unchanged: Mark Johnson and
+Megan Johnson, matched across ideology, tagged `audience: 'pilot'` and hidden
+from the public scenario picker. Four public-app copies (`general-*`) are
+generated from the same prompt text by name substitution: Joshua Moore and
+Emily Davis (progressive), Ryan Taylor and Ashley Brown (right-populist). The
+public names were chosen to sit with each persona's politics in FEC-donor and
+voter-file name data while staying racially unmarked; the pilot keeps matched
+names so the ideology contrast is not confounded with the name.
+
+Study sessions are unaffected: `study.ts` resolves the pilot slugs directly.
+Takes effect only after merge, deploy AND a reference-data re-seed.
+
+---
+
 ## 2026-09-15 19:57 UTC — revision `convolab-api-00067-qt8` — pilot landing page names
 
 The `/pilot` landing page introduced the partner with the pre-2026-09-05 first
