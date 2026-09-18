@@ -5,20 +5,27 @@ import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { publicProcedure, router } from '../procedures.js';
 
 export const scenarioRouter = router({
-  list: publicProcedure.query(async ({ ctx }) => {
-    const scenarios = await ctx.prisma.scenario.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        slug: true,
-        partnerPersona: true,
-      },
-      orderBy: { name: 'asc' },
-    });
-    return scenarios;
-  }),
+  list: publicProcedure
+    .input(z.object({ includePilot: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const scenarios = await ctx.prisma.scenario.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          slug: true,
+          partnerPersona: true,
+          audience: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+      // The four pilot personas share matched names by design (see the seed) and
+      // are reached through the study flow, not the picker. Research views that
+      // need them (invitations) ask explicitly. Filtered here rather than in the
+      // query so scenario records created before the field existed still list.
+      return input?.includePilot ? scenarios : scenarios.filter((s) => s.audience !== 'pilot');
+    }),
 
   get: publicProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
     const scenario = await ctx.prisma.scenario.findUnique({
