@@ -48,6 +48,15 @@ export interface ScenarioInfo {
   description: string;
   partnerPersona: string;
   isCustom?: boolean;
+  /** Scene-setting text for the empty conversation; absent for scenarios without a partisan partner. */
+  intro?: ConversationIntro;
+}
+
+export interface ConversationIntro {
+  /** "Meet Megan." */
+  heading: string;
+  /** "She is a conservative who sees immigration differently from you. ..." */
+  body: string;
 }
 
 export interface StudyInfo {
