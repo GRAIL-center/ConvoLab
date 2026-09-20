@@ -14,7 +14,7 @@ const personas = [
     gender: 'man',
     pronouns: 'he/him',
     prompt: MALE_PROGRESSIVE_PROMPT,
-    digest: '07bfce05af6059b93a465445ea7e3b5c3b7b297de732ff9677dcff7bd5819822',
+    digest: '2f86945b3e7b1dfe67db06dc334e060d2e0ac0cb61edbe0486d7804d46195913',
   },
   {
     name: 'Megan Johnson',
@@ -22,7 +22,7 @@ const personas = [
     gender: 'woman',
     pronouns: 'she/her',
     prompt: FEMALE_PROGRESSIVE_PROMPT,
-    digest: 'bd0f2ab9709267e0d2bd3aca706b95a14289fbed5f239ed0fb1b21dbdd88af4e',
+    digest: 'd9b6367df883fb4e20cf83d4054d8dbd05de3ca2c17e3839ee59bd2bc5943f55',
   },
   {
     name: 'Mark Johnson',
@@ -30,7 +30,7 @@ const personas = [
     gender: 'man',
     pronouns: 'he/him',
     prompt: MALE_MAGA_PROMPT,
-    digest: 'eb86fd5a97e969ae640064aa66aeee428b7058f4cb878009dca4b2427e88da5f',
+    digest: 'b6572fb8c776cf3fe92184ec0168ab220af64e06339c7ead1260dcacb4703c69',
   },
   {
     name: 'Megan Johnson',
@@ -38,7 +38,7 @@ const personas = [
     gender: 'woman',
     pronouns: 'she/her',
     prompt: FEMALE_MAGA_PROMPT,
-    digest: 'a3ff4443d6edaef81702c626aef4ea5ffb1516809894b09ca6c9f368fd45d960',
+    digest: 'beaea1fed35c9a28e42902fe59ea526b5386509cd8da71444890b789bbeb9037',
   },
 ];
 
