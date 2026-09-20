@@ -1,8 +1,8 @@
 import type { PrismaClient } from '@workspace/database';
-import { FEMALE_MAGA_PROMPT } from './prompts/femaleMaga';
-import { FEMALE_PROGRESSIVE_PROMPT } from './prompts/femaleProgressive';
-import { MALE_MAGA_PROMPT } from './prompts/maleMaga';
-import { MALE_PROGRESSIVE_PROMPT } from './prompts/maleProgressive';
+import { FEMALE_MAGA_PROMPT } from './prompts/femaleMaga.js';
+import { FEMALE_PROGRESSIVE_PROMPT } from './prompts/femaleProgressive.js';
+import { MALE_MAGA_PROMPT } from './prompts/maleMaga.js';
+import { MALE_PROGRESSIVE_PROMPT } from './prompts/maleProgressive.js';
 
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEFAULT_DEBATE_SCENARIO_CONFIG = {
