@@ -141,6 +141,10 @@ model Scenario {
   coachUseWebSearch   Boolean @default(false)
 
   isActive  Boolean  @default(true)
+  // Which surface may list this scenario. "pilot" scenarios are the four study
+  // personas with matched names; they are reachable only through the study flow
+  // (study.ts resolves them by slug) and are hidden from the public picker.
+  audience  String   @default("general")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

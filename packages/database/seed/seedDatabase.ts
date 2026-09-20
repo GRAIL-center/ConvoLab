@@ -112,6 +112,28 @@ SELF-REFERENCE:
 You are a ${gender} and you use ${subject}/${object} pronouns. Speak about yourself accordingly.${idiomRule}`;
 }
 
+type PersonaName = { first: string; last: string };
+
+/**
+ * Re-key a persona prompt to a different name. The supplied prompts carry the
+ * persona's name in the body text (about 130 mentions each), so the public-app
+ * copies cannot just display a different label; the text itself is rewritten.
+ * Case-sensitive, whole-word: "quotation marks" and "Mark's" are handled
+ * correctly. Throws if the old surname survives anywhere, so a prompt that
+ * mentions the name in an unexpected form fails at seed time, not silently.
+ */
+export function renamePersona(prompt: string, from: PersonaName, to: PersonaName): string {
+  const fullName = new RegExp(`\\b${from.first} ${from.last}\\b`, 'g');
+  const firstName = new RegExp(`\\b${from.first}\\b`, 'g');
+  const renamed = prompt.replace(fullName, `${to.first} ${to.last}`).replace(firstName, to.first);
+  if (new RegExp(`\\b${from.last}\\b`).test(renamed)) {
+    throw new Error(
+      `renamePersona: "${from.last}" still present after renaming to ${to.first} ${to.last}`
+    );
+  }
+  return renamed;
+}
+
 // Quota sizing, measured 11 Aug 2026 against the real study config
 // (populist-right-male, claude-sonnet-5, 6 turns — the PAP conversation length):
 //
@@ -156,11 +178,109 @@ const QUOTA_PRESETS = [
   },
 ];
 
+// The four study personas exist on two surfaces with different naming rules.
+//
+// Pilot (study flow, resolved by slug in study.ts): both ideology conditions
+// share ONE name per gender, Mark Johnson / Megan Johnson, so the partner's name
+// carries the gender manipulation and none of the ideology manipulation
+// (decided 5 Sep 2026, commit 4d6f10e).
+//
+// Public app (scenario picker): four distinct names, each chosen to sit with
+// the persona's politics in FEC-donor and voter-file name data while staying
+// racially unmarked (common 1980s/1990s first names, surnames spread across
+// racial groups in Census data). Decided by Hanna 15 Sep 2026. The public
+// copies are generated from the pilot prompt text at seed time, so persona
+// revisions land on both surfaces without a second transcription.
+const PILOT_NAME: Record<'man' | 'woman', PersonaName> = {
+  man: { first: 'Mark', last: 'Johnson' },
+  woman: { first: 'Megan', last: 'Johnson' },
+};
+
+const PROGRESSIVE_DESCRIPTION =
+  'A politically engaged progressive who argues from systemic and structural reasoning.';
+const POPULIST_DESCRIPTION =
+  'A blunt right-populist who argues from fairness, accountability, and distrust of elites.';
+
+const STUDY_PERSONAS = [
+  {
+    pilotSlug: 'progressive-left-male',
+    generalSlug: 'general-progressive-male',
+    gender: 'man',
+    prompt: MALE_PROGRESSIVE_PROMPT,
+    description: PROGRESSIVE_DESCRIPTION,
+    generalName: { first: 'Joshua', last: 'Moore' },
+  },
+  {
+    pilotSlug: 'progressive-left-female',
+    generalSlug: 'general-progressive-female',
+    gender: 'woman',
+    prompt: FEMALE_PROGRESSIVE_PROMPT,
+    description: PROGRESSIVE_DESCRIPTION,
+    generalName: { first: 'Emily', last: 'Davis' },
+  },
+  {
+    pilotSlug: 'populist-right-male',
+    generalSlug: 'general-populist-male',
+    gender: 'man',
+    prompt: MALE_MAGA_PROMPT,
+    description: POPULIST_DESCRIPTION,
+    generalName: { first: 'Ryan', last: 'Taylor' },
+  },
+  {
+    pilotSlug: 'populist-right-female',
+    generalSlug: 'general-populist-female',
+    gender: 'woman',
+    prompt: FEMALE_MAGA_PROMPT,
+    description: POPULIST_DESCRIPTION,
+    generalName: { first: 'Ashley', last: 'Brown' },
+  },
+] as const satisfies ReadonlyArray<{
+  pilotSlug: string;
+  generalSlug: string;
+  gender: 'man' | 'woman';
+  prompt: string;
+  description: string;
+  generalName: PersonaName;
+}>;
+
+const PILOT_SCENARIOS = STUDY_PERSONAS.map((persona) => {
+  const { first, last } = PILOT_NAME[persona.gender];
+  const name = `${first} ${last}`;
+  return {
+    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
+    name,
+    slug: persona.pilotSlug,
+    description: persona.description,
+    partnerPersona: name,
+    partnerSystemPrompt: withSelfReference(persona.prompt, persona.gender),
+    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
+    audience: 'pilot',
+  };
+});
+
+const GENERAL_SCENARIOS = STUDY_PERSONAS.map((persona) => {
+  const name = `${persona.generalName.first} ${persona.generalName.last}`;
+  return {
+    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
+    name,
+    slug: persona.generalSlug,
+    description: persona.description,
+    partnerPersona: name,
+    partnerSystemPrompt: withSelfReference(
+      renamePersona(persona.prompt, PILOT_NAME[persona.gender], persona.generalName),
+      persona.gender
+    ),
+    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
+    audience: 'general',
+  };
+});
+
 const SCENARIOS = [
   {
     ...DEFAULT_DEBATE_SCENARIO_CONFIG,
     name: 'Angry Uncle at Thanksgiving',
     slug: 'angry-uncle-thanksgiving',
+    audience: 'general',
     description:
       'Practice navigating political disagreements with a family member during a holiday dinner.',
     partnerPersona: 'Your uncle who has strong political opinions',
@@ -171,49 +291,12 @@ Keep your responses conversational - 2-4 sentences typically, like a real back-a
 Start the conversation with a provocative political statement about current events.`,
     coachSystemPrompt: ANGRY_UNCLE_COACH_PROMPT,
   },
-  {
-    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Mark Johnson',
-    slug: 'progressive-left-male',
-    description:
-      'A politically engaged progressive who argues from systemic and structural reasoning.',
-    partnerPersona: 'Mark Johnson',
-    partnerSystemPrompt: withSelfReference(MALE_PROGRESSIVE_PROMPT, 'man'),
-    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
-  },
-  {
-    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Megan Johnson',
-    slug: 'progressive-left-female',
-    description:
-      'A politically engaged progressive who argues from systemic and structural reasoning.',
-    partnerPersona: 'Megan Johnson',
-    partnerSystemPrompt: withSelfReference(FEMALE_PROGRESSIVE_PROMPT, 'woman'),
-    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
-  },
-  {
-    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Mark Johnson',
-    slug: 'populist-right-male',
-    description:
-      'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',
-    partnerPersona: 'Mark Johnson',
-    partnerSystemPrompt: withSelfReference(MALE_MAGA_PROMPT, 'man'),
-    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
-  },
-  {
-    ...DEFAULT_DEBATE_SCENARIO_CONFIG,
-    name: 'Megan Johnson',
-    slug: 'populist-right-female',
-    description:
-      'A blunt right-populist who argues from fairness, accountability, and distrust of elites.',
-    partnerPersona: 'Megan Johnson',
-    partnerSystemPrompt: withSelfReference(FEMALE_MAGA_PROMPT, 'woman'),
-    coachSystemPrompt: GENERIC_DEBATE_COACH_PROMPT,
-  },
+  ...PILOT_SCENARIOS,
+  ...GENERAL_SCENARIOS,
   {
     name: 'Difficult Coworker Feedback',
     slug: 'difficult-coworker',
+    audience: 'general',
     partnerModel: 'google:gemini-2.5-flash',
     partnerUseWebSearch: true,
     coachUseWebSearch: false,
