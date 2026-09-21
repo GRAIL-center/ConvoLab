@@ -52,12 +52,30 @@ function StudyShell({ children }: { children: ReactNode }) {
   );
 }
 
-function StatusPanel({ title, message }: { title: string; message: string }) {
+function StatusPanel({
+  title,
+  message,
+  actionHref,
+  actionLabel,
+}: {
+  title: string;
+  message: string;
+  actionHref?: string | null;
+  actionLabel?: string;
+}) {
   return (
     <StudyShell>
       <div className="mx-auto max-w-lg rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-7 text-center shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
         <h2 className="font-serif text-3xl text-[#24221d] dark:text-[#f2efe7]">{title}</h2>
         <p className="mt-3 leading-7 text-[#6f6a61] dark:text-[#9d9890]">{message}</p>
+        {actionHref && actionLabel && (
+          <a
+            href={actionHref}
+            className="mt-6 inline-flex rounded-full bg-[#24221d] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#3a362f] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white"
+          >
+            {actionLabel}
+          </a>
+        )}
       </div>
     </StudyShell>
   );
@@ -109,7 +127,9 @@ export function Study() {
   }, [enterMutation, parsed]);
 
   useEffect(() => {
-    if (enterMutation.data) {
+    // alreadyCompleted means the server declined to start a second
+    // conversation for this participant; there is nothing to open.
+    if (enterMutation.data && !enterMutation.data.alreadyCompleted) {
       navigate(`/conversation/${enterMutation.data.sessionId}`, { replace: true });
     }
   }, [enterMutation.data, navigate]);
@@ -128,6 +148,21 @@ export function Study() {
       <StatusPanel
         title="Study setup problem"
         message="We could not start the conversation from this link. Please return to the survey tab and try again."
+      />
+    );
+  }
+
+  if (enterMutation.data?.alreadyCompleted) {
+    return (
+      <StatusPanel
+        title="You have already had this conversation"
+        message={
+          enterMutation.data.postSurveyUrl
+            ? 'Each participant has one conversation, so there is nothing more to do here. Continue to the final survey to finish the study.'
+            : 'Each participant has one conversation, so there is nothing more to do here. Please return to the survey tab to finish the study.'
+        }
+        actionHref={enterMutation.data.postSurveyUrl}
+        actionLabel="Continue to final survey"
       />
     );
   }

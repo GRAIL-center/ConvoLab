@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 
@@ -98,12 +98,24 @@ export function PilotLanding() {
   const location = useLocation();
   const navigate = useNavigate();
   const trpc = useTRPC();
+  // Set when the participant has already finished this conversation and came
+  // back to the study link. The server refuses to start a second conversation
+  // (see study.ts), so there is nothing to navigate to; point them onward to
+  // the survey instead of silently doing nothing.
+  const [completedPostSurveyUrl, setCompletedPostSurveyUrl] = useState<string | null | undefined>(
+    undefined
+  );
   const enterMutation = useMutation({
     ...trpc.study.enter.mutationOptions(),
     onSuccess: (data) => {
+      if (data.alreadyCompleted) {
+        setCompletedPostSurveyUrl(data.postSurveyUrl ?? null);
+        return;
+      }
       navigate(`/conversation/${data.sessionId}`, { replace: true });
     },
   });
+  const alreadyCompleted = completedPostSurveyUrl !== undefined;
 
   const pageState = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -173,26 +185,49 @@ export function PilotLanding() {
               </div>
             </div>
 
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={handleStart}
-                disabled={!pageState.parsed.ok || enterMutation.isPending}
-                className="inline-flex rounded-full bg-[#eeeae1] px-6 py-3.5 text-sm font-semibold text-[#151513] shadow-[0_14px_32px_rgba(238,234,225,0.12)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus:ring-2 focus:ring-[#eeeae1] focus:ring-offset-2 focus:ring-offset-[#11110f]"
-              >
-                {enterMutation.isPending ? 'Preparing conversation...' : 'Start conversation'}
-              </button>
-              {!pageState.parsed.ok && (
-                <p className="mt-3 text-sm text-[#c9a18d]">
-                  {pageState.parsed.error} Please return to the survey tab and use the study link there.
+            {alreadyCompleted ? (
+              <div className="mt-6 rounded-2xl border border-[#3a362f] bg-[#181714] p-6">
+                <h3 className="text-lg font-semibold leading-7 text-[#f2efe7]">
+                  You have already had this conversation.
+                </h3>
+                <p className="mt-2 text-base leading-7 text-[#aaa59b]">
+                  Each participant has one conversation, so there is nothing more to do here.
+                  {completedPostSurveyUrl
+                    ? ' Continue to the final survey to finish the study.'
+                    : ' Please return to the survey tab to finish the study.'}
                 </p>
-              )}
-              {enterMutation.isError && (
-                <p className="mt-3 text-sm text-[#c9a18d]">
-                  We could not start the conversation from this link. Please try again.
-                </p>
-              )}
-            </div>
+                {completedPostSurveyUrl && (
+                  <a
+                    href={completedPostSurveyUrl}
+                    className="mt-5 inline-flex rounded-full bg-[#eeeae1] px-6 py-3.5 text-sm font-semibold text-[#151513] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#eeeae1] focus:ring-offset-2 focus:ring-offset-[#11110f]"
+                  >
+                    Continue to final survey
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={!pageState.parsed.ok || enterMutation.isPending}
+                  className="inline-flex rounded-full bg-[#eeeae1] px-6 py-3.5 text-sm font-semibold text-[#151513] shadow-[0_14px_32px_rgba(238,234,225,0.12)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus:ring-2 focus:ring-[#eeeae1] focus:ring-offset-2 focus:ring-offset-[#11110f]"
+                >
+                  {enterMutation.isPending ? 'Preparing conversation...' : 'Start conversation'}
+                </button>
+                {!pageState.parsed.ok && (
+                  <p className="mt-3 text-sm text-[#c9a18d]">
+                    {pageState.parsed.error} Please return to the survey tab and use the study link
+                    there.
+                  </p>
+                )}
+                {enterMutation.isError && (
+                  <p className="mt-3 text-sm text-[#c9a18d]">
+                    We could not start the conversation from this link. Please try again.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </section>
 

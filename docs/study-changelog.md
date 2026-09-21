@@ -17,6 +17,36 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-21 — one conversation per participant, enforced (code only, not yet live)
+
+A participant who finished their conversation and then reopened the study link
+used to get a brand-new session. `study.enter` resumed a prior session only
+while it was still ACTIVE with no `endedAt`, and otherwise fell through to
+creating one. Two such pairs are in the August test data: one participant
+exited and reopened the link 15 seconds later, producing a second transcript
+with the same condition, topic and partner.
+
+It now starts nothing. A returning participant whose conversation has ended
+sees "You have already had this conversation" and a button to the final
+survey, on both `/study` (the route the pre-survey redirects to) and `/pilot`.
+An in-progress conversation still resumes on refresh, unchanged.
+
+The finished session is deliberately NOT reopened: nothing in the WebSocket
+layer refuses messages on a COMPLETED session, so reopening it would let a
+participant extend a transcript that is already an outcome measure.
+
+Re-entry attempts are recorded as the `study_reentry_blocked` telemetry event,
+so the rate is measurable during fielding rather than invisible.
+
+The decision rule lives in `packages/api/src/lib/studySessionDecision.ts` with
+11 unit tests, including one that reproduces the August pair. Pre-analysis plan
+5.1 gains a matching "One conversation per participant" paragraph: if a
+participant somehow holds two sessions, the earliest by entry timestamp is the
+one analysed, a rule that refers only to entry order and never to transcript
+content.
+
+---
+
 ## 2026-09-21 — pilot landing page: corrected when the coach starts suggesting (code only, not yet live)
 
 The treatment-arm support box said "Once you send your first message, a coach

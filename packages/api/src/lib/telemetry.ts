@@ -36,6 +36,7 @@ export const TelemetryEvents = {
   AI_REFUSAL: 'ai_refusal',
   PAGE_VIEWED: 'page_viewed',
   CTA_CLICKED: 'cta_clicked',
+  STUDY_REENTRY_BLOCKED: 'study_reentry_blocked',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvents)[keyof typeof TelemetryEvents];
