@@ -76,8 +76,23 @@ transcripts can never be joined to the survey again — which is the intended
 property, so decide deliberately.
 
 Note `participant_NNNN` pseudonyms are sequential and therefore export-order
-dependent. They are readable labels, NOT join keys. Always join on
-`survey_join_key`.
+dependent. They are readable labels, NOT join keys.
+
+Three keys are available, in order of convenience:
+
+  1. `session_id` <-> the post-survey's `AppSessionID` embedded field. The app
+     sets it on the redirect and the live post-survey captures it, so this is a
+     plain merge with no salt. Use this for transcripts <-> POST-survey.
+  2. `study.qualtrics_response_id` <-> the PRE-survey's `ResponseId` column.
+     The pre-survey passes its own ResponseID on the redirect. Use this for
+     transcripts <-> PRE-survey.
+  3. `survey_join_key` for an analysis that must carry no raw ids, as above.
+
+     CAUTION on (2): a ResponseID is not unique per transcript. One pre-survey
+     response can produce several app sessions if the participant re-opens the
+     link, and the 20 September test data contains two such pairs. Joining on it
+     is one-to-many; decide which session counts (the PAP's rule) before
+     merging, or join on session_id, which is unique.
 """
 
 import argparse
@@ -163,6 +178,15 @@ STUDY_FIELDS = {
     "studyEndType": "end_type",
     "studyRedirectedAt": "redirected_at",
     "participantTurnCount": "participant_turn_count",
+    # The pre-survey's own Qualtrics ResponseID, handed to the app on the
+    # redirect (`rid=${e://Field/ResponseID}`). This is the link to the
+    # PRE-survey row. It is an opaque Qualtrics response id, not a person, so
+    # it is exported raw for the same reason session_id is: the alternative is
+    # forcing every join through the salted key even in testing, where there
+    # is no Prolific PID to protect. The direct identifier (prolificPid) still
+    # never leaves, and the app-to-POST-survey join runs on AppSessionID =
+    # session_id, which the post-survey captures as embedded data.
+    "qualtricsResponseId": "qualtrics_response_id",
 }
 
 
