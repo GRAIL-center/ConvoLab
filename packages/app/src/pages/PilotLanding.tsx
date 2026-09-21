@@ -208,8 +208,8 @@ export function PilotLanding() {
                 </h3>
                 <p className="mt-2 text-base leading-7 text-[#aaa59b]">
                   A coach appears beside the conversation as soon as you start. From your second
-                  message onward it suggests what to say next and how to apply Listen, Acknowledge,
-                  Pivot, and Perspective. You can also ask it a question directly at any point.
+                  message onward it will offer feedback and suggestions. You can also ask it
+                  questions directly at any point.
                 </p>
               </div>
             )}

@@ -29,9 +29,11 @@ the first coach message lands after the participant's second message, unless
 the participant wrote to the coach first.
 
 Now reads: "A coach appears beside the conversation as soon as you start. From
-your second message onward it suggests what to say next and how to apply
-Listen, Acknowledge, Pivot, and Perspective. You can also ask it a question
-directly at any point."
+your second message onward it will offer feedback and suggestions. You can also
+ask it questions directly at any point." (Wording set by Hanna, 21 Sep. An
+earlier revision on the same day named the four LAPP steps here; they were
+dropped as redundant, since the Conversation framework box immediately below
+already sets out Listen, Acknowledge, Pivot and Perspective.)
 
 Treatment arm only, since the box is shown only when condition = 1. No
 behaviour change; the copy now matches what the platform does. The wording
