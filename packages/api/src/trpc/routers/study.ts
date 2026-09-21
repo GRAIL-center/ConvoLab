@@ -3,6 +3,7 @@ import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
 import { createSession } from '../../data/sessions.js';
+import { decideStudySession } from '../../lib/studySessionDecision.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { publicProcedure, router } from '../procedures.js';
 
@@ -207,14 +208,39 @@ export const studyRouter = router({
         prolificPid: input.pid,
       },
     });
-    const existingSession = existingSessions
-      .filter(
-        (session) =>
-          session.studySource === 'qualtrics_prolific' &&
-          session.status === 'ACTIVE' &&
-          !session.endedAt
-      )
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0];
+    const decision = decideStudySession(existingSessions);
+    const existingSession = decision.kind === 'resume' ? decision.session : undefined;
+    const completedSession = decision.kind === 'blocked' ? decision.session : undefined;
+
+    if (completedSession) {
+      await track(
+        ctx.prisma,
+        TelemetryEvents.STUDY_REENTRY_BLOCKED,
+        {
+          source: 'study',
+          priorEndType: completedSession.studyEndType ?? null,
+          priorTurnCount: completedSession.participantTurnCount ?? null,
+        },
+        { userId: completedSession.userId ?? undefined, sessionId: String(completedSession.id) }
+      );
+      return {
+        sessionId: String(completedSession.id),
+        alreadyExisted: true,
+        alreadyCompleted: true,
+        postSurveyUrl: buildPostSurveyUrl(completedSession),
+        condition,
+        partnerIdeology: completedSession.studyPartnerIdeology ?? partnerIdeology,
+        participantIdeology: completedSession.studyParticipantIdeology ?? participantIdeology,
+        partnerIdeologyCode: completedSession.studyPartnerIdeologyCode ?? partnerIdeologyCode,
+        topic: completedSession.studyTopic ?? input.topic,
+        ownTopic: completedSession.studyOwnTopic ?? input.owntopic,
+        partnerName: completedSession.customPartnerPersona ?? 'Your AI partner',
+        partnerSummary: partnerSummary(
+          (completedSession.studyPartnerIdeology ?? partnerIdeology) as PartnerIdeology,
+          (completedSession.studyPartnerGender ?? partnerGender) as PartnerGender
+        ),
+      };
+    }
 
     if (existingSession) {
       if (existingSession.userId) {
@@ -223,6 +249,8 @@ export const studyRouter = router({
       return {
         sessionId: String(existingSession.id),
         alreadyExisted: true,
+        alreadyCompleted: false,
+        postSurveyUrl: null,
         condition,
         partnerIdeology: existingSession.studyPartnerIdeology ?? partnerIdeology,
         participantIdeology: existingSession.studyParticipantIdeology ?? participantIdeology,
@@ -309,6 +337,8 @@ export const studyRouter = router({
     return {
       sessionId,
       alreadyExisted: false,
+      alreadyCompleted: false,
+      postSurveyUrl: null,
       condition,
       partnerIdeology,
       participantIdeology,
