@@ -17,6 +17,29 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-21 — pilot landing page: corrected when the coach starts suggesting (code only, not yet live)
+
+The treatment-arm support box said "Once you send your first message, a coach
+appears beside the conversation with suggestions...". The coach panel does open
+that early, and a participant can ask it a question from the start, but its
+unprompted suggestions are deliberately withheld until the first exchange is
+complete (`conversation.ts`: "Skip coach on the first exchange — let the user
+form their own response first"). Every coaching transcript to date confirms it:
+the first coach message lands after the participant's second message, unless
+the participant wrote to the coach first.
+
+Now reads: "A coach appears beside the conversation as soon as you start. From
+your second message onward it suggests what to say next and how to apply
+Listen, Acknowledge, Pivot, and Perspective. You can also ask it a question
+directly at any point."
+
+Treatment arm only, since the box is shown only when condition = 1. No
+behaviour change; the copy now matches what the platform does. The wording
+deliberately does not explain why the first turn is left alone, to avoid
+drawing attention to a turn that is itself scored post-hoc.
+
+---
+
 ## 2026-09-16 — scene-setting intro replaces the empty-conversation copy (code only, not yet live)
 
 Before the participant's first message the conversation page used to read
