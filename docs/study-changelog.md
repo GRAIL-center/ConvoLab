@@ -35,8 +35,11 @@ The finished session is deliberately NOT reopened: nothing in the WebSocket
 layer refuses messages on a COMPLETED session, so reopening it would let a
 participant extend a transcript that is already an outcome measure.
 
-Re-entry attempts are recorded as the `study_reentry_blocked` telemetry event,
-so the rate is measurable during fielding rather than invisible.
+Re-entry attempts are logged by the API at info level with
+`event: 'study_reentry_blocked'`, so the rate is queryable in Cloud Run logs
+during fielding. They also emit the matching telemetry event, but note that
+`track()` is a no-op in this deployment (`lib/telemetry.ts`), so the log line
+is what actually records it.
 
 The decision rule lives in `packages/api/src/lib/studySessionDecision.ts` with
 11 unit tests, including one that reproduces the August pair. Pre-analysis plan

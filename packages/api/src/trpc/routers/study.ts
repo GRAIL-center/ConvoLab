@@ -213,6 +213,22 @@ export const studyRouter = router({
     const completedSession = decision.kind === 'blocked' ? decision.session : undefined;
 
     if (completedSession) {
+      // track() is a project-wide no-op (see lib/telemetry.ts), so the event
+      // alone records nothing. Log it too: the Fastify logger runs at info in
+      // production, so this is queryable in Cloud Run logs, which is the
+      // observability channel that actually works in this deployment. Without
+      // it a blocked re-entry leaves no trace anywhere and the rate during
+      // fielding would be unknowable.
+      ctx.req.log.info(
+        {
+          event: 'study_reentry_blocked',
+          sessionId: String(completedSession.id),
+          priorEndType: completedSession.studyEndType ?? null,
+          priorTurnCount: completedSession.participantTurnCount ?? null,
+          hasPostSurveyUrl: !!buildPostSurveyUrl(completedSession),
+        },
+        '[study] refused a second conversation for a participant who already finished'
+      );
       await track(
         ctx.prisma,
         TelemetryEvents.STUDY_REENTRY_BLOCKED,
