@@ -13,6 +13,7 @@ if (process.env.SENTRY_DSN) {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
+import { canonicalRedirectTarget } from './lib/canonicalHost.js';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
@@ -50,6 +51,24 @@ if (process.env.SENTRY_DSN) {
 logStartupDiagnostics(fastify.log);
 fastify.log.info(`AI providers available: ${getAIProviderSummary()}`);
 fastify.log.info(`Firestore target: ${getFirestoreTargetSummary()}`);
+
+// Serve the app on one hostname only. www.convolab.us is mapped to this same
+// service, and two live origins would split the session cookie and break the
+// single-origin CORS allowlist below, so the www form is redirected here
+// rather than served. Registered before every other route so it applies to
+// static files, tRPC and the WebSocket upgrade alike.
+fastify.addHook('onRequest', async (request, reply) => {
+  const target = canonicalRedirectTarget(
+    request.headers.host,
+    request.url,
+    process.env.FRONTEND_URL
+  );
+  if (target) {
+    // 301: the canonical host is not expected to change, and a permanent
+    // redirect stops the browser re-asking on every subsequent request.
+    return reply.redirect(target, 301);
+  }
+});
 
 // Register plugins
 await fastify.register(cors, {
