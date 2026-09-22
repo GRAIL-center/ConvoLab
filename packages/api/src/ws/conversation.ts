@@ -48,7 +48,6 @@ const PARTNER_RESPONSE_POLICY = `RESPONSE LENGTH:
 Do not ask follow-up questions.`;
 
 const DEFAULT_GOOGLE_MODEL = 'google:gemini-2.5-flash';
-const DEFAULT_MODEL = DEFAULT_GOOGLE_MODEL;
 
 import {
   buildConversationIntro,
