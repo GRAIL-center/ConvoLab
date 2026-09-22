@@ -1554,7 +1554,11 @@ export class ConversationManager {
     usage: TokenUsage;
   } | null> {
     const scenario = this.session.scenario;
-    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_MODEL);
+    // DEFAULT_COACH_MODEL, not DEFAULT_MODEL: an aside is the coach speaking, so
+    // it has to land on the same model as its unprompted insights. Falling back
+    // to the generic default put the two halves of one coach on two different
+    // models, and left asides on Google after COACH_MODEL moved the insights.
+    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
     const systemPrompt =
       (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
@@ -1690,7 +1694,11 @@ export class ConversationManager {
   }
 
   private async logAsideUsage(usage: TokenUsage): Promise<void> {
-    const coachModel = resolveConfiguredModel(this.session.scenario?.coachModel ?? DEFAULT_MODEL);
+    // Must match the resolution in streamAside above, or the usage row records
+    // a model the aside never ran on.
+    const coachModel = resolveConfiguredModel(
+      this.session.scenario?.coachModel ?? DEFAULT_COACH_MODEL
+    );
     await this.prisma.usageLog.create({
       data: {
         sessionId: this.session.id,
