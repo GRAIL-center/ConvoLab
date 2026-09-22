@@ -86,6 +86,9 @@ services:
       API_HOST: api:3000
       VITE_API_URL: http://localhost:3000
       VITE_SITE_BANNER: ${VITE_SITE_BANNER:-}
+      # Hostname a dev tunnel serves this on, when testing on a real phone.
+      # See the allowedHosts note in packages/app/vite.config.ts.
+      DEV_ALLOWED_HOSTS: ${DEV_ALLOWED_HOSTS:-}
     volumes:
       # Mount source for hot reloading
       - ./packages/app/src:/app/packages/app/src

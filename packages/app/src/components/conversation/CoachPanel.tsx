@@ -10,7 +10,7 @@ import {
 import Markdown from 'react-markdown';
 import type { AsideMessage, LappScore, Message } from '../../hooks/useConversationSocket';
 
-interface DesktopCoachPanelProps {
+interface CoachPanelProps {
   coachMessages: Message[]; // automatic coach responses (role=coach)
   asideMessages: AsideMessage[]; // user Q&A with coach
   lappScores: Map<string, LappScore>;
@@ -156,7 +156,7 @@ function AsideResponseCard({ message }: { message: AsideMessage }) {
   );
 }
 
-export function DesktopCoachPanel({
+export function CoachPanel({
   coachMessages,
   asideMessages,
   lappScores,
@@ -167,7 +167,7 @@ export function DesktopCoachPanel({
   coachInputRef,
   disabled,
   partnerName,
-}: DesktopCoachPanelProps) {
+}: CoachPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on content change
@@ -211,7 +211,7 @@ export function DesktopCoachPanel({
   const quickPrompts = ['How am I doing?', 'What should I try next?', 'Was that too aggressive?'];
 
   return (
-    <div className="flex h-full flex-col px-7 py-7">
+    <div className="flex h-full flex-col px-5 py-5 sm:px-7 sm:py-7">
       <div className="shrink-0">
         <div className="flex items-center gap-3">
           <h3 className="font-serif text-2xl text-[#2e2b25] dark:text-[#f2efe7]">Coach</h3>
