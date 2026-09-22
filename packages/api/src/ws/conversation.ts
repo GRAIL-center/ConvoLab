@@ -48,7 +48,6 @@ const PARTNER_RESPONSE_POLICY = `RESPONSE LENGTH:
 Do not ask follow-up questions.`;
 
 const DEFAULT_GOOGLE_MODEL = 'google:gemini-2.5-flash';
-const DEFAULT_MODEL = DEFAULT_GOOGLE_MODEL;
 
 import {
   buildConversationIntro,
@@ -77,8 +76,15 @@ function isIntroIdeology(value: unknown): value is IntroIdeology {
 // With a Claude default here, resolveConfiguredModel no longer silently falls back
 // to Gemini for the partner — the partner REQUIRES ANTHROPIC_API_KEY to be set.
 const DEFAULT_PARTNER_MODEL = 'claude-sonnet-5';
-const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
-const DEFAULT_SCORER_MODEL = process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
+// Overridable for the same reason LAPP_SCORER_MODEL is: the coach and the
+// scorer both ride Google while the partner is pinned to Claude, so an exhausted
+// Google key silently removes coaching and scoring from a session that still
+// looks healthy because the partner keeps replying. Unset, behaviour is
+// unchanged.
+// `||`, not `??`: compose passes these through as `${VAR:-}`, so "unset" arrives
+// as an empty string, which `??` would happily accept as the model name.
+const DEFAULT_COACH_MODEL = process.env.COACH_MODEL || DEFAULT_GOOGLE_MODEL;
+const DEFAULT_SCORER_MODEL = process.env.LAPP_SCORER_MODEL || DEFAULT_GOOGLE_MODEL;
 // claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
 const FALLBACK_PARTNER_MODEL = 'claude-sonnet-5';
 // Emergency partner lane. Note FALLBACK_PARTNER_MODEL is now identical to
@@ -1547,7 +1553,11 @@ export class ConversationManager {
     usage: TokenUsage;
   } | null> {
     const scenario = this.session.scenario;
-    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_MODEL);
+    // DEFAULT_COACH_MODEL, not DEFAULT_MODEL: an aside is the coach speaking, so
+    // it has to land on the same model as its unprompted insights. Falling back
+    // to the generic default put the two halves of one coach on two different
+    // models, and left asides on Google after COACH_MODEL moved the insights.
+    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
     const systemPrompt =
       (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
@@ -1683,7 +1693,11 @@ export class ConversationManager {
   }
 
   private async logAsideUsage(usage: TokenUsage): Promise<void> {
-    const coachModel = resolveConfiguredModel(this.session.scenario?.coachModel ?? DEFAULT_MODEL);
+    // Must match the resolution in streamAside above, or the usage row records
+    // a model the aside never ran on.
+    const coachModel = resolveConfiguredModel(
+      this.session.scenario?.coachModel ?? DEFAULT_COACH_MODEL
+    );
     await this.prisma.usageLog.create({
       data: {
         sessionId: this.session.id,
