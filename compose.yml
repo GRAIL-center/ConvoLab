@@ -52,6 +52,11 @@ services:
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-${FIRESTORE_PROJECT_ID}}
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
+      # Optional per-lane model overrides. Useful when one provider's key is
+      # exhausted: the partner is pinned to Claude, so a dead Google key takes
+      # out coaching and LAPP scoring while the conversation still looks fine.
+      COACH_MODEL: ${COACH_MODEL:-}
+      LAPP_SCORER_MODEL: ${LAPP_SCORER_MODEL:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       # Points the Google Auth library at the ADC file mounted in below,
       # so the Firestore client can actually authenticate from inside the
