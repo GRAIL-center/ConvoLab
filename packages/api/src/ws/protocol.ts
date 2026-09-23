@@ -64,6 +64,11 @@ export interface StudyInfo {
   topic: string;
   condition: 0 | 1;
   coachEnabled: boolean;
+  /**
+   * True when the partner sent a fixed opening message before the participant
+   * wrote, so the transcript already has a partner bubble at connect time.
+   */
+  partnerOpens: boolean;
   participantTurnCount: number;
   softCapSeconds: number;
   hardStopSeconds: number;

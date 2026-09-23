@@ -63,6 +63,11 @@ export function validateConversationRecord(record: Record<string, unknown>): str
   // deliberately skips a turn's score when the scorer call fails (no fabricated
   // fallback — scorer-hardening decision, Aug 2026), so tolerate one gap and
   // flag only the systematic case.
+  // The "- 1" encodes "the opening turn is never scored", which holds because
+  // the synthetic generator always has the user open. Synthetic records carry
+  // no partner_opens field (synthetic.ts builds the record without one), so
+  // there is nothing to branch on here; if the generator ever produces
+  // partner-opens conversations, this must become userTurns.length for them.
   const scored = userTurns.filter((t) => t.lapp).length;
   const expectedScored = Math.max(0, userTurns.length - 1);
   if (scored < expectedScored - 1) {

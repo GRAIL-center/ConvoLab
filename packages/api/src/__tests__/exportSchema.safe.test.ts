@@ -163,4 +163,15 @@ describe('study field export coverage', () => {
     expect(exported.has('studyCondition')).toBe(true);
     expect(exported.has('studySource')).toBe(true);
   });
+
+  it('keeps the partner-opens variant, which splits the transcripts into two designs', () => {
+    // Who speaks first changes the meaning of the participant's first turn, so
+    // a transcript that cannot be assigned to a variant cannot be scored under
+    // the right rule. It is also exported as a plain bool rather than null for
+    // the sessions that predate it: those all ran participant-first.
+    expect(studyBlockFields().has('studyPartnerOpens')).toBe(true);
+    const src = readFileSync(EXPORTER, 'utf8');
+    expect(src).toContain('"partner_opens"');
+    expect(src).toMatch(/STUDY_FIELD_COERCIONS[\s\S]*"studyPartnerOpens":\s*bool/);
+  });
 });

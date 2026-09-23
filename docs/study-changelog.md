@@ -17,6 +17,110 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-23 — partner-opens variant behind a per-session flag (code only, not yet live)
+
+Today the participant always writes first: they meet a scene-setting card, an
+empty conversation, and the question "How do you begin?". This adds the other
+variant, where the partner speaks first, and puts it behind a per-session
+boolean so the two can be split-tested with user testers before one is locked
+in for the pilot.
+
+The flag is `studyPartnerOpens` on the session. It is set from the URL
+parameter `partnerOpens` (also `PartnerOpens` or `partneropens`;
+`1`/`0`/`true`/`false` all work) on both `/study` and `/pilot`, and a link that
+says nothing falls back
+to `STUDY_PARTNER_OPENS_DEFAULT` in `packages/api/src/trpc/routers/study.ts`,
+which is currently **false**: participant-first, exactly as today. The default
+lives in two places and they have to flip together: that constant, which is the
+one that decides anything, and `PARTNER_OPENS_DEFAULT` in `PilotLanding.tsx`,
+which only decides which sentence the landing page shows when the link is
+silent. A link that carries an unrecognised value (anything other than `1`,
+`0`, `true` or `false`) is refused with "Invalid partnerOpens value." rather
+than quietly running the default, because a session that ran the wrong variant
+cannot be repaired afterwards. Because the flag is stamped on the session at
+creation, a conversation keeps whatever variant it started with.
+
+The opener is fixed text, not generated. There is one written opener per topic
+crossed with partner ideology (seven topics, two ideologies) plus one generic
+opener for a participant who picked their own topic, in
+`packages/api/src/lib/partnerOpeners.ts`. Every participant on a given topic
+and partner ideology reads the identical first message, so the stimulus is the
+same for all of them and the first participant turn is a response to a known
+prompt rather than to whatever the model produced that day. The openers are
+identical in the coaching and control arms; nothing about them varies by
+condition. `study.enter` writes the opener straight to the transcript as the
+first partner message before the participant's socket opens, so it arrives in
+the normal history replay and survives a refresh. That write happens after the
+session row exists, so the WebSocket layer seeds the opener on connect if it
+finds a partner-opens session with an empty transcript, logging
+`partner_opener_seeded_on_connect`; if the session has no usable partner
+ideology it logs `partner_opener_seed_skipped` and runs without an opener
+rather than guessing which side the partner is on. The seed is guarded on an
+empty transcript, so it cannot fire twice or reach a conversation already
+under way.
+
+The partner's system prompt is branched to match: in this variant it is told it
+has already opened, must not restate the opening, and must keep its first reply
+short. That block replaces the whole participant-first instruction, so the
+sentence "Say one thing you believe and stop; you have the rest of the
+conversation to make the case." is dropped along with it; the opener already
+did that job. Everything else in the prompt is identical between the two
+variants.
+
+This also corrects a pre-existing inconsistency, which affected only the
+coaching arm. Turn numbering counted asides, so a participant who asked the
+coach a question before writing anything to the partner had their real first
+turn numbered 2: the coach and the scorer treated it as a mid-conversation
+turn, and the stored LAPP `turnNumber` stopped lining up with the client's walk
+over main messages. Turn numbering now counts main-thread participant messages
+only, which is the rule the rest of the app already used.
+
+Coach and live-scorer timing follows the same flag, with no second flag to
+keep in sync. Unprompted coaching and live LAPP scoring are still withheld
+from an exchange where the participant opened cold, but when the partner
+opens, the participant's first turn is already a response, so both run from
+turn 1. The rule is one function, `shouldRunPostExchangeJobs` in
+`packages/api/src/lib/postExchangeGate.ts`, with unit tests for all four
+cases. On that turn the coach and the scorer are also handed the opener as
+context, labelled as the partner's opening statement, because neither of them
+is given conversation history: without it they would be judging a reply to
+something they cannot read. Nothing else in either prompt changes, and on
+every later turn the prompts are byte-identical to today's.
+
+The scene-setting card changes one sentence: "How do you begin?" becomes "How
+do you respond?" when the partner has opened. Everything else in the card is
+unchanged. The card now stays on screen until the participant's own first
+message rather than until the first message of any kind, so in this variant
+the reader sees the partner's bubble with the card beneath it, above the
+input. The side rails and the LAPP panel also wait for the participant's first
+message, so a lone opener does not make the page look like a conversation
+already under way. On the pilot landing page the treatment-arm support box
+says "From your first message onward" instead of "From your second message
+onward" when the link turns the variant on.
+
+Exports carry the flag as the column `partner_opens` in the study block of
+`scripts/export_transcripts_firestore.py`, so a transcript can always be
+assigned to the variant it ran under, including the mixed set of user-testing
+sessions this will produce. It is exported as a plain true/false: sessions
+created before today have no such field and all ran participant-first, so they
+are coerced to false rather than exported as null, which would have made the
+column three-valued for no reason.
+
+Standing consequence for the pre-analysis plan, to act on when the variant is
+chosen: if partner-first is the version that ships, Appendix B's rule
+excluding the participant's opening turn from Listen and Acknowledge has to be
+dropped, and the scoring prompt updated to match. That rule exists only
+because a participant who opens cold has nothing to listen to or acknowledge.
+When the partner opens, the first turn is a response like any other, and
+excluding it would discard the turn that the manipulation is most likely to
+affect. Note that the frozen LAPP scoring prompt (`lapp_prompt_v4.txt` in the
+dqi-scoring pipeline) still carries that exclusion, so any partner-opens
+user-testing transcript scored before that prompt is revised is scored under
+the participant-first rule and its first-turn Listen and Acknowledge values
+should not be read as measurements.
+
+---
+
 ## 2026-09-21 — one conversation per participant, enforced (code only, not yet live)
 
 A participant who finished their conversation and then reopened the study link

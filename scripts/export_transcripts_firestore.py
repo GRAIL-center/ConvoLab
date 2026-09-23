@@ -166,6 +166,11 @@ STUDY_FIELDS = {
     "studyPartnerIdeologyRandomized": "partner_ideology_randomized",
     "studyPartnerGender": "partner_gender",
     "studyPartnerGenderCode": "partner_gender_code",
+    # True when the partner sent a fixed opening message and the participant's
+    # first turn is therefore a response, not an opening. It changes who speaks
+    # first, when the coach starts, and whether the first participant turn is
+    # eligible for Listen/Acknowledge scoring, so it has to reach analysis.
+    "studyPartnerOpens": "partner_opens",
     "studyEnteredAt": "entered_at",
     # entered_at is stamped at Qualtrics entry; conversation_started_at is stamped
     # when the participant actually opens the conversation socket. The gap between
@@ -190,11 +195,26 @@ STUDY_FIELDS = {
 }
 
 
+# Per-field coercions applied on top of the generic STUDY_FIELDS mapping.
+STUDY_FIELD_COERCIONS = {
+    # Sessions created before the partner-opens variant existed carry no such
+    # field, and every one of them ran participant-first, so False is the truth
+    # for them. Exporting null instead would make the variant column
+    # three-valued and leave every analysis to decide what null meant.
+    "studyPartnerOpens": bool,
+}
+
+
 def study_block(s):
     """Study/RCT metadata for a session, or None for a non-study session."""
     if not s.get("studySource"):
         return None
-    return {out: jsonable(s.get(src)) for src, out in STUDY_FIELDS.items()}
+    block = {}
+    for src, out in STUDY_FIELDS.items():
+        coerce = STUDY_FIELD_COERCIONS.get(src)
+        value = s.get(src)
+        block[out] = coerce(value) if coerce else jsonable(value)
+    return block
 
 
 def load_collection(db, name):

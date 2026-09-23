@@ -24,6 +24,22 @@ const lappItems = [
   ['Perspective', 'Share your view in first-person terms, not accusations.'],
 ] as const;
 
+// Mirrors STUDY_PARTNER_OPENS_DEFAULT in packages/api/src/trpc/routers/study.ts.
+// The server decides the variant; this copy only needs to describe it, so when
+// the link says nothing both sides have to assume the same thing. Flip them
+// together when the variant is locked in for the pilot.
+const PARTNER_OPENS_DEFAULT = false;
+
+// The partner-opens variant is set from the link, and the two variants are
+// being split-tested by hand, so the link is written by a person as often as by
+// Qualtrics. Accept the spellings a person actually types.
+function parsePartnerOpensParam(value: string): BinaryParam | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true') return '1';
+  if (normalized === '0' || normalized === 'false') return '0';
+  return undefined;
+}
+
 function getFirstSearchParam(searchParams: URLSearchParams, names: string[]) {
   for (const name of names) {
     const value = searchParams.get(name)?.trim();
@@ -52,6 +68,14 @@ function parseStudyParams(search: string) {
   const ideology = getFirstSearchParam(searchParams, ['ideology', 'PartnerIdeology']);
   const party = getFirstSearchParam(searchParams, ['party', 'Party']) || undefined;
   const owntopic = getFirstSearchParam(searchParams, ['owntopic', 'TopicOwn']) || undefined;
+  // Omitted means "whatever the server's default is"; only an explicit value
+  // is sent, so the default lives in one place.
+  const partnerOpensRaw = getFirstSearchParam(searchParams, [
+    'partnerOpens',
+    'PartnerOpens',
+    'partneropens',
+  ]);
+  const partnerOpens = partnerOpensRaw ? parsePartnerOpensParam(partnerOpensRaw) : undefined;
 
   if (!pid) return { ok: false as const, error: 'Missing participant ID.' };
   if (!isTopicLabel(topic)) return { ok: false as const, error: 'Missing or invalid topic.' };
@@ -64,10 +88,15 @@ function parseStudyParams(search: string) {
   if (!isBinaryParam(ideology)) {
     return { ok: false as const, error: 'Missing or invalid partner ideology assignment.' };
   }
+  // A typo'd flag must not quietly run the other variant: a session assigned to
+  // the wrong arm is unrecoverable once the conversation has happened.
+  if (partnerOpensRaw && !partnerOpens) {
+    return { ok: false as const, error: 'Invalid partnerOpens value.' };
+  }
 
   return {
     ok: true as const,
-    input: { pid, topic, condition, partner, ideology, party, rid, owntopic },
+    input: { pid, topic, condition, partner, ideology, party, rid, owntopic, partnerOpens },
   };
 }
 
@@ -124,6 +153,10 @@ export function PilotLanding() {
     const partner = getFirstSearchParam(searchParams, ['partner', 'PartnerGender']);
     const ideology = getFirstSearchParam(searchParams, ['ideology', 'PartnerIdeology']);
     const condition = getFirstSearchParam(searchParams, ['condition', 'Condition']);
+    const partnerOpens =
+      parsePartnerOpensParam(
+        getFirstSearchParam(searchParams, ['partnerOpens', 'PartnerOpens', 'partneropens'])
+      ) ?? (PARTNER_OPENS_DEFAULT ? '1' : '0');
     const displayTopic =
       topic === 'Pick your own topic' && ownTopic
         ? ownTopic
@@ -134,6 +167,7 @@ export function PilotLanding() {
     return {
       displayTopic,
       hasCoach: condition === '1',
+      partnerOpens: partnerOpens === '1',
       partner: partnerPreview(ideology, partner),
       parsed: parseStudyParams(location.search),
     };
@@ -242,9 +276,9 @@ export function PilotLanding() {
                   A coach is available during the conversation.
                 </h3>
                 <p className="mt-2 text-base leading-7 text-[#aaa59b]">
-                  A coach appears beside the conversation as soon as you start. From your second
-                  message onward it will offer feedback and suggestions. You can also ask it
-                  questions directly at any point.
+                  A coach appears beside the conversation as soon as you start. From your{' '}
+                  {pageState.partnerOpens ? 'first' : 'second'} message onward it will offer
+                  feedback and suggestions. You can also ask it questions directly at any point.
                 </p>
               </div>
             )}

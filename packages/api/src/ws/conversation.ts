@@ -55,6 +55,8 @@ import {
   type IntroIdeology,
   personaFromScenarioSlug,
 } from '../lib/conversationIntro.js';
+import { getPartnerOpener } from '../lib/partnerOpeners.js';
+import { openingPartnerMessage, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
@@ -289,6 +291,8 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
   studyPartnerIdeology?: string | null;
   studyCondition?: number | null;
   studyCoachEnabled?: boolean | null;
+  /** True when the partner opened with a fixed statement before the participant wrote. */
+  studyPartnerOpens?: boolean | null;
   studyConversationStartedAt?: Date | string | null;
 }
 
@@ -392,6 +396,7 @@ export class ConversationManager {
         partnerName: scenarioInfo.partnerPersona,
         ...persona,
         topic: isStudySession ? this.session.studyTopic : undefined,
+        partnerOpens: this.session.studyPartnerOpens === true,
       });
     }
 
@@ -405,6 +410,10 @@ export class ConversationManager {
             topic: this.session.studyTopic ?? '',
             condition: this.session.studyCondition === 1 ? 1 : 0,
             coachEnabled: this.isCoachEnabled(),
+            // Which variant this session runs. The client needs it because the
+            // partner's opener is already in `history`, so "no messages yet" no
+            // longer means "the participant has not started".
+            partnerOpens: this.session.studyPartnerOpens === true,
             participantTurnCount: this.countParticipantTurns(),
             // softCap is no longer a deadline: it is the point where the
             // participant is free to finish. They may keep talking until
@@ -416,6 +425,41 @@ export class ConversationManager {
           }
         : undefined,
     });
+
+    // Fallback only: the opener is written by study.enter when the session is
+    // created (trpc/routers/study.ts), and that stays the primary path. But
+    // that write happens after createSession, so if it throws the participant
+    // lands on a partner-opens session with no partner bubble and an intro
+    // card asking how they respond to nothing. Seeding it here repairs that on
+    // connect. Guarded on an empty transcript, which makes it idempotent
+    // across reconnects and means it can never insert an opener into a
+    // conversation that is already under way.
+    if (this.session.studyPartnerOpens === true && this.session.messages.length === 0) {
+      const ideology = this.session.studyPartnerIdeology;
+      if (isIntroIdeology(ideology)) {
+        const opener = await this.persistMessage(
+          'partner',
+          getPartnerOpener(this.session.studyTopic ?? '', ideology)
+        );
+        this.session.messages.push(opener);
+        this.logger.info(
+          { sessionId: this.session.id, event: 'partner_opener_seeded_on_connect' },
+          '[study] partner opener was missing on connect and has been seeded'
+        );
+      } else {
+        // Which opener to use is determined by the partner's ideology. Picking
+        // one without it would assign the participant a partner position at
+        // random, so the session runs without an opener instead.
+        this.logger.warn(
+          {
+            sessionId: this.session.id,
+            event: 'partner_opener_seed_skipped',
+            studyPartnerIdeology: ideology ?? null,
+          },
+          '[study] partner-opens session has no opener and no usable partner ideology; not guessing one'
+        );
+      }
+    }
 
     const historyMessages: HistoryMessage[] = this.session.messages.map((m) => ({
       id: m.id,
@@ -470,7 +514,13 @@ export class ConversationManager {
       const userMsg = await this.persistMessage('user', content);
       this.session.messages.push(userMsg);
 
-      const turnNumber = this.session.messages.filter((m) => m.role === 'user').length;
+      // Main-thread turns only. This used to count asides too, so a coaching-arm
+      // participant who asked the coach a question before writing to the partner
+      // had their real first turn numbered 2: the coach and scorer treated it as
+      // a mid-conversation turn, and the stored LAPP turnNumber no longer lined
+      // up with the client's walk over main user messages. countParticipantTurns
+      // is the same rule the connected payload already reports.
+      const turnNumber = this.countParticipantTurns();
       await track(
         this.prisma,
         TelemetryEvents.MESSAGE_SENT,
@@ -504,19 +554,32 @@ export class ConversationManager {
         return;
       }
 
-      // Skip coach on the first exchange — let the user form their own response first.
-      const isFirstExchange = this.session.messages.filter((m) => m.role === 'user').length === 1;
+      // Skip coach on the first exchange — let the user form their own response
+      // first. Unless the partner opened, in which case that turn is already a
+      // response; see lib/postExchangeGate.ts for the rule and the reasoning.
+      const partnerOpens = this.session.studyPartnerOpens === true;
 
       send(this.ws, { type: 'exchange:complete' });
       await this.logUsage(partnerResult.usage, null);
       await this.checkQuotaWarning();
 
-      if (!isFirstExchange) {
+      if (shouldRunPostExchangeJobs({ partnerOpens, participantTurnCount: turnNumber })) {
         void this.runPostExchangeJobs({
           userMessageId: userMsg.id,
           userMessage: content,
           partnerMessage: partnerResult.content,
           turnNumber,
+          // On turn 1 of the partner-opens variant the participant is replying
+          // to the fixed opener, and neither the coach nor the scorer is given
+          // conversation history — they see only this exchange. Without the
+          // opener they would judge a reply to something they cannot read.
+          // openingPartnerMessage walks the transcript in order and stops at
+          // the participant's first main message, so it cannot return the
+          // partner's reply to this very turn, which is already in `messages`.
+          precedingPartnerMessage:
+            partnerOpens && turnNumber === 1
+              ? openingPartnerMessage(this.session.messages)
+              : undefined,
         });
       }
     } catch (error) {
@@ -558,6 +621,8 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
+    /** The partner's opening statement, when the exchange is a reply to it. */
+    precedingPartnerMessage?: string;
   }): Promise<void> {
     const coachJob = this.isCoachEnabled()
       ? this.generateCoachInsight(args).catch((error: unknown) => {
@@ -575,7 +640,8 @@ export class ConversationManager {
       args.userMessageId,
       args.userMessage,
       args.partnerMessage,
-      args.turnNumber
+      args.turnNumber,
+      args.precedingPartnerMessage
     ).catch((error: unknown) => {
       this.logger.warn(
         {
@@ -1046,7 +1112,8 @@ export class ConversationManager {
     userMessageId: string | number,
     userMessage: string,
     partnerMessage: string,
-    turnNumber: number
+    turnNumber: number,
+    precedingPartnerMessage?: string
   ): Promise<void> {
     const startMs = Date.now();
     const model = resolveConfiguredModel(DEFAULT_SCORER_MODEL, DEFAULT_SCORER_MODEL);
@@ -1065,6 +1132,9 @@ export class ConversationManager {
               role: 'user',
               content: [
                 `Turn: ${turnNumber}`,
+                ...(precedingPartnerMessage
+                  ? [`Partner's opening statement: ${precedingPartnerMessage}`]
+                  : []),
                 `User message: ${userMessage}`,
                 `Partner reply: ${partnerMessage}`,
                 'Use 0-5 integer scores for:',
@@ -1143,6 +1213,8 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
+    /** The partner's opening statement, when the exchange is a reply to it. */
+    precedingPartnerMessage?: string;
   }): Promise<void> {
     const startMs = Date.now();
     const scenario = this.session.scenario;
@@ -1172,6 +1244,9 @@ export class ConversationManager {
             role: 'user',
             content: [
               `Turn: ${args.turnNumber}`,
+              ...(args.precedingPartnerMessage
+                ? [`Partner's opening statement: ${args.precedingPartnerMessage}`]
+                : []),
               `User message: ${args.userMessage}`,
               `Partner reply: ${args.partnerMessage}`,
               'Return only the coaching insight text.',
@@ -1295,6 +1370,11 @@ export class ConversationManager {
   private buildContext(role: 'partner' | 'coach'): LLMMessage[] {
     const messages = this.session.messages;
     if (role === 'partner') {
+      // In the partner-opens variant this context starts with an assistant
+      // message, which is intentional: verified against claude-sonnet-5 on the
+      // dev stack, 23 Sep 2026 (session 2lpQMC8bduL2BgvfOxWU, attempt 0, no
+      // retries). A provider that rejects a leading assistant message would
+      // have to be handled here, not by inventing a synthetic user turn.
       return messages
         .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
         .map((m) => ({

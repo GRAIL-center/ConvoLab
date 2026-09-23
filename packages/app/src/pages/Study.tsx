@@ -25,6 +25,16 @@ function isBinaryParam(value: string): value is BinaryParam {
   return value === '0' || value === '1';
 }
 
+// The partner-opens variant is set from the link, and the two variants are
+// being split-tested by hand, so the link is written by a person as often as by
+// Qualtrics. Accept the spellings a person actually types.
+function parsePartnerOpensParam(value: string): BinaryParam | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true') return '1';
+  if (normalized === '0' || normalized === 'false') return '0';
+  return undefined;
+}
+
 function getFirstSearchParam(searchParams: URLSearchParams, names: string[]) {
   for (const name of names) {
     const value = searchParams.get(name)?.trim();
@@ -97,6 +107,14 @@ export function Study() {
     const ideology = getFirstSearchParam(searchParams, ['ideology', 'PartnerIdeology']);
     const party = getFirstSearchParam(searchParams, ['party', 'Party']) || undefined;
     const owntopic = getFirstSearchParam(searchParams, ['owntopic', 'TopicOwn']) || undefined;
+    // Omitted means "whatever the server's default is", which is deliberately
+    // not decided here; only an explicit value is sent.
+    const partnerOpensRaw = getFirstSearchParam(searchParams, [
+      'partnerOpens',
+      'PartnerOpens',
+      'partneropens',
+    ]);
+    const partnerOpens = partnerOpensRaw ? parsePartnerOpensParam(partnerOpensRaw) : undefined;
 
     if (!pid) return { ok: false as const, error: 'Missing participant ID.' };
     if (!isStudyTopic(topic)) return { ok: false as const, error: 'Missing or invalid topic.' };
@@ -109,10 +127,15 @@ export function Study() {
     if (!isBinaryParam(ideology)) {
       return { ok: false as const, error: 'Missing or invalid partner ideology assignment.' };
     }
+    // A typo'd flag must not quietly run the other variant: a session assigned
+    // to the wrong arm is unrecoverable once the conversation has happened.
+    if (partnerOpensRaw && !partnerOpens) {
+      return { ok: false as const, error: 'Invalid partnerOpens value.' };
+    }
 
     return {
       ok: true as const,
-      input: { pid, topic, condition, partner, ideology, party, rid, owntopic },
+      input: { pid, topic, condition, partner, ideology, party, rid, owntopic, partnerOpens },
     };
   }, [searchParams]);
 
