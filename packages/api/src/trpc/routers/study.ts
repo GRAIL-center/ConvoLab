@@ -58,6 +58,14 @@ const enterInput = z.object({
     .optional(),
 });
 
+const deviceBlockedInput = z.object({
+  pid: z.string().trim().max(256),
+  rid: z.string().trim().max(256).optional(),
+  width: z.number().int(),
+  height: z.number().int(),
+  route: z.enum(['pilot', 'study']),
+});
+
 const finishInput = z.object({
   sessionId: z.string().min(1),
   endType: z.enum(['participant_finish', 'early_exit', 'soft_cap', 'hard_stop']),
@@ -219,6 +227,35 @@ function buildPostSurveyUrl(session: Record<string, unknown>): string | null {
 
 export const studyRouter = router({
   contract: publicProcedure.query(() => STUDY_PARAM_CONTRACT),
+
+  /**
+   * Records that a participant was turned away by the viewport gate on /pilot
+   * or /study before any session was created.
+   *
+   * Writes nothing. There is no session to attach a row to, and the participant
+   * may widen the window a second later and go on to take part normally, so a
+   * database record here would describe an attempt rather than an outcome. The
+   * Fastify request logger runs at info in production, which makes this
+   * queryable in Cloud Run logs; that is deliberate rather than lazy, because
+   * `track()` is a project-wide no-op in this deployment (see lib/telemetry.ts)
+   * and would record nothing at all. Same reasoning as study_reentry_blocked
+   * above: without the log line a block leaves no trace anywhere and the rate
+   * during fielding would be unknowable.
+   */
+  deviceBlocked: publicProcedure.input(deviceBlockedInput).mutation(({ ctx, input }) => {
+    ctx.req.log.info(
+      {
+        event: 'study_device_blocked',
+        route: input.route,
+        pid: input.pid,
+        rid: input.rid ?? null,
+        width: input.width,
+        height: input.height,
+      },
+      'study_device_blocked'
+    );
+    return { logged: true };
+  }),
 
   enter: publicProcedure.input(enterInput).mutation(async ({ ctx, input }) => {
     const condition = parseBinary(input.condition) as StudyCondition;

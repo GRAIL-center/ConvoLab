@@ -17,6 +17,70 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-23 — pilot stays desktop-only: mobile controls hidden in study sessions, viewport gate on entry (code only, not yet live)
+
+Pre-analysis plan Section 3.1 registers the pilot as a laptop or desktop study:
+the coach sits in a rail beside the conversation, which the layout only does at
+Tailwind's `lg` breakpoint and above, 1024 pixels. Nothing enforced that until
+now. PR #114 (22 Sep) added phone support to the app: header buttons that open
+the coach and the LAPP radar in bottom sheets on narrow screens, hidden again
+at `lg` and `xl` where the rails reappear. That work is for the regular app and
+stays there. Left ungated it would quietly have given study participants a
+treatment surface the plan never registered, a coach summoned into a sheet over
+the conversation rather than one sitting beside it throughout. That is the
+August B6 problem in reverse: the same mismatch between what the plan registers
+and what participants actually see.
+
+Two changes, both code only, neither live yet.
+
+First, the mobile coach and metrics controls are rendered only when the session
+is not a study session. Both header buttons and both bottom sheets in
+`Conversation.tsx` are now gated on the same `isStudySession` flag the page
+already uses for the study header and the finish button. Regular app behaviour
+is unchanged at every width.
+
+Second, entry to the pilot is gated on width. On `/pilot` and `/study`, if the
+browser window is narrower than 1024 pixels the page does not create a session.
+It shows a full page notice headed "Please use a laptop or desktop computer",
+telling the participant to open the link on a laptop or desktop computer or to
+widen the window. The check runs before `study.enter` fires, so a participant
+who arrives on a phone leaves behind no session row, no assigned condition and
+no stub transcript, and can reopen the same link on a laptop later as if for
+the first time. The notice re-checks on window resize, debounced at 200
+milliseconds, and clears itself once the window is wide enough: `/study` then
+runs its enter flow, and `/pilot` returns to the normal landing page with the
+Start conversation button. The threshold lives in one constant,
+`STUDY_MIN_VIEWPORT_WIDTH` in `packages/app/src/lib/studyViewport.ts`, tied
+there to PAP 3.1 and to the Tailwind `lg` breakpoint.
+
+The gate is width only. It does not look at user agent or touch capability, so
+a touchscreen laptop passes and a desktop browser window dragged narrow does
+not, which is the property the plan actually cares about: whether the
+registered layout is available, not what kind of device is in the
+participant's hands. Regular app routes are untouched; nothing outside `/pilot`
+and `/study` is gated on width.
+
+Blocks are observable. The first block of a page visit calls a new
+`study.deviceBlocked` mutation, which writes nothing to the database and logs
+one line at info with `event: 'study_device_blocked'`, the participant id, the
+Qualtrics response id, the viewport width, the viewport height and which of the
+two routes was blocked, so the rate is queryable in Cloud Run logs during
+fielding. It reports once per visit rather than once per resize, and the call
+is fire and forget, so a participant who is already being turned away never
+also sees an error from the logging. Nothing is written to the database because
+no session exists yet and the participant may widen the window a moment later
+and take part normally, so a row would record an attempt rather than an
+outcome. As with `study_reentry_blocked`, the log line is what actually records
+this: `track()` is a no-op in this deployment.
+
+The Prolific device screen remains the first layer. Participants are screened
+to desktop there before they ever reach a ConvoLab link, and this gate is the
+backstop for anyone who opens the link on a phone anyway, from a saved link or
+an email. It tells them what to do instead of letting them start a session the
+plan cannot use.
+
+---
+
 ## 2026-09-23 — partner-opens variant behind a per-session flag (code only, not yet live)
 
 Today the participant always writes first: they meet a scene-setting card, an
