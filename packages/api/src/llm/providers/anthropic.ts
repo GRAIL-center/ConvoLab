@@ -171,7 +171,7 @@ export const anthropicProvider: LLMProvider = {
 
   async countTokens(messages: LLMMessage[]): Promise<number> {
     const response = await getClient().messages.countTokens({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
     return response.input_tokens;
