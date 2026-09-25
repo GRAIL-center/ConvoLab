@@ -47,14 +47,22 @@ const PARTNER_RESPONSE_POLICY = `RESPONSE LENGTH:
 
 Do not ask follow-up questions.`;
 
-const DEFAULT_GOOGLE_MODEL = 'google:gemini-2.5-flash';
-
 import {
   buildConversationIntro,
   type IntroGender,
   type IntroIdeology,
   personaFromScenarioSlug,
 } from '../lib/conversationIntro.js';
+import {
+  DEFAULT_PARTNER_MODEL,
+  defaultCoachModel,
+  isAnthropicModel,
+  type ModelEnv,
+  type ProviderAvailability,
+  resolveConfiguredModel as resolveConfiguredModelFor,
+  resolveSessionModels,
+  type SessionModels,
+} from '../lib/modelResolution.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { openingPartnerMessage, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
@@ -73,20 +81,16 @@ function isIntroIdeology(value: unknown): value is IntroIdeology {
   return value === 'left' || value === 'right';
 }
 
-// Default models for custom scenarios
-// Study conversation partner pinned to Claude Sonnet (PAP v7.8; Hanna 9 Aug 2026).
-// With a Claude default here, resolveConfiguredModel no longer silently falls back
-// to Gemini for the partner — the partner REQUIRES ANTHROPIC_API_KEY to be set.
-const DEFAULT_PARTNER_MODEL = 'claude-sonnet-5';
-// Overridable for the same reason LAPP_SCORER_MODEL is: the coach and the
-// scorer both ride Google while the partner is pinned to Claude, so an exhausted
-// Google key silently removes coaching and scoring from a session that still
-// looks healthy because the partner keeps replying. Unset, behaviour is
-// unchanged.
-// `||`, not `??`: compose passes these through as `${VAR:-}`, so "unset" arrives
-// as an empty string, which `??` would happily accept as the model name.
-const DEFAULT_COACH_MODEL = process.env.COACH_MODEL || DEFAULT_GOOGLE_MODEL;
-const DEFAULT_SCORER_MODEL = process.env.LAPP_SCORER_MODEL || DEFAULT_GOOGLE_MODEL;
+// Default models for custom scenarios. The partner, coach and scorer defaults
+// and their COACH_MODEL / LAPP_SCORER_MODEL overrides live in
+// lib/modelResolution.ts, which the study router also uses to snapshot the
+// models onto a study session, so the two cannot disagree. The environment is
+// read once at module load, as it always has been here.
+const MODEL_ENV: ModelEnv = {
+  COACH_MODEL: process.env.COACH_MODEL,
+  LAPP_SCORER_MODEL: process.env.LAPP_SCORER_MODEL,
+};
+const DEFAULT_COACH_MODEL = defaultCoachModel(MODEL_ENV);
 // claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
 const FALLBACK_PARTNER_MODEL = 'claude-sonnet-5';
 // Emergency partner lane. Note FALLBACK_PARTNER_MODEL is now identical to
@@ -188,8 +192,8 @@ function hasAnthropicProvider(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
 }
 
-function isAnthropicModel(modelString: string): boolean {
-  return modelString.startsWith('anthropic:') || modelString.startsWith('claude');
+function currentProviders(): ProviderAvailability {
+  return { anthropic: hasAnthropicProvider(), google: hasGoogleProvider() };
 }
 
 /**
@@ -215,10 +219,7 @@ function shouldEmergencyFallback(
 }
 
 function resolveConfiguredModel(modelString: string, fallbackModel = DEFAULT_COACH_MODEL): string {
-  if (isAnthropicModel(modelString) && !hasAnthropicProvider() && hasGoogleProvider()) {
-    return fallbackModel;
-  }
-  return modelString;
+  return resolveConfiguredModelFor(modelString, fallbackModel, currentProviders());
 }
 
 function isLikelyIncompleteCoachMessage(content: string): boolean {
@@ -294,6 +295,14 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
   /** True when the partner opened with a fixed statement before the participant wrote. */
   studyPartnerOpens?: boolean | null;
   studyConversationStartedAt?: Date | string | null;
+  /**
+   * Models snapshotted onto a study session at creation (study.enter). When
+   * set they win over the live configuration, so a config change cannot move
+   * an in-flight study session onto a different model.
+   */
+  studyPartnerModel?: string | null;
+  studyCoachModel?: string | null;
+  studyScorerModel?: string | null;
 }
 
 export class ConversationManager {
@@ -355,6 +364,26 @@ export class ConversationManager {
     return 0;
   }
 
+  /**
+   * The partner, coach and scorer models this session runs on: the snapshot
+   * stored on a study session when present, else the live resolution. Each
+   * snapshot field is used only when set, so sessions without one (every
+   * non-study session, and study sessions created before the snapshot
+   * existed) resolve exactly as before.
+   */
+  private sessionModels(): SessionModels {
+    const live = resolveSessionModels({
+      scenario: this.session.scenario,
+      env: MODEL_ENV,
+      providers: currentProviders(),
+    });
+    return {
+      partner: this.session.studyPartnerModel || live.partner,
+      coach: this.session.studyCoachModel || live.coach,
+      scorer: this.session.studyScorerModel || live.scorer,
+    };
+  }
+
   async initialize(): Promise<void> {
     const scenario = this.session.scenario;
 
@@ -379,6 +408,20 @@ export class ConversationManager {
     }
 
     const isStudySession = this.session.studySource === 'qualtrics_prolific';
+    if (isStudySession) {
+      const models = this.sessionModels();
+      this.logger.info(
+        {
+          event: 'study_models_resolved',
+          sessionId: this.session.id,
+          partner: models.partner,
+          coach: models.coach,
+          scorer: models.scorer,
+          fromSnapshot: !!this.session.studyPartnerModel,
+        },
+        '[study] session models resolved'
+      );
+    }
     const elapsedSecondsAtConnect = isStudySession ? await this.resolveStudyElapsedSeconds() : 0;
 
     // Scene-setting text for the empty conversation. Study sessions carry the
@@ -698,21 +741,18 @@ export class ConversationManager {
     let modelString: string;
     let systemPrompt: string;
 
+    // For a custom or study session (no scenario) the live resolution is the
+    // plain default, exactly as the old `role === 'partner' ? DEFAULT_PARTNER_MODEL
+    // : DEFAULT_COACH_MODEL` was: resolving a default against itself is a no-op.
+    const models = this.sessionModels();
     if (scenario) {
-      modelString =
-        role === 'partner'
-          ? (scenario.partnerModel ?? DEFAULT_PARTNER_MODEL)
-          : (scenario.coachModel ?? DEFAULT_COACH_MODEL);
-      modelString = resolveConfiguredModel(
-        modelString,
-        role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL
-      );
+      modelString = role === 'partner' ? models.partner : models.coach;
       systemPrompt =
         role === 'partner'
           ? (scenario.partnerSystemPrompt ?? scenario.description)
           : (scenario.coachSystemPrompt ?? scenario.description);
     } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
-      modelString = role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL;
+      modelString = role === 'partner' ? models.partner : models.coach;
       systemPrompt =
         role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
     } else {
@@ -1116,7 +1156,7 @@ export class ConversationManager {
     precedingPartnerMessage?: string
   ): Promise<void> {
     const startMs = Date.now();
-    const model = resolveConfiguredModel(DEFAULT_SCORER_MODEL, DEFAULT_SCORER_MODEL);
+    const model = this.sessionModels().scorer;
 
     try {
       const controller = new AbortController();
@@ -1218,7 +1258,7 @@ export class ConversationManager {
   }): Promise<void> {
     const startMs = Date.now();
     const scenario = this.session.scenario;
-    const model = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
+    const model = this.sessionModels().coach;
     const basePrompt =
       scenario?.coachSystemPrompt ??
       this.session.customCoachPrompt ??
@@ -1463,8 +1503,13 @@ export class ConversationManager {
 
   private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage | null): Promise<void> {
     const scenario = this.session.scenario;
-    const partnerModel = resolveConfiguredModel(scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL);
-    const coachModel = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
+    // The snapshot, when a study session has one, is what the streams ran on.
+    // Otherwise unchanged. Note the live partner line resolves with the coach
+    // default as its fallback, unlike streamResponse; left as it was.
+    const partnerModel =
+      this.session.studyPartnerModel ||
+      resolveConfiguredModel(scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL);
+    const coachModel = this.sessionModels().coach;
 
     const partnerEntry = {
       sessionId: this.session.id,
@@ -1637,7 +1682,7 @@ export class ConversationManager {
     // it has to land on the same model as its unprompted insights. Falling back
     // to the generic default put the two halves of one coach on two different
     // models, and left asides on Google after COACH_MODEL moved the insights.
-    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
+    const modelString = this.sessionModels().coach;
     const systemPrompt =
       (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
@@ -1775,9 +1820,7 @@ export class ConversationManager {
   private async logAsideUsage(usage: TokenUsage): Promise<void> {
     // Must match the resolution in streamAside above, or the usage row records
     // a model the aside never ran on.
-    const coachModel = resolveConfiguredModel(
-      this.session.scenario?.coachModel ?? DEFAULT_COACH_MODEL
-    );
+    const coachModel = this.sessionModels().coach;
     await this.prisma.usageLog.create({
       data: {
         sessionId: this.session.id,

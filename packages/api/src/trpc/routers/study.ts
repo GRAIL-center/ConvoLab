@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
 import { createMessage } from '../../data/messages.js';
 import { createSession } from '../../data/sessions.js';
+import { providersFromEnv, resolveSessionModels } from '../../lib/modelResolution.js';
 import { getPartnerOpener } from '../../lib/partnerOpeners.js';
 import { decideStudySession } from '../../lib/studySessionDecision.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
@@ -368,6 +369,21 @@ export const studyRouter = router({
       });
     }
 
+    // Provenance for the frozen configuration: the models this session will run
+    // on, resolved exactly as the WebSocket handler resolves them and stored on
+    // the session, so the export says which model produced the transcript and
+    // a later config change cannot move this session. `scenario: null` because
+    // the session is created without a scenarioId (it snapshots the scenario's
+    // prompts instead), so at runtime it resolves as a scenario-less session.
+    const models = resolveSessionModels({
+      scenario: null,
+      env: {
+        COACH_MODEL: process.env.COACH_MODEL,
+        LAPP_SCORER_MODEL: process.env.LAPP_SCORER_MODEL,
+      },
+      providers: providersFromEnv(process.env),
+    });
+
     const sessionId = await createSession({
       userId,
       status: 'ACTIVE',
@@ -400,6 +416,9 @@ export const studyRouter = router({
       studyPartnerIdeology: partnerIdeology,
       studyPartnerIdeologyCode: partnerIdeologyCode,
       studyPartnerOpens: partnerOpens,
+      studyPartnerModel: models.partner,
+      studyCoachModel: models.coach,
+      studyScorerModel: models.scorer,
       studyEnteredAt: new Date(),
       studyEndType: null,
       participantTurnCount: 0,

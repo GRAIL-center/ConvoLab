@@ -174,4 +174,26 @@ describe('study field export coverage', () => {
     expect(src).toContain('"partner_opens"');
     expect(src).toMatch(/STUDY_FIELD_COERCIONS[\s\S]*"studyPartnerOpens":\s*bool/);
   });
+
+  it('keeps the model provenance snapshot and the flag that says which rows have it', () => {
+    // The pre-analysis plan pins the partner, coach and scorer models and the
+    // archive must say which model produced each transcript. The snapshot is
+    // written at creation; the exporter must read it, and must flag rows that
+    // lack it (their fallback is the live scenario, not what actually ran).
+    const written = studyFieldsWrittenByApi();
+    const exported = fieldsReadByExporter();
+    for (const f of ['studyPartnerModel', 'studyCoachModel', 'studyScorerModel']) {
+      expect(written.has(f), `${f} is not written at session creation`).toBe(true);
+      expect(exported.has(f), `${f} is not read by the exporter`).toBe(true);
+    }
+    const src = readFileSync(EXPORTER, 'utf8');
+    for (const col of [
+      '"partner_model"',
+      '"coach_model"',
+      '"scorer_model"',
+      '"models_from_snapshot"',
+    ]) {
+      expect(src).toContain(col);
+    }
+  });
 });
