@@ -113,6 +113,24 @@ Control-arm sessions have no coach, so they come out 0/0/0 by construction.
 These columns do not change `turns`, which still carries every message
 (asides and coach messages included, each tagged with its `type` and `role`);
 asides stay out of the scored transcript because the DQI loader drops them.
+
+------------------------------------------------------------------------------
+MODEL PROVENANCE
+------------------------------------------------------------------------------
+Every record carries four top-level model columns (session_models()):
+
+  - partner_model, coach_model, scorer_model: the models the session ran on.
+  - models_from_snapshot: True when all three were read from the snapshot the
+    study flow stores on the session at creation (studyPartnerModel,
+    studyCoachModel, studyScorerModel; since 2026-09-25). Only these rows say
+    reliably which model produced the transcript.
+
+When a session has no snapshot, partner_model/coach_model fall back to the
+LIVE `scenarios` record for the session's scenarioId, i.e. today's
+configuration rather than what actually ran, and scorer_model is null.
+Study sessions carry no scenarioId, so without a snapshot all three are null.
+For those rows (models_from_snapshot False) recover provenance from the
+`usageLogs` collection (`model` per `sessionId` and `streamType`).
 """
 
 import argparse
@@ -253,6 +271,24 @@ def coaching_engagement(messages):
         "coach_insights_n": insights,
         "coach_aside_n": asides,
         "coach_aside": 1 if asides >= 1 else 0,
+    }
+
+
+def session_models(s, scenario):
+    """Model provenance columns for one session (see MODEL PROVENANCE above).
+
+    Pure function of the session and scenario dicts, so it is testable without
+    Firestore. The snapshot wins field by field; models_from_snapshot is True
+    only when all three snapshot fields are present.
+    """
+    partner = s.get("studyPartnerModel")
+    coach = s.get("studyCoachModel")
+    scorer = s.get("studyScorerModel")
+    return {
+        "partner_model": partner or scenario.get("partnerModel"),
+        "coach_model": coach or scenario.get("coachModel"),
+        "scorer_model": scorer or None,
+        "models_from_snapshot": bool(partner and coach and scorer),
     }
 
 
@@ -431,8 +467,8 @@ def export(db, args):
                 "scenario_slug": scenario.get("slug"),
                 "partner_persona": s.get("customPartnerPersona")
                 or scenario.get("partnerPersona"),
-                "partner_model": scenario.get("partnerModel"),
-                "coach_model": scenario.get("coachModel"),
+                # partner_model, coach_model, scorer_model, models_from_snapshot
+                **session_models(s, scenario),
                 "status": s.get("status"),
                 "started_at": jsonable(s.get("startedAt")),
                 "ended_at": jsonable(s.get("endedAt")),

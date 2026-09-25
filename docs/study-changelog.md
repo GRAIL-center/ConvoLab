@@ -17,6 +17,43 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-25 — sessions now record which models they ran on (provenance for the frozen configuration; code only, not yet live)
+
+The pre-analysis plan pins the partner, coach and live-scorer models and
+requires the archive to say which model produced each transcript. Until now no
+session recorded a model. The export filled `partner_model` and `coach_model`
+from the live `scenarios` record, so it reported today's configuration rather
+than what ran, and for study sessions (which carry no `scenarioId`) it wrote
+null for both.
+
+- **What is stored.** At creation (`study.enter`) every study session now
+  stores three model identifiers: `studyPartnerModel`, `studyCoachModel` and
+  `studyScorerModel`. They are resolved by `packages/api/src/lib/modelResolution.ts`,
+  the same function the WebSocket handler uses at runtime, so the snapshot is
+  the model the handler would pick for that session.
+- **Runtime prefers the snapshot.** When a session carries the snapshot, the
+  partner, coach (insights and asides) and live scorer run on the stored models
+  and the `usageLogs` rows record them, so a later configuration change cannot
+  move a study session that is already in flight. Sessions without a snapshot
+  resolve exactly as before. Each connect of a study session logs
+  `study_models_resolved` with the three models.
+- **The export prefers the snapshot and flags rows without it.** Every record
+  now has `partner_model`, `coach_model`, a new `scorer_model`, and a boolean
+  `models_from_snapshot`. When the snapshot is present all three model columns
+  come from it and the flag is true. When it is absent the old fallback applies
+  (the live scenario record, null for study sessions), `scorer_model` is null,
+  and the flag is false. Only rows with the flag set are trustworthy provenance.
+- **Older sessions.** Sessions created before this change have no snapshot.
+  Their provenance is recoverable from the `usageLogs` collection, which holds
+  the `model` for each `sessionId` and `streamType` (`partner`, `coach`,
+  `aside`). The live scorer does not write usage rows, so for those sessions
+  the scorer model has to be taken from the deployed configuration at the time.
+
+No participant-facing change: the models a new study session runs on are the
+same as before.
+
+---
+
 ## 2026-09-25 — export: coaching-engagement columns (analysis tooling only, no participant-facing change)
 
 The transcript export (`scripts/export_transcripts_firestore.py`) now writes
