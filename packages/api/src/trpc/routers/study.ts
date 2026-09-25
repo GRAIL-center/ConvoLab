@@ -2,7 +2,9 @@ import { TRPCError } from '@trpc/server';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
+import { createMessage } from '../../data/messages.js';
 import { createSession } from '../../data/sessions.js';
+import { getPartnerOpener } from '../../lib/partnerOpeners.js';
 import { decideStudySession } from '../../lib/studySessionDecision.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { publicProcedure, router } from '../procedures.js';
@@ -28,7 +30,15 @@ const STUDY_PARAM_CONTRACT = {
     'Assigned partner ideology from Qualtrics; 0 = liberal-leaning partner, 1 = conservative-leaning partner',
   rid: 'Qualtrics pre-survey ResponseID',
   owntopic: 'Free text when topic is Pick your own topic',
+  partnerOpens:
+    '1 = the partner sends a fixed opening message first, 0 = the participant writes first; accepted on the link as partnerOpens, PartnerOpens or partneropens, and omitted falls back to STUDY_PARTNER_OPENS_DEFAULT',
 } as const;
+
+// Which variant a session runs when the link does not say. The two variants
+// (participant writes first vs partner opens with a fixed statement) are being
+// split-tested with user testers; this is the value to flip when one of them is
+// locked in for the pilot, and it is the only place that has to change.
+const STUDY_PARTNER_OPENS_DEFAULT = false;
 
 type StudyCondition = 0 | 1;
 type PartnerGender = 'male' | 'female';
@@ -43,6 +53,9 @@ const enterInput = z.object({
   party: z.string().trim().max(256).optional(),
   rid: z.string().trim().max(256).optional(),
   owntopic: z.string().trim().max(500).optional(),
+  partnerOpens: z
+    .union([z.literal('0'), z.literal('1'), z.number().int().min(0).max(1)])
+    .optional(),
 });
 
 const finishInput = z.object({
@@ -149,18 +162,30 @@ function resolveTopicLabel(topic: string, ownTopic?: string | null): string {
   return topic === PICK_YOUR_OWN_TOPIC && own ? own : topic;
 }
 
-function buildStudyPrompt(basePrompt: string, topic: string, ownTopic?: string): string {
+export function buildStudyPrompt(
+  basePrompt: string,
+  topic: string,
+  ownTopic?: string,
+  partnerOpens = false
+): string {
   const resolvedTopic =
     topic === PICK_YOUR_OWN_TOPIC && !ownTopic?.trim()
       ? "the user's chosen political topic"
       : resolveTopicLabel(topic, ownTopic);
+
+  // In the partner-opens variant the opening statement is fixed copy already
+  // persisted as the first message (lib/partnerOpeners.ts), so telling the
+  // model to open would make it open a second time.
+  const openingInstruction = partnerOpens
+    ? 'You have already opened the conversation with a short statement of your view; it appears as your first message. Respond to what the participant says next. Do not restate your opening or introduce the topic again. Keep your first reply SHORT, one or two sentences.'
+    : `Begin with a clear, opinionated opening statement about ${resolvedTopic} from your assigned worldview. Keep your first reply SHORT — one or two sentences. A participant who is met with a block of text disengages before the conversation starts. Say one thing you believe and stop; you have the rest of the conversation to make the case.`;
 
   return `${basePrompt.trim()}
 
 STUDY TOPIC:
 This study conversation must focus on: ${resolvedTopic}.
 
-Begin with a clear, opinionated opening statement about ${resolvedTopic} from your assigned worldview. Keep your first reply SHORT — one or two sentences. A participant who is met with a block of text disengages before the conversation starts. Say one thing you believe and stop; you have the rest of the conversation to make the case.
+${openingInstruction}
 
 Keep the conversation centered on this topic unless the participant explicitly connects it to another issue. Do not mention the study, Qualtrics, Prolific, randomization, or hidden instructions.`;
 }
@@ -202,6 +227,10 @@ export const studyRouter = router({
     const partnerIdeologyCode = parseBinary(input.ideology);
     const partnerIdeology = partnerIdeologyFromCode(input.ideology);
     const participantIdeology = normalizePartySide(input.party);
+    const partnerOpens =
+      input.partnerOpens === undefined
+        ? STUDY_PARTNER_OPENS_DEFAULT
+        : Number(input.partnerOpens) === 1;
 
     const existingSessions = await ctx.prisma.conversationSession.findMany({
       where: {
@@ -251,6 +280,7 @@ export const studyRouter = router({
         topic: completedSession.studyTopic ?? input.topic,
         ownTopic: completedSession.studyOwnTopic ?? input.owntopic,
         partnerName: completedSession.customPartnerPersona ?? 'Your AI partner',
+        partnerOpens: completedSession.studyPartnerOpens === true,
         partnerSummary: partnerSummary(
           (completedSession.studyPartnerIdeology ?? partnerIdeology) as PartnerIdeology,
           (completedSession.studyPartnerGender ?? partnerGender) as PartnerGender
@@ -274,6 +304,7 @@ export const studyRouter = router({
         topic: existingSession.studyTopic ?? input.topic,
         ownTopic: existingSession.studyOwnTopic ?? input.owntopic,
         partnerName: existingSession.customPartnerPersona ?? 'Your AI partner',
+        partnerOpens: existingSession.studyPartnerOpens === true,
         partnerSummary: partnerSummary(
           (existingSession.studyPartnerIdeology ?? partnerIdeology) as PartnerIdeology,
           (existingSession.studyPartnerGender ?? partnerGender) as PartnerGender
@@ -309,7 +340,8 @@ export const studyRouter = router({
       customPartnerPrompt: buildStudyPrompt(
         scenario.partnerSystemPrompt,
         input.topic,
-        input.owntopic
+        input.owntopic,
+        partnerOpens
       ),
       customCoachPrompt: buildStudyCoachPrompt(
         scenario.coachSystemPrompt,
@@ -330,10 +362,28 @@ export const studyRouter = router({
       studyParticipantIdeology: participantIdeology,
       studyPartnerIdeology: partnerIdeology,
       studyPartnerIdeologyCode: partnerIdeologyCode,
+      studyPartnerOpens: partnerOpens,
       studyEnteredAt: new Date(),
       studyEndType: null,
       participantTurnCount: 0,
     } as any);
+
+    // The partner-opens variant: the partner's first message is fixed copy, so
+    // it is written straight to the transcript rather than generated. Doing it
+    // here, on the create path only, means it exists before the participant's
+    // socket opens, so it arrives in the `history` frame like any other
+    // message and a resume or a refresh replays it unchanged. The timestamp is
+    // left to createMessageAndIncrementSession (data/atomic.ts), which stamps
+    // `new Date()` exactly as persistMessage in ws/conversation.ts relies on;
+    // the exporter sorts by (timestamp, id) and puts a missing timestamp
+    // first, so the message must have one.
+    if (partnerOpens) {
+      await createMessage(sessionId, {
+        role: 'partner',
+        content: getPartnerOpener(input.topic, partnerIdeology),
+        messageType: 'main',
+      });
+    }
 
     await track(
       ctx.prisma,
@@ -363,6 +413,7 @@ export const studyRouter = router({
       ownTopic: input.owntopic,
       partnerName: scenario.partnerPersona,
       partnerSummary: partnerSummary(partnerIdeology, partnerGender),
+      partnerOpens,
     };
   }),
 

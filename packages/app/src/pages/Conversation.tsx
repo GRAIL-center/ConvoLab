@@ -280,7 +280,17 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const mainMessages = messages.filter((m) => m.role !== 'coach');
   const coachMessages = messages.filter((m) => m.role === 'coach');
-  const railsVisible = hasActivatedRails || mainMessages.length > 0;
+  // "The participant has started" is no longer "there are messages": in the
+  // partner-opens variant the transcript already holds the partner's opener
+  // when the page loads. The rails and the scene-setting card key on the
+  // participant's own first message, so a lone opener does not make the page
+  // behave as though the conversation is under way.
+  const hasParticipantMessage = mainMessages.some((m) => m.role === 'user');
+  const railsVisible = hasActivatedRails || hasParticipantMessage;
+  // The composer floats in the middle of an empty pane and docks to the bottom
+  // once there is something to read above it. A partner opener is something to
+  // read, so it docks then even though the rails are still closed.
+  const composerDocked = railsVisible || mainMessages.length > 0;
   const shortName = getShortName(scenario);
   const isQuotaExhausted = quota?.exhausted === true;
   const coachEnabled = study?.coachEnabled !== false;
@@ -504,7 +514,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
             className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 ${
-              railsVisible ? 'pb-8 md:pb-56' : 'pb-8'
+              composerDocked ? 'pb-8 md:pb-56' : 'pb-8'
             }`}
           >
             {mainMessages.length === 0 ? (
@@ -535,6 +545,19 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   lappScores={lappScores}
                   showTone={coachEnabled}
                 />
+                {/* Partner-opens variant: the opener is already on screen but
+                    the participant has not spoken, so the scene-setting card
+                    still belongs here, under the bubble and above the input. */}
+                {!hasParticipantMessage && scenario?.intro && (
+                  <div className="mt-8 border-t border-[#e6e2d8] pt-8 text-center dark:border-[#2b2925]">
+                    <h2 className="font-serif text-3xl text-[#2e2b25] dark:text-[#f2efe7]">
+                      {scenario.intro.heading}
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-[#726d64] dark:text-[#9d9890]">
+                      {scenario.intro.body}
+                    </p>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
             )}
@@ -542,13 +565,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
           <div
             className={`absolute left-0 right-0 hidden px-6 transition-all duration-500 ease-out md:block ${
-              railsVisible
+              composerDocked
                 ? 'border-t border-[#ddd8cc] bg-[#fbfaf6]/95 py-4 dark:border-[#2b2925] dark:bg-[#151513]/95'
                 : 'pointer-events-none bg-transparent py-0'
             }`}
             style={{
-              top: railsVisible ? 'calc(100% - 196px)' : '58%',
-              transform: railsVisible ? 'translateY(0)' : 'translateY(-50%)',
+              top: composerDocked ? 'calc(100% - 196px)' : '58%',
+              transform: composerDocked ? 'translateY(0)' : 'translateY(-50%)',
             }}
           >
             <div className="mx-auto max-w-4xl">
@@ -560,7 +583,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               )}
               <div
                 className={`mb-3 flex items-center justify-between gap-3 text-sm text-[#77736b] transition-opacity duration-300 dark:text-[#8f8a82] ${
-                  railsVisible ? 'opacity-100' : 'opacity-0'
+                  composerDocked ? 'opacity-100' : 'opacity-0'
                 }`}
               >
                 <span>
@@ -616,7 +639,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               {!isStudySession && (
                 <div
                   className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
-                    railsVisible ? 'hidden' : 'pointer-events-auto opacity-100'
+                    composerDocked ? 'hidden' : 'pointer-events-auto opacity-100'
                   }`}
                 >
                   {OPENING_PROMPTS.map((prompt) => (
