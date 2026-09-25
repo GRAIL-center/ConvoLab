@@ -93,6 +93,26 @@ Three keys are available, in order of convenience:
      link, and the 20 September test data contains two such pairs. Joining on it
      is one-to-many; decide which session counts (the PAP's rule) before
      merging, or join on session_id, which is unique.
+
+------------------------------------------------------------------------------
+THE STUDY BLOCK
+------------------------------------------------------------------------------
+Every record has a `study` key. For a non-study session it is null. For a
+study session (`studySource` set) it holds the stored session fields listed in
+STUDY_FIELDS (condition, topic, partner ideology, end_type, ...) plus three
+coaching-engagement columns computed from the session's messages rather than
+read from the session document (pre-analysis plan 4.1.1, Appendix D):
+
+  - coach_insights_n: coach messages delivered on the main thread (role
+    `coach`, messageType `main` or missing). "Delivered" in the fidelity chain.
+  - coach_aside_n:    participant messages written to the coach (role `user`,
+    messageType `aside`). "Engaged with".
+  - coach_aside:      1 if coach_aside_n >= 1 else 0.
+
+Control-arm sessions have no coach, so they come out 0/0/0 by construction.
+These columns do not change `turns`, which still carries every message
+(asides and coach messages included, each tagged with its `type` and `role`);
+asides stay out of the scored transcript because the DQI loader drops them.
 """
 
 import argparse
@@ -217,6 +237,25 @@ def study_block(s):
     return block
 
 
+def coaching_engagement(messages):
+    """Coaching-engagement counts for one session's messages (PAP 4.1.1).
+
+    Pure function of the message dicts, so it is testable without Firestore.
+    A message without `messageType` is a main-thread message, matching the
+    `messageType` default used everywhere else in this script.
+    """
+    insights = sum(1 for m in messages
+                   if m.get("role") == "coach"
+                   and m.get("messageType", "main") == "main")
+    asides = sum(1 for m in messages
+                 if m.get("role") == "user" and m.get("messageType") == "aside")
+    return {
+        "coach_insights_n": insights,
+        "coach_aside_n": asides,
+        "coach_aside": 1 if asides >= 1 else 0,
+    }
+
+
 def load_collection(db, name):
     """Return {doc_id: fields} for a whole collection."""
     out = {}
@@ -306,6 +345,22 @@ def show_stats(db):
                             ("studyPartnerIdeology", "partner ideology")):
             dist = Counter(str(s.get(field)) for s in study)
             print(f"  {name}: " + ", ".join(f"{k}={v}" for k, v in sorted(dist.items())))
+        # Coaching engagement (PAP 4.1.1): the same computation the export
+        # writes into each study block. Control should read 0 and 0.00; a
+        # nonzero control figure means coach messages reached the wrong arm.
+        eng_by_cond = defaultdict(list)
+        for sid, s in sessions.items():
+            if s.get("studySource"):
+                eng_by_cond[str(s.get("studyCondition"))].append(
+                    coaching_engagement(by_session.get(str(sid), [])))
+        print("  coaching engagement by condition "
+              "(sessions with coach_aside=1 / n, mean coach_insights_n):")
+        for cond in sorted(eng_by_cond):
+            rows = eng_by_cond[cond]
+            n_aside = sum(r["coach_aside"] for r in rows)
+            mean_ins = sum(r["coach_insights_n"] for r in rows) / len(rows)
+            print(f"    condition {cond}: coach_aside=1 in {n_aside}/{len(rows)}, "
+                  f"mean coach_insights_n {mean_ins:.2f}")
     print()
 
 
@@ -360,12 +415,18 @@ def export(db, args):
                                  "pe": sc.get("pe"), "tone": sc.get("tone")}
                 turns.append(t)
 
+            study = study_block(s)
+            if study is not None:
+                # Computed from messages, not stored on the session, so these
+                # sit outside STUDY_FIELDS. Non-study sessions keep study=null.
+                study.update(coaching_engagement(msgs))
+
             rec = {
                 "session_id": sid,
                 "participant": pseudonym(s.get("userId"), salt, cache, counter),
                 # Join key to the Qualtrics survey export. Never the raw PID.
                 "survey_join_key": survey_join_key(s.get("prolificPid"), salt),
-                "study": study_block(s),
+                "study": study,
                 "scenario": scenario.get("name") or s.get("customScenarioName"),
                 "scenario_slug": scenario.get("slug"),
                 "partner_persona": s.get("customPartnerPersona")

@@ -17,6 +17,41 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-25 — export: coaching-engagement columns (analysis tooling only, no participant-facing change)
+
+The transcript export (`scripts/export_transcripts_firestore.py`) now writes
+three coaching-engagement columns into the `study` block of every study
+session, keyed by `session_id` like the rest of the record. They implement the
+"delivered" and "engaged with" links of the fidelity chain registered in
+pre-analysis plan Section 4.1.1 and listed in Appendix D:
+
+- `coach_insights_n`: the number of coach messages delivered on the main
+  thread (role `coach`, message type `main` or missing). This is "delivered".
+- `coach_aside_n`: the number of messages the participant wrote to the coach
+  (role `user`, message type `aside`). This is "engaged with".
+- `coach_aside`: 1 if `coach_aside_n` is at least 1, otherwise 0.
+
+The columns are computed from the session's messages at export time, not read
+from a stored session field, so they sit outside the `STUDY_FIELDS` mapping and
+the export schema guard in `packages/api` is unaffected. Non-study sessions
+keep `study: null` as before. The arm is not special-cased: a control session
+has no coach messages, so it reads 0, 0 and 0 by construction, and a nonzero
+control value would itself flag a delivery fault. `--stats` gains a matching
+line per condition giving how many study sessions have `coach_aside` = 1 and
+the mean `coach_insights_n`.
+
+`turns` is unchanged. It already carried every message, asides and coach
+messages included, each tagged with its role and type, and the DQI loader
+drops them before scoring, so asides remain outside the scored transcript. The
+counting rule lives in one pure function, `coaching_engagement()`, covered by
+three pytest cases in `scripts/tests/test_export_engagement.py`.
+
+Nothing a participant sees or does is affected. The exporter is a read-only
+analysis script that runs on a researcher's machine, so no deploy and no
+`seed:reference` run is needed.
+
+---
+
 ## 2026-09-23 — pilot stays desktop-only: mobile controls hidden in study sessions, viewport gate on entry (code only, not yet live)
 
 Pre-analysis plan Section 3.1 registers the pilot as a laptop or desktop study:
