@@ -450,8 +450,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         <div className="flex shrink-0 items-center gap-1 sm:gap-3">
           {/* Each button is hidden at exactly the width where its rail takes
               over, which also covers the 768-1023px band where the mobile
-              composer is gone but the coach rail has not appeared yet. */}
-          {railsVisible && coachEnabled && (
+              composer is gone but the coach rail has not appeared yet.
+
+              Regular app only. The pilot is registered as desktop-only (PAP
+              3.1) and study participants are gated below 1024px before they
+              ever reach this page, so a study session must never be offered
+              the sheet version of the coach: that would be a different
+              treatment surface from the registered one. */}
+          {!isStudySession && railsVisible && coachEnabled && (
             <button
               type="button"
               onClick={() => setMobilePanel('coach')}
@@ -466,7 +472,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               )}
             </button>
           )}
-          {railsVisible && (
+          {!isStudySession && railsVisible && (
             <button
               type="button"
               onClick={() => setMobilePanel('metrics')}
@@ -700,8 +706,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         )}
       </div>
 
+      {/* Regular app only, for the same reason as the header buttons above:
+          the pilot is registered desktop-only, so a study participant must
+          never see the coach or the metrics in a bottom sheet. */}
       <MobileSheet
-        open={mobilePanel === 'coach'}
+        open={!isStudySession && mobilePanel === 'coach'}
         onClose={() => setMobilePanel(null)}
         label="Coach"
       >
@@ -720,7 +729,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
       </MobileSheet>
 
       <MobileSheet
-        open={mobilePanel === 'metrics'}
+        open={!isStudySession && mobilePanel === 'metrics'}
         onClose={() => setMobilePanel(null)}
         label="Conversation progress"
       >

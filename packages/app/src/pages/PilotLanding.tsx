@@ -2,6 +2,12 @@ import { useMutation } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
+import { useStudyViewportGate } from '../hooks/useStudyViewportGate';
+import {
+  isStudyViewportTooNarrow,
+  STUDY_NARROW_VIEWPORT_BODY,
+  STUDY_NARROW_VIEWPORT_TITLE,
+} from '../lib/studyViewport';
 
 const topicLabels = [
   'Environment',
@@ -123,6 +129,24 @@ function partnerPreview(ideologyCode: string, genderCode: string) {
   };
 }
 
+// Shown instead of the landing page while the window is too narrow for the
+// pilot as registered. It replaces the page rather than sitting on top of it
+// because there is nothing useful to do here at this width, and it disappears
+// on its own as soon as the window is wide enough.
+function NarrowViewportNotice() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#11110f] px-6 text-[#f2efe7]">
+      <div className="w-full max-w-lg rounded-2xl border border-[#3a362f] bg-[#181714] p-7 text-center shadow-2xl">
+        <img src="/convolab-logo.svg" alt="" className="mx-auto h-7 w-7" />
+        <h1 className="mt-5 font-serif text-3xl leading-tight text-[#f2efe7]">
+          {STUDY_NARROW_VIEWPORT_TITLE}
+        </h1>
+        <p className="mt-4 text-base leading-7 text-[#aaa59b]">{STUDY_NARROW_VIEWPORT_BODY}</p>
+      </div>
+    </div>
+  );
+}
+
 export function PilotLanding() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -173,10 +197,25 @@ export function PilotLanding() {
     };
   }, [location.search]);
 
+  const viewportBlocked = useStudyViewportGate({
+    route: 'pilot',
+    pid: pageState.parsed.ok ? pageState.parsed.input.pid : undefined,
+    rid: pageState.parsed.ok ? pageState.parsed.input.rid : undefined,
+  });
+
   const handleStart = () => {
     if (!pageState.parsed.ok || enterMutation.isPending) return;
+    // The resize check is debounced, so a window narrowed in the last fraction
+    // of a second can still be showing the Start button. No session may be
+    // created at a width the pilot is not registered for; the notice takes over
+    // a moment later and explains why nothing happened.
+    if (isStudyViewportTooNarrow()) return;
     enterMutation.mutate(pageState.parsed.input);
   };
+
+  // Before any session exists, so a participant on a phone leaves no session
+  // behind and can simply reopen the same link on a laptop.
+  if (viewportBlocked) return <NarrowViewportNotice />;
 
   return (
     <div className="min-h-screen bg-[#11110f] text-[#f2efe7] lg:h-screen lg:overflow-hidden">

@@ -2,6 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
+import { useStudyViewportGate } from '../hooks/useStudyViewportGate';
+import { STUDY_NARROW_VIEWPORT_BODY, STUDY_NARROW_VIEWPORT_TITLE } from '../lib/studyViewport';
 
 const VALID_TOPICS = [
   'Environment',
@@ -139,15 +141,31 @@ export function Study() {
     };
   }, [searchParams]);
 
+  const viewportBlocked = useStudyViewportGate({
+    route: 'study',
+    pid: parsed.ok ? parsed.input.pid : undefined,
+    rid: parsed.ok ? parsed.input.rid : undefined,
+  });
+
   const enterMutation = useMutation({
     ...trpc.study.enter.mutationOptions(),
   });
 
+  // This page enters on mount, so the width gate has to sit in the same
+  // condition: a participant who arrives on a phone must leave no session
+  // behind. When the window becomes wide enough the gate clears, this effect
+  // runs again, and the enter flow starts by itself.
   useEffect(() => {
-    if (parsed.ok && !enterMutation.isPending && !enterMutation.isSuccess && !enterMutation.isError) {
+    if (
+      parsed.ok &&
+      !viewportBlocked &&
+      !enterMutation.isPending &&
+      !enterMutation.isSuccess &&
+      !enterMutation.isError
+    ) {
       enterMutation.mutate(parsed.input);
     }
-  }, [enterMutation, parsed]);
+  }, [enterMutation, parsed, viewportBlocked]);
 
   useEffect(() => {
     // alreadyCompleted means the server declined to start a second
@@ -156,6 +174,12 @@ export function Study() {
       navigate(`/conversation/${enterMutation.data.sessionId}`, { replace: true });
     }
   }, [enterMutation.data, navigate]);
+
+  // Before the link is even checked: at this width nothing on this page can go
+  // forward, and the notice clears itself once the window is wide enough.
+  if (viewportBlocked) {
+    return <StatusPanel title={STUDY_NARROW_VIEWPORT_TITLE} message={STUDY_NARROW_VIEWPORT_BODY} />;
+  }
 
   if (!parsed.ok) {
     return (
