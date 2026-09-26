@@ -129,11 +129,18 @@ describe('competing length rules (test 1)', () => {
   });
 });
 
+const NEW_LENGTH_LINES = [
+  '- Keep sentences short, usually under 15 words. Talk the way people talk, not the way essays read.',
+  '- Most replies should be under 40 words in total. Never go past 60.',
+];
+
 describe('response-length policy in the final partner prompt (test 2)', () => {
-  it('says 1 to 3 sentences with a maximum of 4', () => {
+  it('says 1 to 3 sentences with a maximum of 4, short sentences, under 40 words', () => {
     expect(PARTNER_RESPONSE_POLICY).toMatch(/^RESPONSE LENGTH:\n/);
     expect(PARTNER_RESPONSE_POLICY).toContain(
-      '- Most replies should be 1-3 sentences. A single line is often the strongest answer.'
+      '- Most replies should be 1-3 sentences. A single line is often the strongest answer.\n' +
+        '- Keep sentences short, usually under 15 words. Talk the way people talk, not the way essays read.\n' +
+        '- Most replies should be under 40 words in total. Never go past 60.\n'
     );
     expect(PARTNER_RESPONSE_POLICY).toContain(
       '- Use 4 sentences only when you are directly challenged, correcting a misreading, or the point genuinely needs it. Do not go past 4.'
@@ -151,6 +158,7 @@ describe('response-length policy in the final partner prompt (test 2)', () => {
       );
       expect(countOccurrences(final, PARTNER_RESPONSE_POLICY)).toBe(1);
       expect(countOccurrences(final, 'RESPONSE LENGTH:')).toBe(1);
+      for (const line of NEW_LENGTH_LINES) expect(countOccurrences(final, line)).toBe(1);
       expect(final.endsWith(PARTNER_RESPONSE_POLICY)).toBe(true);
     }
   });
@@ -159,6 +167,7 @@ describe('response-length policy in the final partner prompt (test 2)', () => {
     const final = buildPartnerSystemPrompt(seededPrompt(slug), NOW);
     expect(countOccurrences(final, PARTNER_RESPONSE_POLICY)).toBe(1);
     expect(countOccurrences(final, 'RESPONSE LENGTH:')).toBe(1);
+    for (const line of NEW_LENGTH_LINES) expect(countOccurrences(final, line)).toBe(1);
     expect(final.endsWith(PARTNER_RESPONSE_POLICY)).toBe(true);
   });
 });

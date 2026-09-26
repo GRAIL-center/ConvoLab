@@ -21,6 +21,12 @@ ignored; a non-empty reply with no terminator is one sentence. Abbreviations
 such as "U.S. " or "Mr. " are counted as terminators (the rule is deliberately
 simple, so it slightly over-counts). Words are whitespace-separated tokens.
 
+Word rules (added 26 Sep 2026 with the policy lines "sentences usually under
+15 words" and "most replies under 40 words, never past 60"): each reply gets
+words per sentence = words / sentences (a reply with no words is skipped for
+this column). The summary reports its median [Q1-Q3] across replies, and the
+share of replies under 40 words and over 60 words.
+
 Periods (by session `started_at`, UTC, cut at 00:00):
   P1 <2026-08-25            before the reply-length policy shipped
   P2 2026-08-25..09-04      policy live, pilot persona names
@@ -110,6 +116,7 @@ def load_replies(path: str, first_only: bool) -> list[dict]:
                     "turn": idx,
                     "sentences": count_sentences(text),
                     "words": count_words(text),
+                    "wps": (count_words(text) / count_sentences(text)) if count_sentences(text) else None,
                     "period": period,
                     "slug": slug,
                 })
@@ -118,7 +125,7 @@ def load_replies(path: str, first_only: bool) -> list[dict]:
     return replies
 
 
-def _q(values: list[int]) -> tuple[float, float, float]:
+def _q(values: list[float]) -> tuple[float, float, float]:
     if not values:
         return (float("nan"),) * 3
     if len(values) == 1:
@@ -138,13 +145,18 @@ def summary_row(label: str, rows: list[dict]) -> str:
     over = sum(1 for x in s if x >= 5)
     sm, s1, s3 = _q(s)
     wm, w1, w3 = _q(w)
+    pm, p1, p3 = _q([r["wps"] for r in rows if r["wps"] is not None])
+    lt40 = sum(1 for x in w if x < 40)
+    gt60 = sum(1 for x in w if x > 60)
     sess = len({r["session_id"] for r in rows})
     return (f"{label:<34} {sess:>4} {n:>4} {pct(ok):>6.0f}% {pct(four):>5.0f}% {pct(over):>5.0f}% "
-            f"{sm:>5.1f} [{s1:>4.1f}-{s3:>4.1f}] {wm:>6.1f} [{w1:>5.1f}-{w3:>5.1f}]")
+            f"{sm:>5.1f} [{s1:>4.1f}-{s3:>4.1f}] {wm:>6.1f} [{w1:>5.1f}-{w3:>5.1f}] "
+            f"{pm:>5.1f} [{p1:>4.1f}-{p3:>4.1f}] {pct(lt40):>5.0f}% {pct(gt60):>5.0f}%")
 
 
 HEADER = (f"{'group':<34} {'sess':>4} {'n':>4} {'1-3':>7} {'4':>6} {'5+':>6} "
-          f"{'sent':>5} {'[IQR]':>11} {'words':>6} {'[IQR]':>13}")
+          f"{'sent':>5} {'[IQR]':>11} {'words':>6} {'[IQR]':>13} "
+          f"{'w/s':>5} {'[IQR]':>11} {'<40w':>6} {'>60w':>6}")
 
 
 def table(title: str, groups: dict[str, list[dict]], order: list[str] | None = None) -> None:
@@ -167,7 +179,8 @@ def main() -> None:
     sessions = {r["session_id"] for r in replies}
     scope = "first partner reply per session" if args.first_reply_only else "all partner main-thread replies"
     print(f"Partner reply length audit ({scope}); {len(replies)} replies from {len(sessions)} sessions")
-    print("Columns: share of replies with 1-3 / exactly 4 / 5+ sentences; median [Q1-Q3] of sentences and words")
+    print("Columns: share of replies with 1-3 / exactly 4 / 5+ sentences; median [Q1-Q3] of sentences, words")
+    print("         and words per sentence (per reply); share of replies under 40 / over 60 words")
 
     table("OVERALL", {"all": replies})
 
