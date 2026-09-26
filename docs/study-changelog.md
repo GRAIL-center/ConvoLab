@@ -17,6 +17,34 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-26 — partner reply length: words-per-sentence and words-per-reply added to the runtime policy (code only, not yet live)
+
+- **What was added.** Two lines in `PARTNER_RESPONSE_POLICY`
+  (`packages/api/src/lib/partnerRuntimePrompt.ts`), placed right after the
+  1-3 sentence line: "Keep sentences short, usually under 15 words. Talk the
+  way people talk, not the way essays read." and "Most replies should be
+  under 40 words in total. Never go past 60." The rest of the policy is
+  unchanged.
+- **Why.** The sentence rule was being met while replies still read long. On
+  the 36 real sessions in the 25 Sep production export (206 partner replies),
+  79% of replies had 1-3 sentences, but the median reply was 55.5 words
+  (IQR 40 to 76), the median reply ran 19.0 words per sentence (IQR 15.0 to
+  25.5), only 25% of replies were under 40 words and 43% were over 60.
+  Three-sentence replies ran 55 to 70 words, about 20 to 23 words per
+  sentence. Spoken conversation runs 10 to 15 words per sentence.
+- **Same for everyone.** The policy is appended to every final partner prompt,
+  so the new lines apply identically to all personas, both ideologies, both
+  genders and both arms. `partnerReplyLength.safe.test.ts` now requires both
+  lines verbatim, still requires the policy exactly once and last in every
+  final partner prompt, and still requires the appended block to be
+  byte-identical across personas.
+- **Measured the same way.** `scripts/audit_reply_length.py` now also reports,
+  per group, the median [Q1-Q3] of words per sentence (computed per reply) and
+  the share of replies under 40 words and over 60 words. It still prints no
+  message text. The numbers above are the pre-change baseline.
+
+---
+
 ## 2026-09-25 — partner runtime prompt: date is now the real date; reply-length policy covered by tests (code only, not yet live)
 
 - **Wrong date since the fact block was added.** The partner's runtime fact

@@ -47,10 +47,18 @@ Runtime factual context:
  * The 1-3 sentence target was measured, not guessed: 97 real pilot turns had a
  * median of 53 words with half of all replies inside a narrow 40-66 word band,
  * which read as both too long and too scripted.
+ *
+ * The words-per-sentence and words-per-reply lines were added after a second
+ * measurement on 26 Sep 2026 over 36 real sessions: 3-sentence replies ran 55
+ * to 70 words, about 20 to 23 words per sentence, so the sentence rule was met
+ * while replies still read long. Spoken conversation runs 10 to 15 words per
+ * sentence.
  */
 export const PARTNER_RESPONSE_POLICY = `RESPONSE LENGTH:
 - Vary how long your replies are. Replies that are all the same size read as scripted, and that matters more than any single reply being well-argued.
 - Most replies should be 1-3 sentences. A single line is often the strongest answer.
+- Keep sentences short, usually under 15 words. Talk the way people talk, not the way essays read.
+- Most replies should be under 40 words in total. Never go past 60.
 - Use 4 sentences only when you are directly challenged, correcting a misreading, or the point genuinely needs it. Do not go past 4.
 - Do not make every point you could make in one turn. Leave something for the next one.
 - Short does not mean shallow, and it does not mean backing down.
