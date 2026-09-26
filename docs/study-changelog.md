@@ -17,6 +17,35 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-25 — partner runtime prompt: date is now the real date; reply-length policy covered by tests (code only, not yet live)
+
+- **Wrong date since the fact block was added.** The partner's runtime fact
+  block said "Today is August 6, 2026" as fixed text from the day it was
+  added, so every conversation since then told the partner the wrong date.
+  That matters whenever the partner reasons about current events or uses web
+  search. It now carries the actual date (UTC) at the time of each reply,
+  built by `buildFactContext()` in `packages/api/src/lib/partnerRuntimePrompt.ts`.
+  The coach's insight prompt, which reused the same block, gets the real date
+  too. The other three lines of the block are unchanged.
+- **Reply-length policy unchanged, now tested.** The policy text itself
+  (`PARTNER_RESPONSE_POLICY`: most replies 1-3 sentences, never past 4) is
+  unchanged. It moved verbatim from `ws/conversation.ts` into
+  `lib/partnerRuntimePrompt.ts` so tests can reach it. The final partner prompt
+  is built exactly as before.
+- **Prompt-level check.** `packages/api/src/__tests__/partnerReplyLength.safe.test.ts`
+  asserts that no seeded study or general-app persona (or study prompt) carries
+  a competing sentence or paragraph length rule, that the policy appears exactly
+  once and last in every final partner prompt with its 1-3 / max 4 wording, and
+  that the appended block is byte-identical across both ideologies and both
+  genders.
+- **Output-level check.** `scripts/audit_reply_length.py` measures real replies
+  from a de-identified export without printing any text. On the 36 real
+  sessions in the 25 Sep production export, 79% of partner replies were within
+  1-3 sentences overall (median 55 words), and 88% in the V3 period, which
+  covers only 6 sessions.
+
+---
+
 ## 2026-09-25 — sessions now record which models they ran on (provenance for the frozen configuration; code only, not yet live)
 
 The pre-analysis plan pins the partner, coach and live-scorer models and
