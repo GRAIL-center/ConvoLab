@@ -1,46 +1,137 @@
-import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import type { PrismaClient } from '@workspace/database';
 import { describe, expect, it, vi } from 'vitest';
-import { FEMALE_MAGA_PROMPT } from '../../seed/prompts/femaleMaga';
-import { FEMALE_PROGRESSIVE_PROMPT } from '../../seed/prompts/femaleProgressive';
-import { MALE_MAGA_PROMPT } from '../../seed/prompts/maleMaga';
-import { MALE_PROGRESSIVE_PROMPT } from '../../seed/prompts/maleProgressive';
-import { renamePersona, seedReferenceData } from '../../seed/seedDatabase';
+import {
+  FEMALE_MAGA_PROMPT,
+  FEMALE_PROGRESSIVE_PROMPT,
+  MALE_MAGA_PROMPT,
+  MALE_PROGRESSIVE_PROMPT,
+  PERSONA_PROMPT_FILES,
+  PERSONA_PROMPTS_DIR,
+  personaPromptPath,
+} from '../../seed/prompts/personaPrompts.js';
+import { renamePersona, seedReferenceData } from '../../seed/seedDatabase.js';
+import { competingLengthRules } from './competingLengthRules.js';
 
 const personas = [
   {
     name: 'Mark Johnson',
     slug: 'progressive-left-male',
+    file: 'maleProgressive',
     gender: 'man',
     pronouns: 'he/him',
     prompt: MALE_PROGRESSIVE_PROMPT,
-    digest: '2f86945b3e7b1dfe67db06dc334e060d2e0ac0cb61edbe0486d7804d46195913',
   },
   {
     name: 'Megan Johnson',
     slug: 'progressive-left-female',
+    file: 'femaleProgressive',
     gender: 'woman',
     pronouns: 'she/her',
     prompt: FEMALE_PROGRESSIVE_PROMPT,
-    digest: 'd9b6367df883fb4e20cf83d4054d8dbd05de3ca2c17e3839ee59bd2bc5943f55',
   },
   {
     name: 'Mark Johnson',
     slug: 'populist-right-male',
+    file: 'maleMaga',
     gender: 'man',
     pronouns: 'he/him',
     prompt: MALE_MAGA_PROMPT,
-    digest: 'b6572fb8c776cf3fe92184ec0168ab220af64e06339c7ead1260dcacb4703c69',
   },
   {
     name: 'Megan Johnson',
     slug: 'populist-right-female',
+    file: 'femaleMaga',
     gender: 'woman',
     pronouns: 'she/her',
     prompt: FEMALE_MAGA_PROMPT,
-    digest: 'beaea1fed35c9a28e42902fe59ea526b5386509cd8da71444890b789bbeb9037',
   },
-];
+] as const;
+
+// The prompt text lives in seed/prompts/*.txt. These checks replace the old
+// per-prompt sha256 pin (which guarded a hand transcription from the PDFs):
+// they catch the ways a copy-paste from the source document goes wrong
+// without pinning the wording, so a deliberate revision needs no hash update.
+// seededPromptsUnchanged.test.ts separately proves the move to .txt changed
+// no seeded prompt.
+describe('persona prompt text files', () => {
+  const read = (file: string) => readFileSync(`${PERSONA_PROMPTS_DIR}/${file}.txt`, 'utf8');
+
+  it('the prompts directory holds exactly the four persona files', () => {
+    const txt = readdirSync(PERSONA_PROMPTS_DIR).filter((f) => f.endsWith('.txt'));
+    expect(txt.sort()).toEqual(PERSONA_PROMPT_FILES.map((f) => `${f}.txt`).sort());
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt exists and is non-empty', (file) => {
+    expect(existsSync(personaPromptPath(file))).toBe(true);
+    expect(read(file).trim().length).toBeGreaterThan(1000);
+  });
+
+  it.each(personas)('$file.txt is what the seed loads for $slug', ({ file, prompt }) => {
+    // The loader strips the file's single trailing newline.
+    expect(prompt).toBe(read(file).replace(/\n$/, ''));
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt has no stray whitespace', (file) => {
+    const text = read(file);
+    expect(text, 'Windows line endings (CR)').not.toMatch(/\r/);
+    expect(text, 'leading whitespace').toBe(text.trimStart());
+    // Exactly one trailing newline: text files end with one (editors and the
+    // pull command add it) and the loader strips exactly one, so the seeded
+    // prompt stays byte-identical to the original template strings.
+    expect(text, 'file must end with exactly one newline').toBe(`${text.trimEnd()}\n`);
+    const badLines = text
+      .split('\n')
+      .flatMap((line, i) => (/[ \t]+$/.test(line) ? [`${file}.txt:${i + 1}`] : []));
+    expect(badLines, 'lines ending in spaces or tabs').toEqual([]);
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt starts with ROLE:', (file) => {
+    const firstLine = read(file)
+      .split('\n')
+      .find((line) => line.trim() !== '');
+    expect(firstLine?.trim()).toBe('ROLE:');
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt has no em or en dash', (file) => {
+    const offenders = read(file)
+      .split('\n')
+      .flatMap((line, i) => (/[\u2013\u2014]/.test(line) ? [`${file}.txt:${i + 1}: ${line}`] : []));
+    expect(offenders).toEqual([]);
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt has no competing reply-length rule', (file) => {
+    expect(competingLengthRules(`${file}.txt`, read(file))).toEqual([]);
+  });
+
+  // Partner gender is a randomised factor, so within each ideology the male
+  // and female prompts must differ in gender alone (the principle behind the
+  // gender-only SELF-REFERENCE idiom rule in seedDatabase.ts, and PR #106's
+  // "differ only in the name" check between pilot and public copies).
+  // Names and pronouns are neutralised: "Mark"/"Megan" and "he"/"she" become
+  // one token (the source sometimes says "Mark ... Mark" in one prompt where
+  // the other says "Megan ... she"), object and possessive forms another, and
+  // reflexives a third. Whitespace runs are collapsed because the PDFs wrap
+  // lines at different points.
+  const neutralise = (text: string) =>
+    text
+      .replace(/\b(?:Mark|Megan|[Hh]e|[Ss]he)\b/g, 'REF')
+      .replace(/\b(?:[Hh]im|[Hh]is|[Hh]er|[Hh]ers)\b/g, 'REF_OBJ')
+      .replace(/\b(?:[Hh]imself|[Hh]erself)\b/g, 'REF_SELF')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  it.each([
+    ['maleProgressive', 'femaleProgressive'],
+    ['maleMaga', 'femaleMaga'],
+  ] as const)('%s and %s differ only in name and pronouns', (male, female) => {
+    const a = neutralise(read(male)).split(/(?<=[.:?!]) /);
+    const b = neutralise(read(female)).split(/(?<=[.:?!]) /);
+    const onlyInMale = a.filter((s, i) => s !== b[i]);
+    expect(onlyInMale, 'first sentences that differ (male side)').toEqual([]);
+    expect(b.length).toBe(a.length);
+  });
+});
 
 async function captureScenarios() {
   const scenarioUpsert = vi.fn().mockResolvedValue({});
@@ -53,11 +144,6 @@ async function captureScenarios() {
 }
 
 describe('supplied persona prompts', () => {
-  it.each(personas)('preserves the complete PDF text for $slug', ({ prompt, digest }) => {
-    const normalized = prompt.replace(/\s+/g, ' ').trim();
-    expect(createHash('sha256').update(normalized).digest('hex')).toBe(digest);
-  });
-
   it.each(personas)('updates the existing $slug scenario', async (persona) => {
     const calls = await captureScenarios();
     const matches = calls.filter((args) => args.where.slug === persona.slug);

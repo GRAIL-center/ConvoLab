@@ -13,6 +13,8 @@
 import type { PrismaClient } from '@workspace/database';
 import { describe, expect, it, vi } from 'vitest';
 import { seedReferenceData } from '../../../database/seed/seedDatabase.js';
+// Detector shared with the persona .txt checks in packages/database.
+import { competingLengthRules } from '../../../database/src/__tests__/competingLengthRules.js';
 import {
   buildFactContext,
   buildPartnerSystemPrompt,
@@ -65,30 +67,6 @@ function seededPrompt(slug: string): string {
   const prompt = seeded.get(slug);
   if (!prompt) throw new Error(`seed did not upsert ${slug}`);
   return prompt;
-}
-
-// A competing length rule: "3-6 sentences", "4 to 6 sentences", "three to five
-// sentences", or a paragraph count/size used as a length target.
-const NUM_WORD = '(?:one|two|three|four|five|six|seven|eight)';
-const COMPETING_LENGTH_RULES: RegExp[] = [
-  /\b\d\s*(?:-|to|–)\s*\d\s*sentences?\b/i,
-  new RegExp(`\\b${NUM_WORD}\\s*(?:-|to|–)\\s*${NUM_WORD}\\s+sentences?\\b`, 'i'),
-  new RegExp(
-    `\\b(?:\\d+|${NUM_WORD}|a single|a couple of|a few|several|multiple|short|brief)` +
-      `(?:\\s*(?:-|to|–|or)\\s*(?:\\d+|${NUM_WORD}))?\\s+(?:short\\s+|brief\\s+)?paragraphs?\\b`,
-    'i'
-  ),
-  /\bparagraphs?\s+(?:long|max(?:imum)?|at most|or (?:less|fewer))\b/i,
-];
-
-function competingLengthRules(label: string, text: string): string[] {
-  return text
-    .split('\n')
-    .flatMap((line, i) =>
-      COMPETING_LENGTH_RULES.some((re) => re.test(line))
-        ? [`${label}:${i + 1}: ${line.trim()}`]
-        : []
-    );
 }
 
 function countOccurrences(haystack: string, needle: string): number {

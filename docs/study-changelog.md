@@ -17,6 +17,33 @@ keep whatever they started with.
 
 ---
 
+## 2026-09-27 — persona prompts stored as plain text files (no change to any prompt text)
+
+- **What changed.** The four study persona prompts moved out of TypeScript
+  template strings (`packages/database/seed/prompts/*.ts`) into plain text
+  files: `maleMaga.txt`, `femaleMaga.txt`, `maleProgressive.txt` and
+  `femaleProgressive.txt` in the same folder. The seed now reads those files.
+  How to edit them is in `docs/prompts-workflow.md`.
+- **No prompt text changed.** Each .txt file was written from the old string
+  and checked to be byte-identical to it before the strings were deleted. All
+  eight seeded persona prompts (the 4 pilot scenarios and the 4 public-app
+  copies) have the same sha256 as before the move;
+  `seededPromptsUnchanged.test.ts` checks this against the values measured on
+  the old code.
+- **Why.** A prompt revision is now a readable text diff instead of an edit
+  inside code, and new text can be pasted in rather than retyped. It is also
+  groundwork for two planned changes: pulling the prompt text from the source
+  document automatically, and updating the scenario records at deploy time.
+- **Tests.** The old test pinned a hash of each prompt. It is replaced by
+  checks on the text files themselves: each file exists and is non-empty,
+  starts with `ROLE:`, has no stray whitespace, no em or en dash and no
+  competing reply-length rule, and within each ideology the male and female
+  prompts differ only in name and pronouns.
+- **Participants.** Nothing changes for participants, and no re-seed is
+  needed: the scenario records in Firestore already hold this exact text.
+
+---
+
 ## 2026-09-26 — partner reply length: words-per-sentence and words-per-reply added to the runtime policy (code only, not yet live)
 
 - **What was added.** Two lines in `PARTNER_RESPONSE_POLICY`
