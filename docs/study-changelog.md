@@ -7,13 +7,75 @@ git later. Times are UTC.
 Two mechanisms deliver changes, and they land at different moments:
 
 - **Code** reaches participants when a Cloud Run revision starts serving.
-- **Prompts** live in Firestore scenario documents and reach participants only
-  after a `seed:reference` run — a deploy alone does nothing for them.
+- **Prompts** live in Firestore scenario documents. Since 2026-09-27 the API
+  reconciles them from the repo at every startup, so a deploy carries them
+  (see the 2026-09-27 reconcile entry). Before that they reached participants only after a manual
+  `seed:reference` run.
 
 Both apply to **new sessions only**. A session stamps its partner and coach
 prompts into its own record at creation (`customPartnerPrompt`,
 `customCoachPrompt`, `customScenarioName`), so conversations already in flight
-keep whatever they started with.
+keep whatever they started with. Regular-app (invitation) sessions are the
+exception: they read their scenario's prompt live (see the 2026-09-27 reconcile entry).
+
+---
+
+## 2026-09-27: a deploy now carries prompt and scenario changes (reference data reconciled at startup) (code only, not yet live)
+
+- **What it does.** Every time the API starts (every Cloud Run revision, every
+  new instance, every local restart) it runs `reconcileReferenceData()`
+  (`packages/database/seed/seedDatabase.ts`) before it starts listening. For
+  each scenario (keyed by slug) and each quota preset (keyed by name) in the
+  repo it compares a `contentHash` (sha256 over the seeded fields, listed in
+  `packages/database/seed/referenceHash.ts`) with the one stored on the
+  Firestore document. Missing documents are created, documents whose hash
+  differs are updated, equal ones are skipped. Each write is logged as
+  `reference_seed_created` or `reference_seed_upserted` with the slug and the
+  old and new hash; a run that writes nothing logs `reference_seed_unchanged`
+  with counts. Written documents also carry `seedVersion` (the commit, from the
+  `GIT_SHA` env var that `cloudbuild.yaml` now sets to the image tag) and
+  `seededAt`, so the export can say which commit last wrote a prompt.
+- **Practical consequence.** A prompt edit merged to `main` reaches new
+  sessions as soon as the new revision starts, no manual step. The first
+  deploy with this change rewrites every scenario once, because documents
+  seeded earlier carry no hash; after that only real changes are written.
+- **What it never touches.** Nothing is ever deleted. Only the `scenarios`
+  and `quotaPresets` collections are read or written; sessions, messages,
+  users and invitations are untouched. Updates merge into the stored
+  document, so fields the seed does not write (ids, anything added by hand)
+  survive; fields the seed does write are overwritten with the repo value.
+  Test data (the dev admin and test invitation) is still seeded only in
+  development and only into an empty database, exactly as before.
+- **Startup never fails on it.** A reconcile error is logged at error level
+  (`reference_seed_failed`) and the server carries on with whatever is stored.
+  The server waits at most 5 seconds for the reconcile before it starts
+  listening; if Firestore is slower, the reconcile finishes in the background
+  (`reference_seed_background`).
+- **In-flight study sessions are unaffected.** A study session copies its
+  partner and coach prompts into its own record at creation
+  (`customPartnerPrompt`, `customCoachPrompt`) and has no scenario id, so a
+  prompt change applies to sessions created after the reconcile only.
+- **Regular-app caveat.** Regular-app (invitation) sessions store only a
+  `scenarioId`. The WebSocket handler loads the scenario document when the
+  socket connects (`getSession` in `packages/api/src/data/sessions.ts`) and
+  `ws/conversation.ts` builds each turn's system prompt from
+  `scenario.partnerSystemPrompt` / `coachSystemPrompt` (and the scenario's
+  model and web-search flags). So a regular-app conversation that is in
+  progress when a reconcile changes its scenario switches to the new prompt
+  from its first turn after the socket reconnects, which a deploy normally
+  causes. This does not affect study sessions.
+- **Switch.** `SEED_REFERENCE_ON_START=false` (or `0`) turns startup seeding
+  off entirely; unset or anything else means on.
+- **Manual path kept.** `FIRESTORE_PROJECT_ID=convolab-490517 pnpm -F
+  @workspace/database seed:reference` still works, still refuses to run
+  without an explicit `FIRESTORE_PROJECT_ID`, and now calls the same
+  `reconcileReferenceData()`, so it writes only what changed and the two
+  paths cannot diverge. Adding `--dry-run` (or `RECONCILE_DRY_RUN=1`) reads
+  only and prints a table of what a real run would do: per scenario and
+  preset, create, update or unchanged, and for update the differing fields
+  (names, string lengths and sha256 only, never prompt text). A field the
+  seed leaves unset (for example a hand-set `coachModel`) shows as `kept`,
+  because updates merge and do not clear it.
 
 ---
 

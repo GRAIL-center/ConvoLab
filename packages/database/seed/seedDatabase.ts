@@ -1,3 +1,11 @@
+import {
+  computeContentHash,
+  currentSeedVersion,
+  diffSeededFields,
+  type FieldDiff,
+  QUOTA_PRESET_HASH_FIELDS,
+  SCENARIO_HASH_FIELDS,
+} from './referenceHash.js';
 import type { PrismaClient } from '@workspace/database';
 import {
   FEMALE_MAGA_PROMPT,
@@ -323,38 +331,288 @@ Be supportive and remind them that defensive reactions are normal. Coach them th
   },
 ];
 
+export type ReferenceSeedEvent = Record<string, unknown> & { event: string };
+
 export interface SeedOptions {
   log?: (message: string) => void;
+  /**
+   * Structured events from reference seeding (`reference_seed_created`,
+   * `reference_seed_upserted`, `reference_seed_unchanged`,
+   * `reference_seed_reconciled`). Defaults to `log(JSON.stringify(event))`.
+   */
+  logEvent?: (event: ReferenceSeedEvent) => void;
+  /** Overrides the commit stamped as `seedVersion` (defaults to env GIT_SHA / _TAG). */
+  seedVersion?: string;
+}
+
+export interface ReconcileOptions extends SeedOptions {
+  /**
+   * Compute everything, write nothing. The returned `report` says what a real
+   * run would do; only a `reference_seed_dry_run` summary event is emitted.
+   */
+  dryRun?: boolean;
+}
+
+type SeedDoc = Record<string, unknown> & { contentHash: string };
+
+/**
+ * The exact documents reference seeding writes, each stamped with its
+ * `contentHash` plus `seedVersion` / `seededAt`. Both `seedReferenceData`
+ * (unconditional) and `reconcileReferenceData` (hash-compared) build from
+ * this, so the two write paths cannot drift in content.
+ */
+function buildReferenceDocs(options: SeedOptions) {
+  const seedVersion = options.seedVersion ?? currentSeedVersion();
+  const seededAt = new Date();
+  const stamp = (content: Record<string, unknown>, fields: readonly string[]): SeedDoc => ({
+    ...content,
+    contentHash: computeContentHash(content, fields),
+    seedVersion,
+    seededAt,
+  });
+  return {
+    seedVersion,
+    quotaPresets: QUOTA_PRESETS.map((preset) => ({
+      name: preset.name,
+      data: stamp(preset, QUOTA_PRESET_HASH_FIELDS),
+    })),
+    scenarios: SCENARIOS.map((scenario) => ({
+      slug: scenario.slug,
+      data: stamp({ ...scenario, isActive: true }, SCENARIO_HASH_FIELDS),
+    })),
+  };
+}
+
+function eventLogger(options: SeedOptions) {
+  if (options.logEvent) return options.logEvent;
+  const log = options.log ?? console.log;
+  return (event: ReferenceSeedEvent) => log(JSON.stringify(event));
 }
 
 /**
  * Seeds reference data needed in ALL environments (including production).
  * Includes quota presets and scenarios.
+ * Unconditional: every document is rewritten (merged) whether or not it
+ * changed. Startup and `seed:reference` use `reconcileReferenceData` instead,
+ * which skips unchanged documents; this remains for the full dev `seed`.
  * Safe to call multiple times - uses upserts.
  */
 export async function seedReferenceData(prisma: PrismaClient, options: SeedOptions = {}) {
   const log = options.log ?? console.log;
+  const docs = buildReferenceDocs(options);
 
   // Create quota presets
-  for (const preset of QUOTA_PRESETS) {
+  for (const preset of docs.quotaPresets) {
     await prisma.quotaPreset.upsert({
       where: { name: preset.name },
-      update: preset,
-      create: preset,
+      update: preset.data,
+      create: preset.data,
     });
   }
   log(`Seeded quota presets: ${QUOTA_PRESETS.map((p) => p.name).join(', ')}`);
 
   // Create scenarios
-  for (const scenario of SCENARIOS) {
-    const scenarioData = { ...scenario, isActive: true };
+  for (const scenario of docs.scenarios) {
     await prisma.scenario.upsert({
       where: { slug: scenario.slug },
-      update: scenarioData,
-      create: scenarioData,
+      update: scenario.data,
+      create: scenario.data,
     });
   }
   log(`Seeded scenarios: ${SCENARIOS.map((s) => s.slug).join(', ')}`);
+}
+
+export type ReconcileAction = 'create' | 'update' | 'unchanged';
+
+export interface ReconcileReportEntry {
+  kind: 'scenario' | 'quotaPreset';
+  /** Scenario slug or quota preset name. */
+  key: string;
+  action: ReconcileAction;
+  fromHash: string | null;
+  toHash: string;
+  /**
+   * For `update`: the hashed fields whose values differ. Empty when only the
+   * stored hash is missing or stale (the content already matches).
+   */
+  fields: FieldDiff[];
+}
+
+export interface ReferenceReconcileSummary {
+  seedVersion: string;
+  dryRun: boolean;
+  scenarios: { created: string[]; upserted: string[]; unchanged: string[] };
+  quotaPresets: { created: string[]; upserted: string[]; unchanged: string[] };
+  report: ReconcileReportEntry[];
+}
+
+/**
+ * Brings the stored reference data (quota presets, scenarios) in line with
+ * the repo, writing only what changed. Runs at every API startup and from
+ * `seed:reference`.
+ *
+ * For each seeded document, keyed by slug (scenarios) or name (presets):
+ * - missing: created;
+ * - stored `contentHash` differs (or is absent, e.g. seeded before hashes
+ *   existed): updated, logged as `reference_seed_upserted` with from/to hashes
+ *   and the names of the differing fields;
+ * - equal: skipped.
+ *
+ * Updates MERGE into the stored document: fields the seed does not write
+ * (ids, anything added by hand) survive. Nothing is ever deleted, and no
+ * collection other than `scenarios` and `quotaPresets` is read or written, so
+ * sessions, users and invitations are untouched. Idempotent: a second run
+ * with the same code writes nothing and logs `reference_seed_unchanged`.
+ *
+ * `dryRun: true` performs only the reads and returns the same report.
+ */
+export async function reconcileReferenceData(
+  prisma: PrismaClient,
+  options: ReconcileOptions = {}
+): Promise<ReferenceReconcileSummary> {
+  const emit = eventLogger(options);
+  const dryRun = options.dryRun === true;
+  const docs = buildReferenceDocs(options);
+  const summary: ReferenceReconcileSummary = {
+    seedVersion: docs.seedVersion,
+    dryRun,
+    scenarios: { created: [], upserted: [], unchanged: [] },
+    quotaPresets: { created: [], upserted: [], unchanged: [] },
+    report: [],
+  };
+
+  const targets = [
+    ...docs.quotaPresets.map(({ name, data }) => ({
+      kind: 'quotaPreset' as const,
+      keyField: 'name' as const,
+      key: name,
+      data,
+      fields: QUOTA_PRESET_HASH_FIELDS as readonly string[],
+      model: prisma.quotaPreset,
+      bucket: summary.quotaPresets,
+    })),
+    ...docs.scenarios.map(({ slug, data }) => ({
+      kind: 'scenario' as const,
+      keyField: 'slug' as const,
+      key: slug,
+      data,
+      fields: SCENARIO_HASH_FIELDS as readonly string[],
+      model: prisma.scenario,
+      bucket: summary.scenarios,
+    })),
+  ];
+
+  for (const { kind, keyField, key, data, fields, model, bucket } of targets) {
+    const where = { [keyField]: key };
+    const stored = await model.findUnique({ where });
+    const toHash = data.contentHash;
+
+    if (!stored) {
+      summary.report.push({ kind, key, action: 'create', fromHash: null, toHash, fields: [] });
+      bucket.created.push(key);
+      if (!dryRun) {
+        await model.upsert({ where, update: data, create: data });
+        emit({ event: 'reference_seed_created', kind, [keyField]: key, to: toHash });
+      }
+      continue;
+    }
+
+    const fromHash = typeof stored.contentHash === 'string' ? stored.contentHash : null;
+    if (fromHash === toHash) {
+      summary.report.push({ kind, key, action: 'unchanged', fromHash, toHash, fields: [] });
+      bucket.unchanged.push(key);
+      continue;
+    }
+
+    const diff = diffSeededFields(stored, data, fields);
+    summary.report.push({ kind, key, action: 'update', fromHash, toHash, fields: diff });
+    bucket.upserted.push(key);
+    if (!dryRun) {
+      await model.update({ where: { id: stored.id }, data });
+      emit({
+        event: 'reference_seed_upserted',
+        kind,
+        [keyField]: key,
+        from: fromHash,
+        to: toHash,
+        fields: diff.map((d) => d.field),
+      });
+    }
+  }
+
+  const count = (key: 'created' | 'upserted' | 'unchanged') =>
+    summary.scenarios[key].length + summary.quotaPresets[key].length;
+  if (dryRun) {
+    emit({
+      event: 'reference_seed_dry_run',
+      wouldCreate: count('created'),
+      wouldUpdate: count('upserted'),
+      unchanged: count('unchanged'),
+      seedVersion: summary.seedVersion,
+    });
+  } else if (count('created') + count('upserted') === 0) {
+    emit({
+      event: 'reference_seed_unchanged',
+      scenarios: summary.scenarios.unchanged.length,
+      quotaPresets: summary.quotaPresets.unchanged.length,
+      seedVersion: summary.seedVersion,
+    });
+  } else {
+    emit({
+      event: 'reference_seed_reconciled',
+      created: count('created'),
+      upserted: count('upserted'),
+      unchanged: count('unchanged'),
+      seedVersion: summary.seedVersion,
+    });
+  }
+  return summary;
+}
+
+/**
+ * Plain-text table of a reconcile report, for the `seed:reference` CLI. Field
+ * names, lengths and hashes only; never any prompt text.
+ */
+export function formatReconcileReport(summary: ReferenceReconcileSummary): string {
+  const short = (hash: string | null | undefined) => (hash ? hash.slice(0, 12) : '-');
+  const describe = (d: FieldDiff) => {
+    const lengths =
+      d.old !== undefined || d.new !== undefined
+        ? ` len ${d.old?.length ?? '-'}->${d.new?.length ?? '-'}, sha ${short(d.old?.sha256)}->${short(d.new?.sha256)}`
+        : '';
+    return `${d.field} (${d.effect}${lengths})`;
+  };
+  const rows = summary.report.map((entry) => [
+    entry.kind,
+    entry.key,
+    entry.action,
+    entry.action === 'update'
+      ? entry.fields.length > 0
+        ? entry.fields.map(describe).join('; ')
+        : '(content matches; stored hash missing or stale, hash fields only)'
+      : '',
+  ]);
+  const header = ['kind', 'key', 'action', 'differing fields'];
+  const widths = header
+    .slice(0, 3)
+    .map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
+  const line = (cells: string[]) =>
+    cells
+      .map((cell, i) => (i < 3 ? cell.padEnd(widths[i]) : cell))
+      .join('  ')
+      .trimEnd();
+  const created = summary.scenarios.created.length + summary.quotaPresets.created.length;
+  const updated = summary.scenarios.upserted.length + summary.quotaPresets.upserted.length;
+  const unchanged = summary.scenarios.unchanged.length + summary.quotaPresets.unchanged.length;
+  return [
+    line(header),
+    line(widths.map((w) => '-'.repeat(w)).concat('----------------')),
+    ...rows.map(line),
+    '',
+    `${summary.dryRun ? 'DRY RUN, nothing written. Would create' : 'Created'} ${created}, ` +
+      `${summary.dryRun ? 'would update' : 'updated'} ${updated}, unchanged ${unchanged} ` +
+      `(seedVersion ${summary.seedVersion}).`,
+  ].join('\n');
 }
 
 /**
