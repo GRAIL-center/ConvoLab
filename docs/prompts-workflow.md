@@ -14,38 +14,49 @@ participants. Applies to the four persona prompts in
 The public-app copies are generated at seed time by renaming the pilot text,
 so edit only the pilot names (Mark Johnson, Megan Johnson) in these files.
 
+## Where prompts are edited: GitHub, not the Google Doc (decided 27 Sep 2026)
+
+The `.txt` files in this directory are the source of record. Edit them in
+GitHub (web editor or a branch) and open a pull request; do not edit the
+Google Doc "Prompts and Testing v2", which is now the drafting history for
+V1 to V3 and nothing more. Two copies of the same text drift apart. Do not
+edit persona text in Firestore or the admin interface either.
+
 ## Current workflow
 
-1. **Edit the source document.** The prompt text is written and agreed there
-   first, in the shared Google Doc "Prompts and Testing v2".
-2. **Pull it into the .txt files.** Download the doc (File > Download >
-   Markdown) and run `pnpm prompts:pull --from-file <downloaded .md>`, or
-   `pnpm prompts:pull` for the Drive API path (see "Pulling the prompts from
-   the doc" below). The command refuses, writing nothing, if a heading is
-   missing or the text has an em/en dash or a reply-length rule.
-3. **Review the diff.** For each file the command prints `unchanged`,
-   `whitespace only` (only line wrapping moved; the study text is the same)
-   or `wording changed`, followed by its diff. Check every `REVIEW` line.
-4. **Commit and open a PR.** Commit the .txt files with
-   `PROMPTS_SOURCE.json`. Run `pnpm -F @workspace/database test`;
-   `personaPrompts.test.ts` checks the file rules and that the male and
-   female prompts in each ideology still differ only in name and pronouns.
-   Add a dated entry to `docs/study-changelog.md` for a wording change.
-5. **Merge.** Merge to `main`; Cloud Build builds the image. The database
-   build copies the .txt files into `dist/`, where the compiled seed reads
-   them.
-6. **Deploy; the deploy reconciles.** No manual re-seed. When the new
-   revision starts, the API runs `reconcileReferenceData()` before it accepts
-   connections (see "Deploy-time reconcile" below). The changed scenarios,
-   and only those, are rewritten; the Cloud Run log shows one
-   `reference_seed_upserted` line per scenario with its slug, the old and new
-   `contentHash` and the changed field names. New sessions pick up the new
+1. **Edit the `.txt` file** in GitHub or a branch. `ROLE:` stays the first
+   line. Change only the wording that should change.
+2. **Open a PR against `main`.** CI runs `personaPrompts.test.ts` (no em or
+   en dash, no reply-length rule inside a persona, `ROLE:` first, one
+   trailing newline, male and female versions identical apart from names and
+   pronouns), plus lint, type-checks and the rest. A reviewer reads the text
+   diff. Add a dated entry to `docs/study-changelog.md` for a wording change.
+   The first PR that changes prompt wording must also delete
+   `packages/database/src/__tests__/seededPromptsUnchanged.test.ts`; its
+   header says so.
+3. **Merge and deploy.** Cloud Build builds the image; the database build
+   copies the .txt files into `dist/`, where the compiled seed reads them.
+4. **The deploy reconciles.** No manual re-seed. When the new revision
+   starts, the API runs `reconcileReferenceData()` before it accepts
+   connections (see "Deploy-time reconcile" below); changed scenarios, and
+   only those, are rewritten, and the Cloud Run log shows one
+   `reference_seed_upserted` line per scenario. New sessions pick up the new
    text; study sessions already in progress keep the prompt they started
    with.
-7. **Optional: confirm.**
+5. **Optional: confirm.**
    `FIRESTORE_PROJECT_ID=convolab-490517 pnpm -F @workspace/database seed:reference --dry-run`
-   shows what a reconcile would write (`create`, `update` or `unchanged` per
-   scenario), without writing.
+   shows what a reconcile would write, without writing.
+
+## Importing from a document (not part of the normal workflow)
+
+If a round of prompt writing happens in a document again, `pnpm prompts:pull
+--from-file <downloaded .md>` (or `pnpm prompts:pull` via the Drive API, see
+"Pulling the prompts from the doc" below) imports it into the .txt files and
+labels each change `whitespace only` or `wording changed`, refusing to write
+text that would fail the prompt checks. Agree with the PI first, and treat the
+result like any other PR. Note that the current files carry line breaks from
+the old PDF exports while the doc has none, so an import re-wraps all four
+files even when the wording is unchanged.
 
 ## Deploy-time reconcile
 
