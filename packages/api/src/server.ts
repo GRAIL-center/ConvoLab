@@ -17,7 +17,7 @@ import { canonicalRedirectTarget } from './lib/canonicalHost.js';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { isDatabaseEmpty, seedReferenceData, seedTestData } from '@workspace/database';
+import { isDatabaseEmpty, reconcileReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 import { db as prisma } from './db/firestoreHelpers.js';
 
@@ -27,6 +27,7 @@ import {
   logStartupDiagnostics,
   runStartupChecks,
 } from './lib/startup-checks.js';
+import { runStartupSeedingOnce } from './lib/startupSeeding.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
@@ -190,19 +191,20 @@ if (!isDev) {
 
 const start = async () => {
   try {
-    // Auto-seed reference data (quota presets, scenarios) in all environments
-    try {
-      if (await isDatabaseEmpty(prisma)) {
-        const logOpts = { log: (msg: string) => fastify.log.info(msg) };
-        await seedReferenceData(prisma, logOpts);
-        // Only seed test data (test admin, test invitation) in development
-        if (isDev) {
-          await seedTestData(prisma, logOpts);
-        }
-      }
-    } catch (seedErr) {
-      fastify.log.error({ err: seedErr }, 'Database seeding failed; continuing without seed data');
-    }
+    // Reconcile reference data (quota presets, scenarios and their prompts)
+    // on every start, so a deploy carries prompt changes. Writes only what
+    // changed; never deletes; never fails startup. Waits a few seconds before
+    // listening, then lets a slow run finish in the background. Test data is
+    // still dev-only and empty-database-only. SEED_REFERENCE_ON_START=false
+    // turns it off. See lib/startupSeeding.ts.
+    await runStartupSeedingOnce({
+      prisma,
+      log: fastify.log,
+      isDev,
+      isDatabaseEmpty,
+      reconcileReferenceData,
+      seedTestData,
+    });
 
     const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';

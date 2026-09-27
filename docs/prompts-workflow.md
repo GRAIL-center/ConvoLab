@@ -30,14 +30,46 @@ so edit only the pilot names (Mark Johnson, Megan Johnson) in these files.
 4. **Deploy.** Merge to `main`; Cloud Build builds the image. The database
    build copies the .txt files into `dist/`, where the compiled seed reads
    them.
-5. **Re-seed.** A deploy alone does not change what participants see. Run
-   `FIRESTORE_PROJECT_ID=convolab-490517 pnpm -F @workspace/database seed:reference`
-   to upsert the scenario records. New sessions pick up the new text;
-   sessions already in progress keep the prompt they started with.
+5. **Nothing else: the deploy reconciles.** When the new revision starts, the
+   API runs `reconcileReferenceData()` before it accepts connections (see
+   "Deploy-time reconcile" below). The changed scenarios, and only those, are
+   rewritten; the Cloud Run log shows one `reference_seed_upserted` line per
+   scenario with its slug, the old and new `contentHash` and the changed
+   field names. New sessions pick up the new text; study sessions already in
+   progress keep the prompt they started with.
+
+## Deploy-time reconcile
+
+- **What runs.** At every API start, `reconcileReferenceData()`
+  (`packages/database/seed/seedDatabase.ts`) compares each seeded scenario
+  (by slug) and quota preset (by name) with Firestore using a `contentHash`,
+  a sha256 over the seeded fields listed in
+  `packages/database/seed/referenceHash.ts`. Missing documents are created,
+  changed ones updated, equal ones skipped; a run with nothing to do logs
+  `reference_seed_unchanged`. Written documents also carry `seedVersion` (the
+  commit, from `GIT_SHA`, set by `cloudbuild.yaml`) and `seededAt`.
+- **What it never does.** It never deletes, and it reads and writes only the
+  `scenarios` and `quotaPresets` collections. Updates merge: fields the seed
+  does not set (including a hand-set `coachModel`) are left as they are.
+- **Failure.** A reconcile error is logged (`reference_seed_failed`) and the
+  site keeps serving the stored prompts. The server waits at most 5 seconds
+  before listening; a slower reconcile finishes in the background.
+- **Regular-app sessions.** These reference the scenario by id and reload it
+  when the WebSocket connects, so an in-progress regular-app conversation
+  uses the new prompt from its first turn after reconnecting. Study sessions
+  are unaffected.
+- **Off switch.** `SEED_REFERENCE_ON_START=false` disables it.
+- **Check before a deploy (dry run).** To see what the next reconcile would
+  write without writing anything:
+  `FIRESTORE_PROJECT_ID=convolab-490517 pnpm -F @workspace/database seed:reference --dry-run`
+  (or `RECONCILE_DRY_RUN=1`). It prints, per scenario and preset, `create`,
+  `update` or `unchanged`, and for `update` the differing fields with string
+  lengths and sha256 only, never prompt text.
+- **Manual run.** The same command without `--dry-run` performs the
+  reconcile immediately, without a deploy. It refuses to run without an
+  explicit `FIRESTORE_PROJECT_ID`.
 
 ## Planned changes
 
 - **Pull command** (replaces step 2): _placeholder._ A command that fetches
   the prompt text from the source document and writes the .txt files.
-- **Deploy-time upsert** (replaces step 5): _placeholder._ The scenario
-  records are updated as part of the deploy, so no manual re-seed is needed.

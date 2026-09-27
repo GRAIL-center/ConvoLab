@@ -721,7 +721,27 @@ export function createPrismaClient(
 // '@workspace/database' directly at startup (auto-seeding reference/test
 // data). They were previously only reachable via a relative cross-package
 // path that isn't part of this package's public "exports" map.
-export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase.js';
+export {
+  formatReconcileReport,
+  isDatabaseEmpty,
+  type ReconcileAction,
+  type ReconcileOptions,
+  type ReconcileReportEntry,
+  type ReferenceReconcileSummary,
+  type ReferenceSeedEvent,
+  reconcileReferenceData,
+  type SeedOptions,
+  seedReferenceData,
+  seedTestData,
+} from './seed/seedDatabase.js';
+export {
+  computeContentHash,
+  currentSeedVersion,
+  diffSeededFields,
+  type FieldDiff,
+  QUOTA_PRESET_HASH_FIELDS,
+  SCENARIO_HASH_FIELDS,
+} from './seed/referenceHash.js';
 
 type FirestoreShimRecord = Record<string, any>;
 
