@@ -468,7 +468,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             >
               <CoachIcon />
               {unreadCoachCount > 0 && (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[#fbfaf6] bg-[#ea580c] dark:border-[#151513]" />
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5">
+                  {/* Keyed on the count so the pulse replays for each new reply. */}
+                  <span
+                    key={unreadCoachCount}
+                    className="coach-dot-pulse absolute inset-0 rounded-full bg-[#2563eb] dark:bg-[#60a5fa]"
+                  />
+                  <span className="absolute inset-0 rounded-full border-2 border-[#fbfaf6] bg-[#2563eb] dark:border-[#151513] dark:bg-[#60a5fa]" />
+                </span>
               )}
             </button>
           )}
