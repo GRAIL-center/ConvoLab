@@ -345,3 +345,56 @@ describe('deleteMany — optional where support', () => {
     expect(remaining).toHaveLength(0);
   });
 });
+
+describe('Timestamp -> Date conversion on reads (B26)', () => {
+  it('returns Date (not Timestamp) for date fields, including nested ones', async () => {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.invitation.create({
+      data: {
+        id: 'inv1',
+        token: 't'.repeat(43),
+        expiresAt,
+        quota: { tokens: 1000, grantedAt: new Date('2026-01-01T00:00:00Z') },
+      },
+    });
+
+    const row: any = await prisma.invitation.findUnique({ where: { id: 'inv1' } });
+
+    expect(row.expiresAt).toBeInstanceOf(Date);
+    expect(row.expiresAt.getTime()).toBe(expiresAt.getTime());
+    expect(row.quota.grantedAt).toBeInstanceOf(Date);
+  });
+
+  it('regression: an invitation expiring tomorrow is NOT < new Date()', async () => {
+    // Before the fix, doc.data() leaked Firestore Timestamps, whose string
+    // primitive is epoch-seconds scale, so `expiresAt < new Date()` was true
+    // for ANY timestamp and getValidInvitation rejected every invitation
+    // as expired.
+    await prisma.invitation.create({
+      data: {
+        id: 'inv2',
+        token: 'u'.repeat(43),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const row: any = await prisma.invitation.findUnique({ where: { token: 'u'.repeat(43) } });
+
+    expect(row.expiresAt < new Date()).toBe(false);
+  });
+
+  it('converts dates returned from update and findMany too', async () => {
+    const d = new Date('2026-05-05T12:00:00Z');
+    await prisma.conversationSession.create({ data: { id: 's1', startedAt: d } });
+
+    const updated: any = await prisma.conversationSession.update({
+      where: { id: 's1' },
+      data: { status: 'ENDED' },
+    });
+    expect(updated.startedAt).toBeInstanceOf(Date);
+    expect(updated.startedAt.getTime()).toBe(d.getTime());
+
+    const all: any[] = await prisma.conversationSession.findMany();
+    expect(all[0].startedAt).toBeInstanceOf(Date);
+  });
+});
