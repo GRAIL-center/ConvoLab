@@ -20,6 +20,28 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-10-01: partner openers shortened to spoken length (code only, not yet live)
+
+- **Why.** The one-sentence openers of 30 Sep (see the entry below) still read
+  as written prose at 21 to 32 words each. The partner's later turns follow a
+  reply-length policy that aims at spoken sentences of 10 to 15 words, so the
+  opener was the longest sentence the participant saw from the partner.
+- **What changed.** All 14 topic openers (7 topics x 2 partner ideologies) and
+  the generic own-topic opener were replaced with new approved copy of 11 to
+  15 words each, one sentence stating the partner's position
+  (`packages/api/src/lib/partnerOpeners.ts`). They remain fixed text,
+  identical across participants in both arms for a given topic and partner
+  ideology. The intro card's closing question, "How do you respond?", is
+  unchanged.
+- **Test.** The copy test
+  (`packages/api/src/__tests__/partnerOpeners.safe.test.ts`) now bounds each
+  opener at 8 to 16 words; the one-sentence and no-dash rules are unchanged.
+- **Sessions affected.** New pilot sessions served by a revision that
+  includes this change. Sessions already in flight keep the opener they were
+  shown.
+
+---
+
 ## 2026-09-30: partner openers shortened to one sentence; LAPP steps numbered on the landing page (code only, not yet live)
 
 - **Why.** In the user-testing round of 29 Sep the partner openers (two to

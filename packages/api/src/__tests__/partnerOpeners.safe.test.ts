@@ -70,7 +70,7 @@ describe('opener copy rules', () => {
     // Long enough to be a real position, short enough to sit comfortably next
     // to the short replies the partner gives for the rest of the conversation.
     const words = text.split(/\s+/).filter(Boolean).length;
-    expect(words).toBeGreaterThanOrEqual(12);
-    expect(words).toBeLessThanOrEqual(40);
+    expect(words).toBeGreaterThanOrEqual(8);
+    expect(words).toBeLessThanOrEqual(16);
   });
 });
