@@ -13,6 +13,7 @@ import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel'
 import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
+import { ConversationTour } from '../components/conversation/tour/ConversationTour';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 
@@ -131,6 +132,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const [partnerDraft, setPartnerDraft] = useState('');
   const [coachDraft, setCoachDraft] = useState('');
   const [hasActivatedRails, setHasActivatedRails] = useState(false);
+  const [tourKeepsRails, setTourKeepsRails] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [fallbackSurveyUrl, setFallbackSurveyUrl] = useState<string | null>(null);
@@ -236,7 +238,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const mainMessages = messages.filter((m) => m.role !== 'coach');
   const coachMessages = messages.filter((m) => m.role === 'coach');
-  const railsVisible = hasActivatedRails || mainMessages.length > 0;
+  const railsVisible = hasActivatedRails || mainMessages.length > 0 || tourKeepsRails;
   const shortName = getShortName(scenario);
   const isQuotaExhausted = quota?.exhausted === true;
   const coachEnabled = study?.coachEnabled !== false;
@@ -386,6 +388,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <aside
+          data-tour="lapp"
           className={`hidden shrink-0 overflow-hidden border-r border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] xl:flex ${lappRailWidth} ${
             railsVisible ? 'opacity-100' : 'opacity-0'
           }`}
@@ -397,7 +400,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           />
         </aside>
 
-        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <main data-tour="partner" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
             className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 ${
               railsVisible ? 'pb-56' : 'pb-8'
@@ -478,7 +481,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   </button>
                 )}
               </div>
-              <div className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
+              <div
+                data-tour="composer"
+                className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]"
+              >
                 <textarea
                   ref={inputRef}
                   value={partnerDraft}
@@ -556,6 +562,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
         {coachEnabled && (
           <aside
+            data-tour="coach"
             className={`hidden shrink-0 overflow-hidden border-l border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] lg:block ${coachRailWidth} ${
               railsVisible ? 'opacity-100' : 'opacity-0'
             }`}
@@ -576,6 +583,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           </aside>
         )}
       </div>
+      {scenario && (
+        <ConversationTour
+          ready
+          isStudySession={isStudySession}
+          coachEnabled={coachEnabled}
+          onKeepRailsOpen={() => setTourKeepsRails(true)}
+        />
+      )}
     </div>
   );
 }
