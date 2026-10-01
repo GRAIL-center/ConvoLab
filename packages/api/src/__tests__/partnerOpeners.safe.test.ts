@@ -59,20 +59,18 @@ describe('opener copy rules', () => {
     // messages never contain them, so the opener must not either.
     expect(opener).not.toMatch(/[—–]/);
 
-    // Long enough to be a real position, short enough that the participant
-    // reads it instead of skimming past it.
-    const words = opener.split(/\s+/).filter(Boolean).length;
-    expect(words).toBeGreaterThanOrEqual(20);
-    expect(words).toBeLessThanOrEqual(60);
+    // One sentence stating the partner's position. The invitation to respond
+    // is the intro card's closing question ("How do you respond?"), so the
+    // opener neither asks a question nor needs to. A colon or comma inside the
+    // sentence is fine; a sentence terminator anywhere but the end is not.
+    const text = opener.trim();
+    expect(text, `opener does not end a sentence: ${opener}`).toMatch(/[.!?]$/);
+    expect(text.slice(0, -1), `opener is more than one sentence: ${opener}`).not.toMatch(/[.!?]/);
 
-    // Every opener has to hand the floor back: it ends on a question, or on an
-    // explicit invitation to answer ("so tell me where you're coming from.",
-    // "I'm curious how you see it.", "so tell me how."). Three of the approved
-    // openers close the second way, which is an invitation in plain speech
-    // rather than a missing question mark.
-    const invites =
-      opener.trim().endsWith('?') ||
-      /(tell me|curious how you see it)\b[^.?!]*[.?!]$/i.test(opener.trim());
-    expect(invites, `opener does not invite a response: ${opener}`).toBe(true);
+    // Long enough to be a real position, short enough to sit comfortably next
+    // to the short replies the partner gives for the rest of the conversation.
+    const words = text.split(/\s+/).filter(Boolean).length;
+    expect(words).toBeGreaterThanOrEqual(12);
+    expect(words).toBeLessThanOrEqual(40);
   });
 });
