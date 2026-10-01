@@ -20,6 +20,34 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-09-30: partner openers shortened to one sentence; LAPP steps numbered on the landing page (code only, not yet live)
+
+- **Why.** In the user-testing round of 29 Sep the partner openers (two to
+  three sentences each) read long next to the new short-reply policy, where
+  the partner answers in one or two sentences. A tester also asked which order
+  the LAPP steps should be applied in, because the landing page showed them as
+  a grid.
+- **Partner openers.** Each of the 14 topic openers (7 topics x 2 partner
+  ideologies) and the generic own-topic opener is now one sentence that states
+  the partner's position (`packages/api/src/lib/partnerOpeners.ts`). The
+  closing questions ("Where do you land on that?", "How do you see it?") are
+  gone. The openers remain fixed, approved text, identical across
+  participants in both arms for a given topic and partner ideology. The intro
+  card's closing question, "How do you respond?", is unchanged and is the
+  invitation to reply. The copy test
+  (`packages/api/src/__tests__/partnerOpeners.safe.test.ts`) now requires
+  exactly one sentence, 12 to 40 words, and no em or en dash.
+- **LAPP steps.** The "Conversation framework" box on the pilot landing page
+  (`packages/app/src/pages/PilotLanding.tsx`) now lists the steps as a single
+  numbered column: 1. Listen, 2. Acknowledge, 3. Pivot, 4. Perspective. The
+  descriptions are unchanged. The conversation screen's "What LAPP Means"
+  panel is not changed.
+- **Sessions affected.** New pilot sessions served by a revision that
+  includes this change. Sessions already in flight keep the opener they were
+  shown.
+
+---
+
 ## 2026-09-27: a deploy now carries prompt and scenario changes (reference data reconciled at startup) (code only, not yet live)
 
 - **What it does.** Every time the API starts (every Cloud Run revision, every

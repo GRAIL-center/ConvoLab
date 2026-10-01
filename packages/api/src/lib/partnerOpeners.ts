@@ -11,6 +11,10 @@ import type { IntroIdeology } from './conversationIntro.js';
  * to whatever the model happened to produce. Do not edit these strings to fix
  * style: the wording is the instrument.
  *
+ * Each opener is a single sentence stating the partner's position. It does not
+ * ask the participant anything: the invitation to respond is the intro card's
+ * closing question ("How do you respond?"), not part of the opener.
+ *
  * Keyed by the canonical study topic labels (the keys of TOPIC_PHRASES in
  * conversationIntro.ts, which are the seven presets in STUDY_TOPICS) crossed
  * with partner ideology. "Pick your own topic", a blank topic, and anything
@@ -19,33 +23,33 @@ import type { IntroIdeology } from './conversationIntro.js';
 const OPENERS: Record<IntroIdeology, Record<string, string>> = {
   right: {
     Immigration:
-      "I'll be honest, immigration is where I get frustrated. We have laws about who comes in, and when they aren't enforced I don't see what citizenship is supposed to mean anymore. I'm guessing you see it differently, so tell me where you're coming from.",
+      "I'll be honest, immigration is where I get frustrated: we have laws about who comes in, and when they aren't enforced I don't see what citizenship is supposed to mean anymore.",
     'Freedom of speech':
-      "Free speech is a big one for me. I keep seeing ordinary political opinions labeled misinformation or hate speech so somebody can shut them down, and I think a free country has to put up with speech it doesn't like. Where do you land on that?",
-    Guns: "I grew up around guns and I own them. To me that's about self-defense and taking responsibility for my own family. I can talk about keeping guns away from people who are clearly dangerous, but broad bans are a hard no for me. How do you see it?",
+      'Free speech is a big one for me, because I keep seeing ordinary political opinions labeled misinformation or hate speech just so somebody can shut them down.',
+    Guns: "I grew up around guns and I own them, and to me that's about defending my own family, so broad bans are a hard no for me.",
     Housing:
-      "I'm in construction, so I see why houses cost what they do: permits, materials, fees, and rules that make every project slower and pricier. If we want ordinary people to afford a home, we have to make it easier to build. Where would you start?",
+      "I'm in construction, so I see why houses cost what they do: permits, materials, fees and rules that make every project slower and pricier.",
     Environment:
-      "I want clean air and water like anyone. What I don't want is climate policy written by people who have never lived in a steel town, where the bill lands on energy prices and factory jobs. What's your take?",
+      "I want clean air and water like anyone, but I don't want climate policy written by people who have never lived in a steel town and never pay the bill for it.",
     Taxes:
-      "I do the books for a small contracting business, so taxes aren't abstract to me. After payroll, insurance, materials and fuel there isn't much left, and I'd rather see government cut spending before it asks for more. Where are you on this?",
+      "I do the books for a small contracting business, and after payroll, insurance, materials and fuel there isn't much left, so I'd rather see government cut spending before it asks for more.",
     Healthcare:
-      "We agree healthcare costs too much, I'm sure of that. Where I get off the train is handing the whole system to the federal government. I don't trust the insurers or the bureaucracy, and I'd rather have real competition and real prices. How do you think about it?",
+      'We agree healthcare costs too much, but handing the whole system to the federal government is where I get off the train.',
   },
   left: {
     Immigration:
-      "I've spent years organizing tenants and workers, and I've never seen immigrants be the reason rents went up or wages stayed flat. I want legal pathways and due process, and employers who exploit people held accountable. I'm guessing you'd put the emphasis somewhere else. Where?",
+      "I've spent years organizing tenants and workers, and I've never once seen immigrants be the reason rents went up or wages stayed flat.",
     'Freedom of speech':
-      'To me free speech is mostly about protecting workers, protesters and reporters from the people with power over them. I get nervous when powerful people act like free speech means nobody is allowed to push back on them. Where do you come down on it?',
-    Guns: "I see gun violence as a public safety problem first. Background checks, safe storage and red-flag rules with due process seem like the minimum to me. I know plenty of people own guns responsibly, so I'm curious how you see it.",
+      'To me free speech is mostly about protecting workers, protesters and reporters from the people with power over them, not about powerful people escaping criticism.',
+    Guns: 'I see gun violence as a public safety problem first, so background checks, safe storage and red-flag rules with due process seem like the bare minimum to me.',
     Housing:
-      "Housing is the issue I live inside every day. I've watched families get pushed out by rent hikes and evictions, and I don't think a home should be treated like a stock. I want tenant protections and a lot more public housing. Where do you start on this?",
+      "Housing is the issue I live inside every day, and I don't think a home should be treated like a stock, so I want tenant protections and a lot more public housing.",
     Environment:
-      "I think climate change needs serious public action. I'm also from Youngstown, so I know what it sounds like when someone tells a whole town its jobs are obsolete. I want clean energy and real investment in the places that lose out. What's your view?",
+      'I think climate change needs serious public action, and coming from Youngstown I also know what it sounds like when someone tells a whole town its jobs are obsolete.',
     Taxes:
-      "I think billionaires and big corporations should be paying a lot more in taxes than they do. That money funds schools, hospitals and childcare, and it keeps a few people from holding all the power. I'm guessing you see taxes differently, so tell me how.",
+      'I think billionaires and big corporations should be paying a lot more in taxes than they do, because that money funds schools, hospitals and childcare.',
     Healthcare:
-      "I did home health care for years, and I watched one illness take down whole families. I don't think a kid's care should depend on a parent's insurance plan. I want healthcare guaranteed for everyone. How do you see it?",
+      'I did home health care for years and watched one illness take down whole families, so I want healthcare guaranteed for everyone.',
   },
 };
 
@@ -55,7 +59,7 @@ const OPENERS: Record<IntroIdeology, Record<string, string>> = {
  * issue, which is the one thing that is true in every own-topic session.
  */
 export const GENERIC_OPENER =
-  "So this is the topic you wanted to talk about. I'll be straight with you: I probably see it differently than you do, but I'd rather hear your side than guess. Where do you want to start?";
+  "I'll be straight with you: I probably see this differently than you do, but I'd rather hear your side than guess.";
 
 /** The partner's fixed first message for this topic and ideology. */
 export function getPartnerOpener(topic: string, ideology: IntroIdeology): string {

@@ -330,14 +330,16 @@ export function PilotLanding() {
                 Your goal isn’t to persuade {pageState.partner.name}. It’s to stay engaged through
                 disagreement.
               </p>
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                {lappItems.map(([title, body]) => (
-                  <div key={title}>
-                    <p className="font-semibold text-[#dedbd4]">{title}</p>
+              <ol className="mt-6 flex flex-col gap-5">
+                {lappItems.map(([title, body], index) => (
+                  <li key={title}>
+                    <p className="font-semibold text-[#dedbd4]">
+                      {index + 1}. {title}
+                    </p>
                     <p className="mt-1 text-sm leading-6 text-[#9d9890]">{body}</p>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </div>
           </div>
         </section>
