@@ -14,6 +14,7 @@ import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
 import { MobileSheet } from '../components/conversation/MobileSheet';
+import { ConversationTour } from '../components/conversation/tour/ConversationTour';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 
@@ -155,6 +156,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const [partnerDraft, setPartnerDraft] = useState('');
   const [coachDraft, setCoachDraft] = useState('');
   const [hasActivatedRails, setHasActivatedRails] = useState(false);
+  const [tourKeepsRails, setTourKeepsRails] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [fallbackSurveyUrl, setFallbackSurveyUrl] = useState<string | null>(null);
@@ -271,7 +273,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   // participant's own first message, so a lone opener does not make the page
   // behave as though the conversation is under way.
   const hasParticipantMessage = mainMessages.some((m) => m.role === 'user');
-  const railsVisible = hasActivatedRails || hasParticipantMessage;
+  const railsVisible = hasActivatedRails || hasParticipantMessage || tourKeepsRails;
   // The composer floats in the middle of an empty pane and docks to the bottom
   // once there is something to read above it. A partner opener is something to
   // read, so it docks then even though the rails are still closed.
@@ -471,6 +473,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <aside
+          data-tour="lapp"
           className={`hidden shrink-0 overflow-hidden border-r border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] xl:flex ${lappRailWidth} ${
             railsVisible ? 'opacity-100' : 'opacity-0'
           }`}
@@ -482,7 +485,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           />
         </aside>
 
-        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <main data-tour="partner" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Below lg there is no coach rail, so the pane switches between the
               partner and the coach. Partner-side elements are hidden rather
               than unmounted so drafts and scroll position survive a switch. */}
@@ -644,7 +647,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   </button>
                 )}
               </div>
-              <div className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
+              <div
+                data-tour="composer"
+                className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]"
+              >
                 <textarea
                   ref={inputRef}
                   value={partnerDraft}
@@ -714,6 +720,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
         {coachEnabled && (
           <aside
+            data-tour="coach"
             className={`hidden shrink-0 overflow-hidden border-l border-[#ddd8cc] bg-[#fbfaf6] transition-[width,opacity] duration-500 ease-out dark:border-[#2b2925] dark:bg-[#151513] lg:block ${coachRailWidth} ${
               railsVisible ? 'opacity-100' : 'opacity-0'
             }`}
@@ -734,6 +741,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           </aside>
         )}
       </div>
+      {scenario && (
+        <ConversationTour
+          ready
+          isStudySession={isStudySession}
+          coachEnabled={coachEnabled}
+          onKeepRailsOpen={() => setTourKeepsRails(true)}
+        />
+      )}
 
       {/* Regular app only, for the same reason as the header button above:
           the pilot is registered desktop-only, so a study participant must

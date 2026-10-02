@@ -58,7 +58,12 @@ async function authRoutes(fastify: FastifyInstance) {
         'User logged in via Google'
       );
 
-      return reply.redirect(frontendUrl);
+      const authNext = request.session.get('authNext');
+      request.session.set('authNext', undefined);
+      const safeNext =
+        authNext && authNext.startsWith('/') && !authNext.startsWith('//') ? authNext : '/';
+
+      return reply.redirect(`${frontendUrl}${safeNext}`);
     } catch (err) {
       fastify.log.error(err, 'OAuth callback error');
       return reply.redirect(`${frontendUrl}/login?error=oauth_failed`);

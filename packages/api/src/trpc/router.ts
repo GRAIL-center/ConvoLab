@@ -3,6 +3,7 @@ import { authRouter } from './routers/auth.js';
 import { feedbackRouter } from './routers/feedback.js';
 import { invitationRouter } from './routers/invitation.js';
 import { observationRouter } from './routers/observation.js';
+import { practiceRouter } from './routers/practice.js';
 import { scenarioRouter } from './routers/scenario.js';
 import { sessionRouter } from './routers/session.js';
 import { studyRouter } from './routers/study.js';
@@ -14,6 +15,7 @@ export const appRouter = router({
   feedback: feedbackRouter,
   invitation: invitationRouter,
   observation: observationRouter,
+  practice: practiceRouter,
   scenario: scenarioRouter,
   session: sessionRouter,
   study: studyRouter,

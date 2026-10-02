@@ -8,6 +8,8 @@ declare module '@fastify/secure-session' {
     userId?: string;
     name?: string | null;
     mergedFrom?: string; // Set when anonymous user was merged into authenticated user
+    /** Safe in-app path to redirect to after Google OAuth (must start with `/`). */
+    authNext?: string;
   }
 }
 

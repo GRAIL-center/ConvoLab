@@ -150,7 +150,7 @@ export function UserMenu() {
                       </div>
 
                       <Link
-                        to="/"
+                        to="/home"
                         onClick={() => setIsOpen(false)}
                         className="mt-3 block rounded-lg border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]
                                    p-3 hover:bg-[rgba(130,167,161,0.08)] dark:hover:bg-[rgba(212,232,229,0.05)]

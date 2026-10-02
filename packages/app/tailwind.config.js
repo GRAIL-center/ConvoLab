@@ -32,6 +32,26 @@ export default {
         'text-primary': '#EBEBEB',
         'text-secondary': '#A0A0A0',
         'text-tertiary': '#858585',
+
+        // Editorial (warm dark) -- extracted from PilotLanding.tsx's literals
+        // so new public-facing pages can share the same identity via named
+        // tokens instead of a third copy-pasted set of hex values.
+        'editorial-bg': '#11110f',
+        'editorial-header': '#151513',
+        'editorial-border': '#2b2925',
+        'editorial-border-strong': '#34312c',
+        'editorial-card': '#151513',
+        'editorial-card-alt': '#181714',
+        'editorial-text': '#f2efe7',
+        'editorial-text-dim': '#9d9890',
+        'editorial-text-dimmer': '#aaa59b',
+        'editorial-text-faint': '#77736b',
+        'editorial-cta-bg': '#eeeae1',
+        'editorial-cta-text': '#151513',
+      },
+      fontFamily: {
+        'editorial-serif': ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        'editorial-sans': ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       // Your existing config stays here...
     },

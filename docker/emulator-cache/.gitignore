@@ -1,0 +1,4 @@
+# Downloaded by scripts/fetch-firestore-emulator.sh (or manually).
+# ~130MB — keep out of git; compose mounts this into the emulator container.
+*.jar
+!.gitkeep
