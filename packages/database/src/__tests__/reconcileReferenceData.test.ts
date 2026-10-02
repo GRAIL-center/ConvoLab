@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Timestamp } from '@google-cloud/firestore';
 import { FakeFirestore } from './fakeFirestore';
 
 const fakeDb = new FakeFirestore();
@@ -69,7 +70,9 @@ describe('reconcileReferenceData', () => {
     const uncle = storedBySlug('angry-uncle-thanksgiving').data;
     expect(uncle.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(uncle.seedVersion).toBe('test-sha');
-    expect(uncle.seededAt).toBeInstanceOf(Date);
+    // Raw storage holds a Timestamp (the shim converts to Date on reads,
+    // but storedBySlug bypasses the shim).
+    expect(uncle.seededAt).toBeInstanceOf(Timestamp);
     expect(uncle.isActive).toBe(true);
   });
 
