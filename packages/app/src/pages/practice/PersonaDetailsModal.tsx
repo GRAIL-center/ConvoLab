@@ -28,8 +28,7 @@ export function PersonaDetailsModal({
   }, [scenario]);
 
   const body =
-    scenario?.description?.trim() ||
-    'PLACEHOLDER: A conversation partner with a clear point of view. Details will land here when ready.';
+    scenario?.description?.trim() || 'A conversation partner with a clear point of view.';
   const persona = scenario?.partnerPersona?.trim();
 
   return (
