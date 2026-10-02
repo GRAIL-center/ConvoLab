@@ -58,7 +58,9 @@ services:
       COACH_MODEL: ${COACH_MODEL:-}
       LAPP_SCORER_MODEL: ${LAPP_SCORER_MODEL:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
-      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
+      # Blank skips server-side reCAPTCHA in dev; set it to verify through the
+      # Enterprise API with the ADC mounted below (see docs/recaptcha-setup.md).
+      RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY:-}
       # Points the Google Auth library at the ADC file mounted in below,
       # so the Firestore client can actually authenticate from inside the
       # container instead of crashing with "Could not load the default
@@ -93,8 +95,8 @@ services:
       VITE_API_URL: http://localhost:3000
       VITE_SITE_BANNER: ${VITE_SITE_BANNER:-}
       # Recaptcha.tsx reads this at Vite transform time. Without it the widget
-      # is skipped; /practice still works locally (server fail-opens in non-prod
-      # when RECAPTCHA_SECRET_KEY is unset).
+      # is skipped; /practice still works locally (server skips verification in
+      # non-prod when RECAPTCHA_SITE_KEY is unset).
       VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
       # Hostname a dev tunnel serves this on, when testing on a real phone.
       # See the allowedHosts note in packages/app/vite.config.ts.

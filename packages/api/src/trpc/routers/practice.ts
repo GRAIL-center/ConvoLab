@@ -3,6 +3,7 @@ import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { createSession } from '../../data/sessions.js';
 import { parseQuota } from '../../lib/quota.js';
+import { verifyRecaptcha } from '../../lib/recaptcha.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { generateToken } from '../../lib/tokens.js';
 import { publicProcedure, router } from '../procedures.js';
@@ -20,24 +21,9 @@ const startInput = z.object({
   recaptchaToken: z.string().min(1),
 });
 
-async function verifyRecaptcha(token: string): Promise<boolean> {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
-  if (!secret) {
-    // Fail closed in production; don't hard-block local dev when no key is configured.
-    return process.env.NODE_ENV !== 'production';
-  }
-  const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ secret, response: token }),
-  });
-  const data = (await res.json()) as { success?: boolean };
-  return data.success === true;
-}
-
 export const practiceRouter = router({
   start: publicProcedure.input(startInput).mutation(async ({ ctx, input }) => {
-    const humanVerified = await verifyRecaptcha(input.recaptchaToken);
+    const humanVerified = await verifyRecaptcha(input.recaptchaToken, ctx.req.log);
     if (!humanVerified) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captcha verification failed.' });
     }
