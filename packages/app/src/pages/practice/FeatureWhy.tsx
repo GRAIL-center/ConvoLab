@@ -14,17 +14,17 @@ function PushbackVisual() {
         <div
           className={`${bubble} max-w-[80%] self-start rounded-bl-md bg-white text-[#2a2824] dark:bg-[#24221d] dark:text-[#e8e4da]`}
         >
-          I just don’t buy that argument.
+          If we don't enforce the border, citizenship means nothing.
         </div>
         <div
           className={`${bubble} max-w-[80%] self-end rounded-br-md bg-[#171614] text-[#f7f5f0] dark:bg-[#eeeae1] dark:text-[#151513]`}
         >
-          What makes it feel wrong to you?
+          What worries you most about that, day to day?
         </div>
         <div
-          className={`${bubble} max-w-[65%] self-start rounded-bl-md bg-white text-[#2a2824] dark:bg-[#24221d] dark:text-[#e8e4da]`}
+          className={`${bubble} max-w-[80%] self-start rounded-bl-md bg-white text-[#2a2824] dark:bg-[#24221d] dark:text-[#e8e4da]`}
         >
-          Where do I start…
+          Wages. I've watched them stay flat for ten years.
         </div>
       </div>
     </div>
