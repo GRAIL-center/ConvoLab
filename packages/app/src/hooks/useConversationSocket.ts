@@ -16,6 +16,8 @@ export interface ScenarioInfo {
 	name: string;
 	description: string;
 	partnerPersona: string;
+	/** Scene-setting text for the empty conversation; absent for non-partisan scenarios. */
+	intro?: { heading: string; body: string };
 }
 
 export interface StudyInfo {
@@ -23,6 +25,12 @@ export interface StudyInfo {
 	topic: string;
 	condition: 0 | 1;
 	coachEnabled: boolean;
+	/**
+	 * True when the partner opened with a fixed statement, so the transcript
+	 * already holds a partner message at connect time. Optional so an older API
+	 * build degrades to the participant-first variant rather than crashing.
+	 */
+	partnerOpens?: boolean;
 	participantTurnCount: number;
 	softCapSeconds: number;
 	hardStopSeconds: number;

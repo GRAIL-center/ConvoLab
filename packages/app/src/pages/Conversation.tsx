@@ -9,10 +9,11 @@ import {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
-import { DesktopCoachPanel } from '../components/conversation/DesktopCoachPanel';
+import { CoachPanel } from '../components/conversation/CoachPanel';
 import { LappMetricsPanel } from '../components/conversation/LappMetricsPanel';
 import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
+import { MobileSheet } from '../components/conversation/MobileSheet';
 import { ConversationTour } from '../components/conversation/tour/ConversationTour';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
@@ -47,6 +48,25 @@ const SendIcon = () => (
       strokeLinejoin="round"
       d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"
     />
+  </svg>
+);
+
+const MetricsIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="w-5 h-5"
+    aria-hidden="true"
+  >
+    <path d="M4 20V10" />
+    <path d="M10 20V4" />
+    <path d="M16 20v-6" />
+    <path d="M22 20H2" />
   </svg>
 );
 
@@ -128,6 +148,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const trpc = useTRPC();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const coachInputRef = useRef<HTMLTextAreaElement>(null);
+  // The rail panel is still mounted (display:none) at narrow widths, so the
+  // coach tab's copy needs its own ref. Sharing one would point the quick-prompt
+  // focus at whichever textarea mounted last, which is the invisible one.
+  const mobileCoachInputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [partnerDraft, setPartnerDraft] = useState('');
   const [coachDraft, setCoachDraft] = useState('');
@@ -137,6 +161,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [fallbackSurveyUrl, setFallbackSurveyUrl] = useState<string | null>(null);
   const [isPostSurveyMissing, setIsPostSurveyMissing] = useState(false);
+  // Below lg the coach rail is gone, so the main pane switches between the
+  // partner conversation and the coach via tabs.
+  const [mobileView, setMobileView] = useState<'partner' | 'coach'>('partner');
+  const [isMetricsSheetOpen, setIsMetricsSheetOpen] = useState(false);
+  const [seenCoachCount, setSeenCoachCount] = useState(0);
 
   const {
     status,
@@ -238,10 +267,25 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const mainMessages = messages.filter((m) => m.role !== 'coach');
   const coachMessages = messages.filter((m) => m.role === 'coach');
-  const railsVisible = hasActivatedRails || mainMessages.length > 0 || tourKeepsRails;
+  // "The participant has started" is no longer "there are messages": in the
+  // partner-opens variant the transcript already holds the partner's opener
+  // when the page loads. The rails and the scene-setting card key on the
+  // participant's own first message, so a lone opener does not make the page
+  // behave as though the conversation is under way.
+  const hasParticipantMessage = mainMessages.some((m) => m.role === 'user');
+  const railsVisible = hasActivatedRails || hasParticipantMessage || tourKeepsRails;
+  // The composer floats in the middle of an empty pane and docks to the bottom
+  // once there is something to read above it. A partner opener is something to
+  // read, so it docks then even though the rails are still closed.
+  const composerDocked = railsVisible || mainMessages.length > 0;
   const shortName = getShortName(scenario);
   const isQuotaExhausted = quota?.exhausted === true;
   const coachEnabled = study?.coachEnabled !== false;
+  // Everything the coach has said: unprompted insights plus its answers to
+  // asides. The participant's own questions are not news to them.
+  const coachItemCount =
+    coachMessages.length + asideMessages.filter((m) => m.role === 'coach').length;
+  const unreadCoachCount = Math.max(0, coachItemCount - seenCoachCount);
   const isStudySession = study?.source === 'qualtrics_prolific';
   const participantTurnCount = mainMessages.filter((m) => m.role === 'user').length;
   const canFinishStudy = !study || participantTurnCount >= study.minParticipantTurns;
@@ -255,6 +299,30 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const showCanFinishNotice = pastSoftCap && !showWrapSoon && !hardStopped;
 
   const isInputDisabled = isStreaming || isQuotaExhausted || hardStopped;
+
+  // While the coach tab is showing the participant is looking at the thread,
+  // so new coach output arriving is already read.
+  useEffect(() => {
+    if (mobileView === 'coach') setSeenCoachCount(coachItemCount);
+  }, [mobileView, coachItemCount]);
+
+  // The rails come back at lg (coach) and xl (metrics). A coach tab or sheet
+  // left open past that point would show the same panel twice on one screen.
+  useEffect(() => {
+    const coachRail = window.matchMedia('(min-width: 1024px)');
+    const metricsRail = window.matchMedia('(min-width: 1280px)');
+    const sync = () => {
+      if (coachRail.matches) setMobileView('partner');
+      if (metricsRail.matches) setIsMetricsSheetOpen(false);
+    };
+    sync();
+    coachRail.addEventListener('change', sync);
+    metricsRail.addEventListener('change', sync);
+    return () => {
+      coachRail.removeEventListener('change', sync);
+      metricsRail.removeEventListener('change', sync);
+    };
+  }, []);
 
   const handleFinish = (
     endType: 'participant_finish' | 'early_exit' | 'soft_cap' | 'hard_stop'
@@ -363,7 +431,24 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          {/* Hidden at exactly the width where the metrics rail takes over.
+
+              Regular app only. The pilot is registered as desktop-only (PAP
+              3.1) and study participants are gated below 1024px before they
+              ever reach this page, so a study session must never be offered
+              the narrow-screen coach tab or metrics sheet: that would be a
+              different treatment surface from the registered one. */}
+          {!isStudySession && railsVisible && (
+            <button
+              type="button"
+              onClick={() => setIsMetricsSheetOpen(true)}
+              aria-label="Open conversation progress"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-[#5f5a51] transition-colors hover:bg-[#ece8dc] dark:text-[#aaa59b] dark:hover:bg-[#24231f] xl:hidden"
+            >
+              <MetricsIcon />
+            </button>
+          )}
           {isStudySession && (
             <button
               type="button"
@@ -401,10 +486,74 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
         </aside>
 
         <main data-tour="partner" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Below lg there is no coach rail, so the pane switches between the
+              partner and the coach. Partner-side elements are hidden rather
+              than unmounted so drafts and scroll position survive a switch. */}
+          {!isStudySession && railsVisible && coachEnabled && (
+            <div
+              role="tablist"
+              aria-label="Conversation view"
+              className="flex shrink-0 border-b border-[#ddd8cc] bg-[#fbfaf6] pt-2 dark:border-[#2b2925] dark:bg-[#151513] lg:hidden"
+            >
+              {(['partner', 'coach'] as const).map((view) => {
+                const isActive = mobileView === view;
+                const showUnread = view === 'coach' && !isActive && unreadCoachCount > 0;
+                return (
+                  <button
+                    key={view}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-label={showUnread ? `Coach, ${unreadCoachCount} new` : undefined}
+                    onClick={() => setMobileView(view)}
+                    className={`-mb-px flex min-w-0 flex-1 justify-center border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'border-[#24221d] text-[#24221d] dark:border-[#f2efe7] dark:text-[#f2efe7]'
+                        : 'border-transparent text-[#77736b] hover:text-[#24221d] dark:text-[#8f8a82] dark:hover:text-[#f2efe7]'
+                    }`}
+                  >
+                    {/* The dot hangs off the label so it doesn't push the
+                        text off-centre in its half. */}
+                    <span className="relative min-w-0 truncate">
+                      {view === 'partner' ? shortName : 'Coach'}
+                    </span>
+                    {showUnread && (
+                      <span className="relative ml-2 -mr-[18px] flex h-2.5 w-2.5 shrink-0 self-center">
+                        {/* Keyed on the count so the pulse replays for each new reply. */}
+                        <span
+                          key={unreadCoachCount}
+                          className="coach-dot-pulse absolute inset-0 rounded-full bg-[#2563eb] dark:bg-[#60a5fa]"
+                        />
+                        <span className="absolute inset-0 rounded-full bg-[#2563eb] dark:bg-[#60a5fa]" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {mobileView === 'coach' && (
+            <div className="min-h-0 flex-1 lg:hidden">
+              <CoachPanel
+                coachMessages={coachMessages}
+                asideMessages={asideMessages}
+                lappScores={lappScores}
+                coachDraft={coachDraft}
+                setCoachDraft={setCoachDraft}
+                onCoachKeyDown={handleCoachKeyDown}
+                onSendCoach={handleSendCoach}
+                coachInputRef={mobileCoachInputRef}
+                disabled={isAsideStreaming}
+                partnerName={shortName}
+              />
+            </div>
+          )}
+
           <div
             className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 ${
-              railsVisible ? 'pb-56' : 'pb-8'
-            }`}
+              composerDocked ? 'pb-8 md:pb-56' : 'pb-8'
+            } ${mobileView === 'coach' ? 'max-lg:hidden' : ''}`}
           >
             {mainMessages.length === 0 ? (
               <div
@@ -412,12 +561,16 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   railsVisible ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'
                 }`}
               >
-                <div className="w-full max-w-3xl -translate-y-12 pb-52 text-center">
+                <div className="w-full max-w-3xl text-center md:-translate-y-12 md:pb-52">
                   <h2 className="font-serif text-4xl text-[#2e2b25] dark:text-[#f2efe7]">
-                    {shortName} is ready when you are.
+                    {scenario?.intro
+                      ? scenario.intro.heading
+                      : `${shortName} is ready when you are.`}
                   </h2>
                   <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-[#726d64] dark:text-[#9d9890]">
-                    Open with a question. Listen before you push.
+                    {scenario?.intro
+                      ? scenario.intro.body
+                      : 'Open with a question. Listen before you push.'}
                   </p>
                 </div>
               </div>
@@ -430,6 +583,19 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   lappScores={lappScores}
                   showTone={coachEnabled}
                 />
+                {/* Partner-opens variant: the opener is already on screen but
+                    the participant has not spoken, so the scene-setting card
+                    still belongs here, under the bubble and above the input. */}
+                {!hasParticipantMessage && scenario?.intro && (
+                  <div className="mt-8 border-t border-[#e6e2d8] pt-8 text-center dark:border-[#2b2925]">
+                    <h2 className="font-serif text-3xl text-[#2e2b25] dark:text-[#f2efe7]">
+                      {scenario.intro.heading}
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-[#726d64] dark:text-[#9d9890]">
+                      {scenario.intro.body}
+                    </p>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
             )}
@@ -437,13 +603,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
           <div
             className={`absolute left-0 right-0 hidden px-6 transition-all duration-500 ease-out md:block ${
-              railsVisible
+              composerDocked
                 ? 'border-t border-[#ddd8cc] bg-[#fbfaf6]/95 py-4 dark:border-[#2b2925] dark:bg-[#151513]/95'
                 : 'pointer-events-none bg-transparent py-0'
-            }`}
+            } ${mobileView === 'coach' ? 'max-lg:hidden' : ''}`}
             style={{
-              top: railsVisible ? 'calc(100% - 196px)' : '58%',
-              transform: railsVisible ? 'translateY(0)' : 'translateY(-50%)',
+              top: composerDocked ? 'calc(100% - 196px)' : '58%',
+              transform: composerDocked ? 'translateY(0)' : 'translateY(-50%)',
             }}
           >
             <div className="mx-auto max-w-4xl">
@@ -455,7 +621,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               )}
               <div
                 className={`mb-3 flex items-center justify-between gap-3 text-sm text-[#77736b] transition-opacity duration-300 dark:text-[#8f8a82] ${
-                  railsVisible ? 'opacity-100' : 'opacity-0'
+                  composerDocked ? 'opacity-100' : 'opacity-0'
                 }`}
               >
                 <span>
@@ -514,7 +680,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               {!isStudySession && (
                 <div
                   className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
-                    railsVisible ? 'hidden' : 'pointer-events-auto opacity-100'
+                    composerDocked ? 'hidden' : 'pointer-events-auto opacity-100'
                   }`}
                 >
                   {OPENING_PROMPTS.map((prompt) => (
@@ -539,22 +705,14 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             </div>
           </div>
 
-          <div className="md:hidden">
+          <div className={mobileView === 'coach' ? 'hidden' : 'md:hidden'}>
             <MobileMessageInput
               onSendPartner={(content) => {
                 activateRails(content);
                 sendMessage(content);
               }}
-              onSendCoach={(content) => {
-                if (coachEnabled) startAside(content);
-              }}
               partnerName={shortName}
-              disabled={isStreaming || isAsideStreaming || isQuotaExhausted || hardStopped}
-              isInsightsOpen={false}
-              coachEnabled={coachEnabled}
-              onToggleInsights={() => {}}
-              onInputFocus={() => {}}
-              onInputBlur={() => {}}
+              disabled={isInputDisabled}
               onInputChange={activateRails}
             />
           </div>
@@ -568,7 +726,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             }`}
             aria-hidden={!railsVisible}
           >
-            <DesktopCoachPanel
+            <CoachPanel
               coachMessages={coachMessages}
               asideMessages={asideMessages}
               lappScores={lappScores}
@@ -591,6 +749,17 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
           onKeepRailsOpen={() => setTourKeepsRails(true)}
         />
       )}
+
+      {/* Regular app only, for the same reason as the header button above:
+          the pilot is registered desktop-only, so a study participant must
+          never see the metrics in a bottom sheet. */}
+      <MobileSheet
+        open={!isStudySession && isMetricsSheetOpen}
+        onClose={() => setIsMetricsSheetOpen(false)}
+        label="Conversation progress"
+      >
+        <LappMetricsPanel lappScores={lappScores} variant={coachEnabled ? 'full' : 'explanation'} />
+      </MobileSheet>
     </div>
   );
 }

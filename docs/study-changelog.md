@@ -7,13 +7,554 @@ git later. Times are UTC.
 Two mechanisms deliver changes, and they land at different moments:
 
 - **Code** reaches participants when a Cloud Run revision starts serving.
-- **Prompts** live in Firestore scenario documents and reach participants only
-  after a `seed:reference` run — a deploy alone does nothing for them.
+- **Prompts** live in Firestore scenario documents. Since 2026-09-27 the API
+  reconciles them from the repo at every startup, so a deploy carries them
+  (see the 2026-09-27 reconcile entry). Before that they reached participants only after a manual
+  `seed:reference` run.
 
 Both apply to **new sessions only**. A session stamps its partner and coach
 prompts into its own record at creation (`customPartnerPrompt`,
 `customCoachPrompt`, `customScenarioName`), so conversations already in flight
-keep whatever they started with.
+keep whatever they started with. Regular-app (invitation) sessions are the
+exception: they read their scenario's prompt live (see the 2026-09-27 reconcile entry).
+
+---
+
+## 2026-10-01: partner openers shortened to spoken length (code only, not yet live)
+
+- **Why.** The one-sentence openers of 30 Sep (see the entry below) still read
+  as written prose at 21 to 32 words each. The partner's later turns follow a
+  reply-length policy that aims at spoken sentences of 10 to 15 words, so the
+  opener was the longest sentence the participant saw from the partner.
+- **What changed.** All 14 topic openers (7 topics x 2 partner ideologies) and
+  the generic own-topic opener were replaced with new approved copy of 11 to
+  15 words each, one sentence stating the partner's position
+  (`packages/api/src/lib/partnerOpeners.ts`). They remain fixed text,
+  identical across participants in both arms for a given topic and partner
+  ideology. The intro card's closing question, "How do you respond?", is
+  unchanged.
+- **Test.** The copy test
+  (`packages/api/src/__tests__/partnerOpeners.safe.test.ts`) now bounds each
+  opener at 8 to 16 words; the one-sentence and no-dash rules are unchanged.
+- **Sessions affected.** New pilot sessions served by a revision that
+  includes this change. Sessions already in flight keep the opener they were
+  shown.
+
+---
+
+## 2026-09-30: partner openers shortened to one sentence; LAPP steps numbered on the landing page (code only, not yet live)
+
+- **Why.** In the user-testing round of 29 Sep the partner openers (two to
+  three sentences each) read long next to the new short-reply policy, where
+  the partner answers in one or two sentences. A tester also asked which order
+  the LAPP steps should be applied in, because the landing page showed them as
+  a grid.
+- **Partner openers.** Each of the 14 topic openers (7 topics x 2 partner
+  ideologies) and the generic own-topic opener is now one sentence that states
+  the partner's position (`packages/api/src/lib/partnerOpeners.ts`). The
+  closing questions ("Where do you land on that?", "How do you see it?") are
+  gone. The openers remain fixed, approved text, identical across
+  participants in both arms for a given topic and partner ideology. The intro
+  card's closing question, "How do you respond?", is unchanged and is the
+  invitation to reply. The copy test
+  (`packages/api/src/__tests__/partnerOpeners.safe.test.ts`) now requires
+  exactly one sentence, 12 to 40 words, and no em or en dash.
+- **LAPP steps.** The "Conversation framework" box on the pilot landing page
+  (`packages/app/src/pages/PilotLanding.tsx`) now lists the steps as a single
+  numbered column: 1. Listen, 2. Acknowledge, 3. Pivot, 4. Perspective. The
+  descriptions are unchanged. The conversation screen's "What LAPP Means"
+  panel is not changed.
+- **Sessions affected.** New pilot sessions served by a revision that
+  includes this change. Sessions already in flight keep the opener they were
+  shown.
+
+---
+
+## 2026-09-29 — coach panel highlights a newly arrived coach reply (treatment arm only; merged by Andrew as PR #129, entry added 30 Sep)
+
+When the coach posts an unprompted insight or answers a participant's question, the coach panel now shows a soft highlight ring around the new card for about two and a half seconds, so a participant who is reading the partner conversation notices that the coach has spoken. On narrow screens a dot appears on the coach icon; study sessions never show that icon, so this part does not reach the pilot. Nothing about the coach's text, timing or frequency changed, and the control arm has no coach panel, so it is unaffected. This is item #104 from the 15 September team meeting. It changes how noticeable the treatment is, not what it says, and is recorded here because anything a participant in either arm can see belongs in this log.
+
+---
+
+## 2026-09-27: a deploy now carries prompt and scenario changes (reference data reconciled at startup) (code only, not yet live)
+
+- **What it does.** Every time the API starts (every Cloud Run revision, every
+  new instance, every local restart) it runs `reconcileReferenceData()`
+  (`packages/database/seed/seedDatabase.ts`) before it starts listening. For
+  each scenario (keyed by slug) and each quota preset (keyed by name) in the
+  repo it compares a `contentHash` (sha256 over the seeded fields, listed in
+  `packages/database/seed/referenceHash.ts`) with the one stored on the
+  Firestore document. Missing documents are created, documents whose hash
+  differs are updated, equal ones are skipped. Each write is logged as
+  `reference_seed_created` or `reference_seed_upserted` with the slug and the
+  old and new hash; a run that writes nothing logs `reference_seed_unchanged`
+  with counts. Written documents also carry `seedVersion` (the commit, from the
+  `GIT_SHA` env var that `cloudbuild.yaml` now sets to the image tag) and
+  `seededAt`, so the export can say which commit last wrote a prompt.
+- **Practical consequence.** A prompt edit merged to `main` reaches new
+  sessions as soon as the new revision starts, no manual step. The first
+  deploy with this change rewrites every scenario once, because documents
+  seeded earlier carry no hash; after that only real changes are written.
+- **What it never touches.** Nothing is ever deleted. Only the `scenarios`
+  and `quotaPresets` collections are read or written; sessions, messages,
+  users and invitations are untouched. Updates merge into the stored
+  document, so fields the seed does not write (ids, anything added by hand)
+  survive; fields the seed does write are overwritten with the repo value.
+  Test data (the dev admin and test invitation) is still seeded only in
+  development and only into an empty database, exactly as before.
+- **Startup never fails on it.** A reconcile error is logged at error level
+  (`reference_seed_failed`) and the server carries on with whatever is stored.
+  The server waits at most 5 seconds for the reconcile before it starts
+  listening; if Firestore is slower, the reconcile finishes in the background
+  (`reference_seed_background`).
+- **In-flight study sessions are unaffected.** A study session copies its
+  partner and coach prompts into its own record at creation
+  (`customPartnerPrompt`, `customCoachPrompt`) and has no scenario id, so a
+  prompt change applies to sessions created after the reconcile only.
+- **Regular-app caveat.** Regular-app (invitation) sessions store only a
+  `scenarioId`. The WebSocket handler loads the scenario document when the
+  socket connects (`getSession` in `packages/api/src/data/sessions.ts`) and
+  `ws/conversation.ts` builds each turn's system prompt from
+  `scenario.partnerSystemPrompt` / `coachSystemPrompt` (and the scenario's
+  model and web-search flags). So a regular-app conversation that is in
+  progress when a reconcile changes its scenario switches to the new prompt
+  from its first turn after the socket reconnects, which a deploy normally
+  causes. This does not affect study sessions.
+- **Switch.** `SEED_REFERENCE_ON_START=false` (or `0`) turns startup seeding
+  off entirely; unset or anything else means on.
+- **Manual path kept.** `FIRESTORE_PROJECT_ID=convolab-490517 pnpm -F
+  @workspace/database seed:reference` still works, still refuses to run
+  without an explicit `FIRESTORE_PROJECT_ID`, and now calls the same
+  `reconcileReferenceData()`, so it writes only what changed and the two
+  paths cannot diverge. Adding `--dry-run` (or `RECONCILE_DRY_RUN=1`) reads
+  only and prints a table of what a real run would do: per scenario and
+  preset, create, update or unchanged, and for update the differing fields
+  (names, string lengths and sha256 only, never prompt text). A field the
+  seed leaves unset (for example a hand-set `coachModel`) shows as `kept`,
+  because updates merge and do not clear it.
+
+---
+
+## 2026-09-27 — persona prompts stored as plain text files (no change to any prompt text)
+
+- **What changed.** The four study persona prompts moved out of TypeScript
+  template strings (`packages/database/seed/prompts/*.ts`) into plain text
+  files: `maleMaga.txt`, `femaleMaga.txt`, `maleProgressive.txt` and
+  `femaleProgressive.txt` in the same folder. The seed now reads those files.
+  How to edit them is in `docs/prompts-workflow.md`.
+- **No prompt text changed.** Each .txt file was written from the old string
+  and checked to be byte-identical to it before the strings were deleted. All
+  eight seeded persona prompts (the 4 pilot scenarios and the 4 public-app
+  copies) have the same sha256 as before the move;
+  `seededPromptsUnchanged.test.ts` checks this against the values measured on
+  the old code.
+- **Why.** A prompt revision is now a readable text diff instead of an edit
+  inside code, and new text can be pasted in rather than retyped. It is also
+  groundwork for two planned changes: pulling the prompt text from the source
+  document automatically, and updating the scenario records at deploy time.
+- **Tests.** The old test pinned a hash of each prompt. It is replaced by
+  checks on the text files themselves: each file exists and is non-empty,
+  starts with `ROLE:`, has no stray whitespace, no em or en dash and no
+  competing reply-length rule, and within each ideology the male and female
+  prompts differ only in name and pronouns.
+- **Participants.** Nothing changes for participants, and no re-seed is
+  needed: the scenario records in Firestore already hold this exact text.
+
+---
+
+## 2026-09-26 — partner reply length: words-per-sentence and words-per-reply added to the runtime policy (code only, not yet live)
+
+- **What was added.** Two lines in `PARTNER_RESPONSE_POLICY`
+  (`packages/api/src/lib/partnerRuntimePrompt.ts`), placed right after the
+  1-3 sentence line: "Keep sentences short, usually under 15 words. Talk the
+  way people talk, not the way essays read." and "Most replies should be
+  under 40 words in total. Never go past 60." The rest of the policy is
+  unchanged.
+- **Why.** The sentence rule was being met while replies still read long. On
+  the 36 real sessions in the 25 Sep production export (206 partner replies),
+  79% of replies had 1-3 sentences, but the median reply was 55.5 words
+  (IQR 40 to 76), the median reply ran 19.0 words per sentence (IQR 15.0 to
+  25.5), only 25% of replies were under 40 words and 43% were over 60.
+  Three-sentence replies ran 55 to 70 words, about 20 to 23 words per
+  sentence. Spoken conversation runs 10 to 15 words per sentence.
+- **Same for everyone.** The policy is appended to every final partner prompt,
+  so the new lines apply identically to all personas, both ideologies, both
+  genders and both arms. `partnerReplyLength.safe.test.ts` now requires both
+  lines verbatim, still requires the policy exactly once and last in every
+  final partner prompt, and still requires the appended block to be
+  byte-identical across personas.
+- **Measured the same way.** `scripts/audit_reply_length.py` now also reports,
+  per group, the median [Q1-Q3] of words per sentence (computed per reply) and
+  the share of replies under 40 words and over 60 words. It still prints no
+  message text. The numbers above are the pre-change baseline.
+
+---
+
+## 2026-09-25 — partner runtime prompt: date is now the real date; reply-length policy covered by tests (code only, not yet live)
+
+- **Wrong date since the fact block was added.** The partner's runtime fact
+  block said "Today is August 6, 2026" as fixed text from the day it was
+  added, so every conversation since then told the partner the wrong date.
+  That matters whenever the partner reasons about current events or uses web
+  search. It now carries the actual date (UTC) at the time of each reply,
+  built by `buildFactContext()` in `packages/api/src/lib/partnerRuntimePrompt.ts`.
+  The coach's insight prompt, which reused the same block, gets the real date
+  too. The other three lines of the block are unchanged.
+- **Reply-length policy unchanged, now tested.** The policy text itself
+  (`PARTNER_RESPONSE_POLICY`: most replies 1-3 sentences, never past 4) is
+  unchanged. It moved verbatim from `ws/conversation.ts` into
+  `lib/partnerRuntimePrompt.ts` so tests can reach it. The final partner prompt
+  is built exactly as before.
+- **Prompt-level check.** `packages/api/src/__tests__/partnerReplyLength.safe.test.ts`
+  asserts that no seeded study or general-app persona (or study prompt) carries
+  a competing sentence or paragraph length rule, that the policy appears exactly
+  once and last in every final partner prompt with its 1-3 / max 4 wording, and
+  that the appended block is byte-identical across both ideologies and both
+  genders.
+- **Output-level check.** `scripts/audit_reply_length.py` measures real replies
+  from a de-identified export without printing any text. On the 36 real
+  sessions in the 25 Sep production export, 79% of partner replies were within
+  1-3 sentences overall (median 55 words), and 88% in the V3 period, which
+  covers only 6 sessions.
+
+---
+
+## 2026-09-25 — sessions now record which models they ran on (provenance for the frozen configuration; code only, not yet live)
+
+The pre-analysis plan pins the partner, coach and live-scorer models and
+requires the archive to say which model produced each transcript. Until now no
+session recorded a model. The export filled `partner_model` and `coach_model`
+from the live `scenarios` record, so it reported today's configuration rather
+than what ran, and for study sessions (which carry no `scenarioId`) it wrote
+null for both.
+
+- **What is stored.** At creation (`study.enter`) every study session now
+  stores three model identifiers: `studyPartnerModel`, `studyCoachModel` and
+  `studyScorerModel`. They are resolved by `packages/api/src/lib/modelResolution.ts`,
+  the same function the WebSocket handler uses at runtime, so the snapshot is
+  the model the handler would pick for that session.
+- **Runtime prefers the snapshot.** When a session carries the snapshot, the
+  partner, coach (insights and asides) and live scorer run on the stored models
+  and the `usageLogs` rows record them, so a later configuration change cannot
+  move a study session that is already in flight. Sessions without a snapshot
+  resolve exactly as before. Each connect of a study session logs
+  `study_models_resolved` with the three models.
+- **The export prefers the snapshot and flags rows without it.** Every record
+  now has `partner_model`, `coach_model`, a new `scorer_model`, and a boolean
+  `models_from_snapshot`. When the snapshot is present all three model columns
+  come from it and the flag is true. When it is absent the old fallback applies
+  (the live scenario record, null for study sessions), `scorer_model` is null,
+  and the flag is false. Only rows with the flag set are trustworthy provenance.
+- **Older sessions.** Sessions created before this change have no snapshot.
+  Their provenance is recoverable from the `usageLogs` collection, which holds
+  the `model` for each `sessionId` and `streamType` (`partner`, `coach`,
+  `aside`). The live scorer does not write usage rows, so for those sessions
+  the scorer model has to be taken from the deployed configuration at the time.
+
+No participant-facing change: the models a new study session runs on are the
+same as before.
+
+---
+
+## 2026-09-25 — export: coaching-engagement columns (analysis tooling only, no participant-facing change)
+
+The transcript export (`scripts/export_transcripts_firestore.py`) now writes
+three coaching-engagement columns into the `study` block of every study
+session, keyed by `session_id` like the rest of the record. They implement the
+"delivered" and "engaged with" links of the fidelity chain registered in
+pre-analysis plan Section 4.1.1 and listed in Appendix D:
+
+- `coach_insights_n`: the number of coach messages delivered on the main
+  thread (role `coach`, message type `main` or missing). This is "delivered".
+- `coach_aside_n`: the number of messages the participant wrote to the coach
+  (role `user`, message type `aside`). This is "engaged with".
+- `coach_aside`: 1 if `coach_aside_n` is at least 1, otherwise 0.
+
+The columns are computed from the session's messages at export time, not read
+from a stored session field, so they sit outside the `STUDY_FIELDS` mapping and
+the export schema guard in `packages/api` is unaffected. Non-study sessions
+keep `study: null` as before. The arm is not special-cased: a control session
+has no coach messages, so it reads 0, 0 and 0 by construction, and a nonzero
+control value would itself flag a delivery fault. `--stats` gains a matching
+line per condition giving how many study sessions have `coach_aside` = 1 and
+the mean `coach_insights_n`.
+
+`turns` is unchanged. It already carried every message, asides and coach
+messages included, each tagged with its role and type, and the DQI loader
+drops them before scoring, so asides remain outside the scored transcript. The
+counting rule lives in one pure function, `coaching_engagement()`, covered by
+three pytest cases in `scripts/tests/test_export_engagement.py`.
+
+Nothing a participant sees or does is affected. The exporter is a read-only
+analysis script that runs on a researcher's machine, so no deploy and no
+`seed:reference` run is needed.
+
+---
+
+## 2026-09-23 — pilot stays desktop-only: mobile controls hidden in study sessions, viewport gate on entry (code only, not yet live)
+
+Pre-analysis plan Section 3.1 registers the pilot as a laptop or desktop study:
+the coach sits in a rail beside the conversation, which the layout only does at
+Tailwind's `lg` breakpoint and above, 1024 pixels. Nothing enforced that until
+now. PR #114 (22 Sep) added phone support to the app: header buttons that open
+the coach and the LAPP radar in bottom sheets on narrow screens, hidden again
+at `lg` and `xl` where the rails reappear. That work is for the regular app and
+stays there. Left ungated it would quietly have given study participants a
+treatment surface the plan never registered, a coach summoned into a sheet over
+the conversation rather than one sitting beside it throughout. That is the
+August B6 problem in reverse: the same mismatch between what the plan registers
+and what participants actually see.
+
+Two changes, both code only, neither live yet.
+
+First, the mobile coach and metrics controls are rendered only when the session
+is not a study session. Both header buttons and both bottom sheets in
+`Conversation.tsx` are now gated on the same `isStudySession` flag the page
+already uses for the study header and the finish button. Regular app behaviour
+is unchanged at every width.
+
+Second, entry to the pilot is gated on width. On `/pilot` and `/study`, if the
+browser window is narrower than 1024 pixels the page does not create a session.
+It shows a full page notice headed "Please use a laptop or desktop computer",
+telling the participant to open the link on a laptop or desktop computer or to
+widen the window. The check runs before `study.enter` fires, so a participant
+who arrives on a phone leaves behind no session row, no assigned condition and
+no stub transcript, and can reopen the same link on a laptop later as if for
+the first time. The notice re-checks on window resize, debounced at 200
+milliseconds, and clears itself once the window is wide enough: `/study` then
+runs its enter flow, and `/pilot` returns to the normal landing page with the
+Start conversation button. The threshold lives in one constant,
+`STUDY_MIN_VIEWPORT_WIDTH` in `packages/app/src/lib/studyViewport.ts`, tied
+there to PAP 3.1 and to the Tailwind `lg` breakpoint.
+
+The gate is width only. It does not look at user agent or touch capability, so
+a touchscreen laptop passes and a desktop browser window dragged narrow does
+not, which is the property the plan actually cares about: whether the
+registered layout is available, not what kind of device is in the
+participant's hands. Regular app routes are untouched; nothing outside `/pilot`
+and `/study` is gated on width.
+
+Blocks are observable. The first block of a page visit calls a new
+`study.deviceBlocked` mutation, which writes nothing to the database and logs
+one line at info with `event: 'study_device_blocked'`, the participant id, the
+Qualtrics response id, the viewport width, the viewport height and which of the
+two routes was blocked, so the rate is queryable in Cloud Run logs during
+fielding. It reports once per visit rather than once per resize, and the call
+is fire and forget, so a participant who is already being turned away never
+also sees an error from the logging. Nothing is written to the database because
+no session exists yet and the participant may widen the window a moment later
+and take part normally, so a row would record an attempt rather than an
+outcome. As with `study_reentry_blocked`, the log line is what actually records
+this: `track()` is a no-op in this deployment.
+
+The Prolific device screen remains the first layer. Participants are screened
+to desktop there before they ever reach a ConvoLab link, and this gate is the
+backstop for anyone who opens the link on a phone anyway, from a saved link or
+an email. It tells them what to do instead of letting them start a session the
+plan cannot use.
+
+---
+
+## 2026-09-23 — partner-opens variant behind a per-session flag (code only, not yet live)
+
+Today the participant always writes first: they meet a scene-setting card, an
+empty conversation, and the question "How do you begin?". This adds the other
+variant, where the partner speaks first, and puts it behind a per-session
+boolean so the two can be split-tested with user testers before one is locked
+in for the pilot.
+
+The flag is `studyPartnerOpens` on the session. It is set from the URL
+parameter `partnerOpens` (also `PartnerOpens` or `partneropens`;
+`1`/`0`/`true`/`false` all work) on both `/study` and `/pilot`, and a link that
+says nothing falls back
+to `STUDY_PARTNER_OPENS_DEFAULT` in `packages/api/src/trpc/routers/study.ts`,
+which is currently **false**: participant-first, exactly as today. The default
+lives in two places and they have to flip together: that constant, which is the
+one that decides anything, and `PARTNER_OPENS_DEFAULT` in `PilotLanding.tsx`,
+which only decides which sentence the landing page shows when the link is
+silent. A link that carries an unrecognised value (anything other than `1`,
+`0`, `true` or `false`) is refused with "Invalid partnerOpens value." rather
+than quietly running the default, because a session that ran the wrong variant
+cannot be repaired afterwards. Because the flag is stamped on the session at
+creation, a conversation keeps whatever variant it started with.
+
+The opener is fixed text, not generated. There is one written opener per topic
+crossed with partner ideology (seven topics, two ideologies) plus one generic
+opener for a participant who picked their own topic, in
+`packages/api/src/lib/partnerOpeners.ts`. Every participant on a given topic
+and partner ideology reads the identical first message, so the stimulus is the
+same for all of them and the first participant turn is a response to a known
+prompt rather than to whatever the model produced that day. The openers are
+identical in the coaching and control arms; nothing about them varies by
+condition. `study.enter` writes the opener straight to the transcript as the
+first partner message before the participant's socket opens, so it arrives in
+the normal history replay and survives a refresh. That write happens after the
+session row exists, so the WebSocket layer seeds the opener on connect if it
+finds a partner-opens session with an empty transcript, logging
+`partner_opener_seeded_on_connect`; if the session has no usable partner
+ideology it logs `partner_opener_seed_skipped` and runs without an opener
+rather than guessing which side the partner is on. The seed is guarded on an
+empty transcript, so it cannot fire twice or reach a conversation already
+under way.
+
+The partner's system prompt is branched to match: in this variant it is told it
+has already opened, must not restate the opening, and must keep its first reply
+short. That block replaces the whole participant-first instruction, so the
+sentence "Say one thing you believe and stop; you have the rest of the
+conversation to make the case." is dropped along with it; the opener already
+did that job. Everything else in the prompt is identical between the two
+variants.
+
+This also corrects a pre-existing inconsistency, which affected only the
+coaching arm. Turn numbering counted asides, so a participant who asked the
+coach a question before writing anything to the partner had their real first
+turn numbered 2: the coach and the scorer treated it as a mid-conversation
+turn, and the stored LAPP `turnNumber` stopped lining up with the client's walk
+over main messages. Turn numbering now counts main-thread participant messages
+only, which is the rule the rest of the app already used.
+
+Coach and live-scorer timing follows the same flag, with no second flag to
+keep in sync. Unprompted coaching and live LAPP scoring are still withheld
+from an exchange where the participant opened cold, but when the partner
+opens, the participant's first turn is already a response, so both run from
+turn 1. The rule is one function, `shouldRunPostExchangeJobs` in
+`packages/api/src/lib/postExchangeGate.ts`, with unit tests for all four
+cases. On that turn the coach and the scorer are also handed the opener as
+context, labelled as the partner's opening statement, because neither of them
+is given conversation history: without it they would be judging a reply to
+something they cannot read. Nothing else in either prompt changes, and on
+every later turn the prompts are byte-identical to today's.
+
+The scene-setting card changes one sentence: "How do you begin?" becomes "How
+do you respond?" when the partner has opened. Everything else in the card is
+unchanged. The card now stays on screen until the participant's own first
+message rather than until the first message of any kind, so in this variant
+the reader sees the partner's bubble with the card beneath it, above the
+input. The side rails and the LAPP panel also wait for the participant's first
+message, so a lone opener does not make the page look like a conversation
+already under way. On the pilot landing page the treatment-arm support box
+says "From your first message onward" instead of "From your second message
+onward" when the link turns the variant on.
+
+Exports carry the flag as the column `partner_opens` in the study block of
+`scripts/export_transcripts_firestore.py`, so a transcript can always be
+assigned to the variant it ran under, including the mixed set of user-testing
+sessions this will produce. It is exported as a plain true/false: sessions
+created before today have no such field and all ran participant-first, so they
+are coerced to false rather than exported as null, which would have made the
+column three-valued for no reason.
+
+Standing consequence for the pre-analysis plan, to act on when the variant is
+chosen: if partner-first is the version that ships, Appendix B's rule
+excluding the participant's opening turn from Listen and Acknowledge has to be
+dropped, and the scoring prompt updated to match. That rule exists only
+because a participant who opens cold has nothing to listen to or acknowledge.
+When the partner opens, the first turn is a response like any other, and
+excluding it would discard the turn that the manipulation is most likely to
+affect. Note that the frozen LAPP scoring prompt (`lapp_prompt_v4.txt` in the
+dqi-scoring pipeline) still carries that exclusion, so any partner-opens
+user-testing transcript scored before that prompt is revised is scored under
+the participant-first rule and its first-turn Listen and Acknowledge values
+should not be read as measurements.
+
+---
+
+## 2026-09-21 — one conversation per participant, enforced (code only, not yet live)
+
+A participant who finished their conversation and then reopened the study link
+used to get a brand-new session. `study.enter` resumed a prior session only
+while it was still ACTIVE with no `endedAt`, and otherwise fell through to
+creating one. Two such pairs are in the August test data: one participant
+exited and reopened the link 15 seconds later, producing a second transcript
+with the same condition, topic and partner.
+
+It now starts nothing. A returning participant whose conversation has ended
+sees "You have already had this conversation" and a button to the final
+survey, on both `/study` (the route the pre-survey redirects to) and `/pilot`.
+An in-progress conversation still resumes on refresh, unchanged.
+
+The finished session is deliberately NOT reopened: nothing in the WebSocket
+layer refuses messages on a COMPLETED session, so reopening it would let a
+participant extend a transcript that is already an outcome measure.
+
+Re-entry attempts are logged by the API at info level with
+`event: 'study_reentry_blocked'`, so the rate is queryable in Cloud Run logs
+during fielding. They also emit the matching telemetry event, but note that
+`track()` is a no-op in this deployment (`lib/telemetry.ts`), so the log line
+is what actually records it.
+
+The decision rule lives in `packages/api/src/lib/studySessionDecision.ts` with
+11 unit tests, including one that reproduces the August pair. Pre-analysis plan
+5.1 gains a matching "One conversation per participant" paragraph: if a
+participant somehow holds two sessions, the earliest by entry timestamp is the
+one analysed, a rule that refers only to entry order and never to transcript
+content.
+
+---
+
+## 2026-09-21 — pilot landing page: corrected when the coach starts suggesting (code only, not yet live)
+
+The treatment-arm support box said "Once you send your first message, a coach
+appears beside the conversation with suggestions...". The coach panel does open
+that early, and a participant can ask it a question from the start, but its
+unprompted suggestions are deliberately withheld until the first exchange is
+complete (`conversation.ts`: "Skip coach on the first exchange — let the user
+form their own response first"). Every coaching transcript to date confirms it:
+the first coach message lands after the participant's second message, unless
+the participant wrote to the coach first.
+
+Now reads: "A coach appears beside the conversation as soon as you start. From
+your second message onward it will offer feedback and suggestions. You can also
+ask it questions directly at any point." (Wording set by Hanna, 21 Sep. An
+earlier revision on the same day named the four LAPP steps here; they were
+dropped as redundant, since the Conversation framework box immediately below
+already sets out Listen, Acknowledge, Pivot and Perspective.)
+
+Treatment arm only, since the box is shown only when condition = 1. No
+behaviour change; the copy now matches what the platform does. The wording
+deliberately does not explain why the first turn is left alone, to avoid
+drawing attention to a turn that is itself scored post-hoc.
+
+---
+
+## 2026-09-16 — scene-setting intro replaces the empty-conversation copy (code only, not yet live)
+
+Before the participant's first message the conversation page used to read
+"<Name> is ready when you are. Open with a question. Listen before you push."
+It now reads, for a study session:
+
+> **Meet Megan.** She is a conservative who sees immigration differently from
+> you. You have just sat down together and the topic has come up. Imagine this
+> is a real conversation. How do you begin?
+
+Name, pronoun, ideology label (liberal / conservative) and topic come from the
+session's partner assignment. For "Pick your own topic" the sentence says
+"sees politics differently from you" and "the topic you chose has come up",
+since free text cannot be slotted into the sentence safely. Identical in both
+arms; the old copy was also shown to both arms. Wording agreed by the team,
+15 Sep 2026.
+
+Public-app sessions with a partisan persona get the same intro with "sees things
+differently from you" and no topic clause; the angry uncle, coworker and custom scenarios keep the old copy.
+Participant turns are still the participant's own: the intro is text on the
+page, not a message, and is not part of the transcript.
+
+---
+
+## 2026-09-16 — NOT A STUDY CHANGE: public-app personas get their own names (code only, not yet live)
+
+The four study personas now exist twice in the seed. The pilot records
+(`progressive-left-*`, `populist-right-*`) are unchanged: Mark Johnson and
+Megan Johnson, matched across ideology, tagged `audience: 'pilot'` and hidden
+from the public scenario picker. Four public-app copies (`general-*`) are
+generated from the same prompt text by name substitution: Joshua Moore and
+Emily Davis (progressive), Ryan Taylor and Ashley Brown (right-populist). The
+public names were chosen to sit with each persona's politics in FEC-donor and
+voter-file name data while staying racially unmarked; the pilot keeps matched
+names so the ideology contrast is not confounded with the name.
+
+Study sessions are unaffected: `study.ts` resolves the pilot slugs directly.
+Takes effect only after merge, deploy AND a reference-data re-seed.
 
 ---
 

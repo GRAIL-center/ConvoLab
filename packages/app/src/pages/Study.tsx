@@ -2,6 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
+import { useStudyViewportGate } from '../hooks/useStudyViewportGate';
+import { STUDY_NARROW_VIEWPORT_BODY, STUDY_NARROW_VIEWPORT_TITLE } from '../lib/studyViewport';
 
 const VALID_TOPICS = [
   'Environment',
@@ -23,6 +25,16 @@ function isStudyTopic(value: string): value is StudyTopic {
 
 function isBinaryParam(value: string): value is BinaryParam {
   return value === '0' || value === '1';
+}
+
+// The partner-opens variant is set from the link, and the two variants are
+// being split-tested by hand, so the link is written by a person as often as by
+// Qualtrics. Accept the spellings a person actually types.
+function parsePartnerOpensParam(value: string): BinaryParam | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true') return '1';
+  if (normalized === '0' || normalized === 'false') return '0';
+  return undefined;
 }
 
 function getFirstSearchParam(searchParams: URLSearchParams, names: string[]) {
@@ -52,12 +64,30 @@ function StudyShell({ children }: { children: ReactNode }) {
   );
 }
 
-function StatusPanel({ title, message }: { title: string; message: string }) {
+function StatusPanel({
+  title,
+  message,
+  actionHref,
+  actionLabel,
+}: {
+  title: string;
+  message: string;
+  actionHref?: string | null;
+  actionLabel?: string;
+}) {
   return (
     <StudyShell>
       <div className="mx-auto max-w-lg rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] p-7 text-center shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]">
         <h2 className="font-serif text-3xl text-[#24221d] dark:text-[#f2efe7]">{title}</h2>
         <p className="mt-3 leading-7 text-[#6f6a61] dark:text-[#9d9890]">{message}</p>
+        {actionHref && actionLabel && (
+          <a
+            href={actionHref}
+            className="mt-6 inline-flex rounded-full bg-[#24221d] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#3a362f] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white"
+          >
+            {actionLabel}
+          </a>
+        )}
       </div>
     </StudyShell>
   );
@@ -79,6 +109,14 @@ export function Study() {
     const ideology = getFirstSearchParam(searchParams, ['ideology', 'PartnerIdeology']);
     const party = getFirstSearchParam(searchParams, ['party', 'Party']) || undefined;
     const owntopic = getFirstSearchParam(searchParams, ['owntopic', 'TopicOwn']) || undefined;
+    // Omitted means "whatever the server's default is", which is deliberately
+    // not decided here; only an explicit value is sent.
+    const partnerOpensRaw = getFirstSearchParam(searchParams, [
+      'partnerOpens',
+      'PartnerOpens',
+      'partneropens',
+    ]);
+    const partnerOpens = partnerOpensRaw ? parsePartnerOpensParam(partnerOpensRaw) : undefined;
 
     if (!pid) return { ok: false as const, error: 'Missing participant ID.' };
     if (!isStudyTopic(topic)) return { ok: false as const, error: 'Missing or invalid topic.' };
@@ -91,28 +129,57 @@ export function Study() {
     if (!isBinaryParam(ideology)) {
       return { ok: false as const, error: 'Missing or invalid partner ideology assignment.' };
     }
+    // A typo'd flag must not quietly run the other variant: a session assigned
+    // to the wrong arm is unrecoverable once the conversation has happened.
+    if (partnerOpensRaw && !partnerOpens) {
+      return { ok: false as const, error: 'Invalid partnerOpens value.' };
+    }
 
     return {
       ok: true as const,
-      input: { pid, topic, condition, partner, ideology, party, rid, owntopic },
+      input: { pid, topic, condition, partner, ideology, party, rid, owntopic, partnerOpens },
     };
   }, [searchParams]);
+
+  const viewportBlocked = useStudyViewportGate({
+    route: 'study',
+    pid: parsed.ok ? parsed.input.pid : undefined,
+    rid: parsed.ok ? parsed.input.rid : undefined,
+  });
 
   const enterMutation = useMutation({
     ...trpc.study.enter.mutationOptions(),
   });
 
+  // This page enters on mount, so the width gate has to sit in the same
+  // condition: a participant who arrives on a phone must leave no session
+  // behind. When the window becomes wide enough the gate clears, this effect
+  // runs again, and the enter flow starts by itself.
   useEffect(() => {
-    if (parsed.ok && !enterMutation.isPending && !enterMutation.isSuccess && !enterMutation.isError) {
+    if (
+      parsed.ok &&
+      !viewportBlocked &&
+      !enterMutation.isPending &&
+      !enterMutation.isSuccess &&
+      !enterMutation.isError
+    ) {
       enterMutation.mutate(parsed.input);
     }
-  }, [enterMutation, parsed]);
+  }, [enterMutation, parsed, viewportBlocked]);
 
   useEffect(() => {
-    if (enterMutation.data) {
+    // alreadyCompleted means the server declined to start a second
+    // conversation for this participant; there is nothing to open.
+    if (enterMutation.data && !enterMutation.data.alreadyCompleted) {
       navigate(`/conversation/${enterMutation.data.sessionId}`, { replace: true });
     }
   }, [enterMutation.data, navigate]);
+
+  // Before the link is even checked: at this width nothing on this page can go
+  // forward, and the notice clears itself once the window is wide enough.
+  if (viewportBlocked) {
+    return <StatusPanel title={STUDY_NARROW_VIEWPORT_TITLE} message={STUDY_NARROW_VIEWPORT_BODY} />;
+  }
 
   if (!parsed.ok) {
     return (
@@ -128,6 +195,21 @@ export function Study() {
       <StatusPanel
         title="Study setup problem"
         message="We could not start the conversation from this link. Please return to the survey tab and try again."
+      />
+    );
+  }
+
+  if (enterMutation.data?.alreadyCompleted) {
+    return (
+      <StatusPanel
+        title="You have already had this conversation"
+        message={
+          enterMutation.data.postSurveyUrl
+            ? 'Each participant has one conversation, so there is nothing more to do here. Continue to the final survey to finish the study.'
+            : 'Each participant has one conversation, so there is nothing more to do here. Please return to the survey tab to finish the study.'
+        }
+        actionHref={enterMutation.data.postSurveyUrl}
+        actionLabel="Continue to final survey"
       />
     );
   }

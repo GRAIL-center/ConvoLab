@@ -48,6 +48,15 @@ export interface ScenarioInfo {
   description: string;
   partnerPersona: string;
   isCustom?: boolean;
+  /** Scene-setting text for the empty conversation; absent for scenarios without a partisan partner. */
+  intro?: ConversationIntro;
+}
+
+export interface ConversationIntro {
+  /** "Meet Megan." */
+  heading: string;
+  /** "She is a conservative who sees immigration differently from you. ..." */
+  body: string;
 }
 
 export interface StudyInfo {
@@ -55,6 +64,11 @@ export interface StudyInfo {
   topic: string;
   condition: 0 | 1;
   coachEnabled: boolean;
+  /**
+   * True when the partner sent a fixed opening message before the participant
+   * wrote, so the transcript already has a partner bubble at connect time.
+   */
+  partnerOpens: boolean;
   participantTurnCount: number;
   softCapSeconds: number;
   hardStopSeconds: number;

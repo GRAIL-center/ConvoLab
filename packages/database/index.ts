@@ -1,4 +1,4 @@
-import { FieldValue } from '@google-cloud/firestore';
+import { FieldValue, Timestamp } from '@google-cloud/firestore';
 import type { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
 import { getFirestoreClient } from './src/firestoreClient.js';
 
@@ -53,6 +53,34 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     !(value instanceof Date) &&
     !Array.isArray(value)
   );
+}
+
+/**
+ * Recursively converts Firestore `Timestamp` values to JS `Date`s.
+ *
+ * Firestore stores JS Dates as Timestamps and `doc.data()` returns them as
+ * Timestamps, but callers of this Prisma-shaped shim expect Dates. The
+ * difference is not cosmetic: `Timestamp`'s string primitive is on an
+ * epoch-seconds scale, so `someTimestamp < new Date()` is true even for a
+ * timestamp in the far future. That exact comparison in
+ * `getValidInvitation` made every invitation read as expired (B26).
+ */
+function convertTimestamps(value: unknown): unknown {
+  if (value instanceof Timestamp) return value.toDate();
+  if (Array.isArray(value)) return value.map(convertTimestamps);
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(value)) {
+      out[key] = convertTimestamps(inner);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Reads a snapshot's data with Timestamps converted to Dates. */
+function docData<T>(doc: FirebaseFirestore.DocumentSnapshot): T {
+  return convertTimestamps(doc.data()) as T;
 }
 
 function applyFieldOps(
@@ -261,7 +289,7 @@ async function findUnique<T>(
   if ('id' in where && where.id !== undefined && where.id !== null) {
     const doc = await col(model).doc(toDocId(where.id)).get();
     if (!doc.exists) return null;
-    const row = { ...(doc.data() as T), id: doc.id } as T;
+    const row = { ...docData<T>(doc), id: doc.id } as T;
     return select ? applySelect(row as any, select) : row;
   }
 
@@ -280,7 +308,7 @@ async function findUnique<T>(
   const snapshot = await query.limit(1).get();
   if (snapshot.empty) return null;
   const doc = snapshot.docs[0];
-  const row = { ...(doc.data() as T), id: doc.id } as T;
+  const row = { ...docData<T>(doc), id: doc.id } as T;
   return select ? applySelect(row as any, select) : row;
 }
 
@@ -304,7 +332,7 @@ async function findMany<T>(model: string, args?: FindManyArgs): Promise<T[]> {
   const snapshot = await query.get();
   let results: T[] = [];
   snapshot.forEach((doc) => {
-    results.push({ ...(doc.data() as T), id: doc.id } as T);
+    results.push({ ...docData<T>(doc), id: doc.id } as T);
   });
 
   if (hasDistinct) {
@@ -357,7 +385,7 @@ async function update<T>(
   const doc = await ref.get();
 
   return {
-    ...(doc.data() as T),
+    ...docData<T>(doc),
     id: doc.id,
   } as T & { id: string };
 }
@@ -402,7 +430,7 @@ async function upsert<T extends Record<string, any>>(
   const finalDoc = await ref.get();
 
   return {
-    ...(finalDoc.data() as T),
+    ...docData<T>(finalDoc),
     id: finalDoc.id,
   } as T & { id: string };
 }
@@ -721,7 +749,27 @@ export function createPrismaClient(
 // '@workspace/database' directly at startup (auto-seeding reference/test
 // data). They were previously only reachable via a relative cross-package
 // path that isn't part of this package's public "exports" map.
-export { isDatabaseEmpty, seedReferenceData, seedTestData } from './seed/seedDatabase.js';
+export {
+  formatReconcileReport,
+  isDatabaseEmpty,
+  type ReconcileAction,
+  type ReconcileOptions,
+  type ReconcileReportEntry,
+  type ReferenceReconcileSummary,
+  type ReferenceSeedEvent,
+  reconcileReferenceData,
+  type SeedOptions,
+  seedReferenceData,
+  seedTestData,
+} from './seed/seedDatabase.js';
+export {
+  computeContentHash,
+  currentSeedVersion,
+  diffSeededFields,
+  type FieldDiff,
+  QUOTA_PRESET_HASH_FIELDS,
+  SCENARIO_HASH_FIELDS,
+} from './seed/referenceHash.js';
 
 type FirestoreShimRecord = Record<string, any>;
 

@@ -25,7 +25,7 @@ export function InvitationList() {
 
   // Use unknown casting instead of explicit any to satisfy the linter
   const { data: scenarios } = useQuery({
-    ...trpc.scenario.list.queryOptions(),
+    ...trpc.scenario.list.queryOptions({ includePilot: true }),
   }) as unknown as { data: { id: number; name: string }[] | undefined };
 
   const { data: presets } = useQuery({

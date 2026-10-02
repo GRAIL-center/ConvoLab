@@ -302,14 +302,14 @@ export function LappMetricsPanel({ lappScores, variant = 'full' }: LappMetricsPa
 
   if (variant === 'explanation') {
     return (
-    <div className="flex h-full flex-col overflow-y-auto px-7 py-7 text-[#1A1A1A] dark:text-[#EBEBEB]">
+      <div className="flex h-full flex-col overflow-y-auto px-7 py-7 text-[#1A1A1A] dark:text-[#EBEBEB]">
         <LappExplanation />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden px-6 py-5 text-[#1A1A1A] dark:text-[#EBEBEB]">
+    <div className="flex h-full flex-col overflow-y-auto px-6 py-5 text-[#1A1A1A] dark:text-[#EBEBEB]">
       <div className="space-y-3.5">
         <div className="px-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#77736b] dark:text-[#8c8880]">

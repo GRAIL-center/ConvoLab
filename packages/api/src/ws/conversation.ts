@@ -18,53 +18,52 @@ import {
 } from '../data/index.js';
 
 //import { DEFAULT_MODEL } from '../lib/constants.js';
-/**
- * Reply-length policy for every partner turn.
- *
- * This lives here, not in the persona prompts, for two reasons. It applies
- * identically to all personas by construction, so a left/right verbosity gap
- * cannot creep back in when one side's persona is revised and the other's is
- * not — partner ideology is a randomised factor, and a systematic verbosity
- * difference between the arms would be indistinguishable from an ideology
- * effect. And it ships with a deploy rather than needing a re-seed, so changing
- * it does not depend on remembering a second step.
- *
- * It is appended last, after the persona, so it wins over any length guidance
- * a supplied persona document carries — and it says so explicitly rather than
- * leaving the model to reconcile two rules.
- *
- * The 1-3 sentence target was measured, not guessed: 97 real pilot turns had a
- * median of 53 words with half of all replies inside a narrow 40-66 word band,
- * which read as both too long and too scripted.
- */
-const PARTNER_RESPONSE_POLICY = `RESPONSE LENGTH:
-- Vary how long your replies are. Replies that are all the same size read as scripted, and that matters more than any single reply being well-argued.
-- Most replies should be 1-3 sentences. A single line is often the strongest answer.
-- Use 4 sentences only when you are directly challenged, correcting a misreading, or the point genuinely needs it. Do not go past 4.
-- Do not make every point you could make in one turn. Leave something for the next one.
-- Short does not mean shallow, and it does not mean backing down.
-- This supersedes any length guidance earlier in your instructions, including any "3-6 sentences" rule. Where they disagree, follow this.
 
-Do not ask follow-up questions.`;
-
-const DEFAULT_GOOGLE_MODEL = 'google:gemini-2.5-flash';
-const DEFAULT_MODEL = DEFAULT_GOOGLE_MODEL;
-
+import {
+  buildConversationIntro,
+  type IntroGender,
+  type IntroIdeology,
+  personaFromScenarioSlug,
+} from '../lib/conversationIntro.js';
+import {
+  DEFAULT_PARTNER_MODEL,
+  defaultCoachModel,
+  isAnthropicModel,
+  type ModelEnv,
+  type ProviderAvailability,
+  resolveConfiguredModel as resolveConfiguredModelFor,
+  resolveSessionModels,
+  type SessionModels,
+} from '../lib/modelResolution.js';
+import { getPartnerOpener } from '../lib/partnerOpeners.js';
+import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
+import { openingPartnerMessage, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
+import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage } from '../llm/types.js';
-import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
-// Default models for custom scenarios
-// Study conversation partner pinned to Claude Sonnet (PAP v7.8; Hanna 9 Aug 2026).
-// With a Claude default here, resolveConfiguredModel no longer silently falls back
-// to Gemini for the partner — the partner REQUIRES ANTHROPIC_API_KEY to be set.
-const DEFAULT_PARTNER_MODEL = 'claude-sonnet-5';
-const DEFAULT_COACH_MODEL = DEFAULT_GOOGLE_MODEL;
-const DEFAULT_SCORER_MODEL = process.env.LAPP_SCORER_MODEL ?? DEFAULT_GOOGLE_MODEL;
+function isIntroGender(value: unknown): value is IntroGender {
+  return value === 'male' || value === 'female';
+}
+
+function isIntroIdeology(value: unknown): value is IntroIdeology {
+  return value === 'left' || value === 'right';
+}
+
+// Default models for custom scenarios. The partner, coach and scorer defaults
+// and their COACH_MODEL / LAPP_SCORER_MODEL overrides live in
+// lib/modelResolution.ts, which the study router also uses to snapshot the
+// models onto a study session, so the two cannot disagree. The environment is
+// read once at module load, as it always has been here.
+const MODEL_ENV: ModelEnv = {
+  COACH_MODEL: process.env.COACH_MODEL,
+  LAPP_SCORER_MODEL: process.env.LAPP_SCORER_MODEL,
+};
+const DEFAULT_COACH_MODEL = defaultCoachModel(MODEL_ENV);
 // claude-sonnet-4-20250514 is deprecated/retired; claude-sonnet-5 is its drop-in replacement
 const FALLBACK_PARTNER_MODEL = 'claude-sonnet-5';
 // Emergency partner lane. Note FALLBACK_PARTNER_MODEL is now identical to
@@ -102,13 +101,6 @@ const LAPP_RESPONSE_SCHEMA = {
   required: ['l', 'a', 'p', 'pe', 'tone'],
   propertyOrdering: ['l', 'a', 'p', 'pe', 'tone'],
 } as const;
-const CURRENT_FACT_CONTEXT = `
-Runtime factual context:
-- Today is August 6, 2026.
-- The current U.S. president is Donald J. Trump, sworn in on January 20, 2025.
-- For current-events or "right now" factual questions, use web search/grounding when available and let current evidence override stale model memory.
-- Do not claim Joe Biden is the current U.S. president unless current search evidence explicitly says that.
-`;
 
 const ASIDE_INSTRUCTIONS = `
 When responding to an aside question (marked with [ASIDE QUESTION]):
@@ -166,8 +158,8 @@ function hasAnthropicProvider(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
 }
 
-function isAnthropicModel(modelString: string): boolean {
-  return modelString.startsWith('anthropic:') || modelString.startsWith('claude');
+function currentProviders(): ProviderAvailability {
+  return { anthropic: hasAnthropicProvider(), google: hasGoogleProvider() };
 }
 
 /**
@@ -193,10 +185,7 @@ function shouldEmergencyFallback(
 }
 
 function resolveConfiguredModel(modelString: string, fallbackModel = DEFAULT_COACH_MODEL): string {
-  if (isAnthropicModel(modelString) && !hasAnthropicProvider() && hasGoogleProvider()) {
-    return fallbackModel;
-  }
-  return modelString;
+  return resolveConfiguredModelFor(modelString, fallbackModel, currentProviders());
 }
 
 function isLikelyIncompleteCoachMessage(content: string): boolean {
@@ -264,9 +253,22 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
   customCoachPrompt: string | null;
   studySource?: string | null;
   studyTopic?: string | null;
+  studyOwnTopic?: string | null;
+  studyPartnerGender?: string | null;
+  studyPartnerIdeology?: string | null;
   studyCondition?: number | null;
   studyCoachEnabled?: boolean | null;
+  /** True when the partner opened with a fixed statement before the participant wrote. */
+  studyPartnerOpens?: boolean | null;
   studyConversationStartedAt?: Date | string | null;
+  /**
+   * Models snapshotted onto a study session at creation (study.enter). When
+   * set they win over the live configuration, so a config change cannot move
+   * an in-flight study session onto a different model.
+   */
+  studyPartnerModel?: string | null;
+  studyCoachModel?: string | null;
+  studyScorerModel?: string | null;
 }
 
 export class ConversationManager {
@@ -328,6 +330,26 @@ export class ConversationManager {
     return 0;
   }
 
+  /**
+   * The partner, coach and scorer models this session runs on: the snapshot
+   * stored on a study session when present, else the live resolution. Each
+   * snapshot field is used only when set, so sessions without one (every
+   * non-study session, and study sessions created before the snapshot
+   * existed) resolve exactly as before.
+   */
+  private sessionModels(): SessionModels {
+    const live = resolveSessionModels({
+      scenario: this.session.scenario,
+      env: MODEL_ENV,
+      providers: currentProviders(),
+    });
+    return {
+      partner: this.session.studyPartnerModel || live.partner,
+      coach: this.session.studyCoachModel || live.coach,
+      scorer: this.session.studyScorerModel || live.scorer,
+    };
+  }
+
   async initialize(): Promise<void> {
     const scenario = this.session.scenario;
 
@@ -352,7 +374,40 @@ export class ConversationManager {
     }
 
     const isStudySession = this.session.studySource === 'qualtrics_prolific';
+    if (isStudySession) {
+      const models = this.sessionModels();
+      this.logger.info(
+        {
+          event: 'study_models_resolved',
+          sessionId: this.session.id,
+          partner: models.partner,
+          coach: models.coach,
+          scorer: models.scorer,
+          fromSnapshot: !!this.session.studyPartnerModel,
+        },
+        '[study] session models resolved'
+      );
+    }
     const elapsedSecondsAtConnect = isStudySession ? await this.resolveStudyElapsedSeconds() : 0;
+
+    // Scene-setting text for the empty conversation. Study sessions carry the
+    // partner's gender, ideology and topic on the session; public-app sessions
+    // recover gender and ideology from the partisan scenario slug and have no
+    // topic. Other scenarios (angry uncle, custom) get none.
+    const persona = isStudySession
+      ? isIntroGender(this.session.studyPartnerGender) &&
+        isIntroIdeology(this.session.studyPartnerIdeology)
+        ? { gender: this.session.studyPartnerGender, ideology: this.session.studyPartnerIdeology }
+        : null
+      : personaFromScenarioSlug(scenario?.slug);
+    if (persona) {
+      scenarioInfo.intro = buildConversationIntro({
+        partnerName: scenarioInfo.partnerPersona,
+        ...persona,
+        topic: isStudySession ? this.session.studyTopic : undefined,
+        partnerOpens: this.session.studyPartnerOpens === true,
+      });
+    }
 
     send(this.ws, {
       type: 'connected',
@@ -364,6 +419,10 @@ export class ConversationManager {
             topic: this.session.studyTopic ?? '',
             condition: this.session.studyCondition === 1 ? 1 : 0,
             coachEnabled: this.isCoachEnabled(),
+            // Which variant this session runs. The client needs it because the
+            // partner's opener is already in `history`, so "no messages yet" no
+            // longer means "the participant has not started".
+            partnerOpens: this.session.studyPartnerOpens === true,
             participantTurnCount: this.countParticipantTurns(),
             // softCap is no longer a deadline: it is the point where the
             // participant is free to finish. They may keep talking until
@@ -375,6 +434,41 @@ export class ConversationManager {
           }
         : undefined,
     });
+
+    // Fallback only: the opener is written by study.enter when the session is
+    // created (trpc/routers/study.ts), and that stays the primary path. But
+    // that write happens after createSession, so if it throws the participant
+    // lands on a partner-opens session with no partner bubble and an intro
+    // card asking how they respond to nothing. Seeding it here repairs that on
+    // connect. Guarded on an empty transcript, which makes it idempotent
+    // across reconnects and means it can never insert an opener into a
+    // conversation that is already under way.
+    if (this.session.studyPartnerOpens === true && this.session.messages.length === 0) {
+      const ideology = this.session.studyPartnerIdeology;
+      if (isIntroIdeology(ideology)) {
+        const opener = await this.persistMessage(
+          'partner',
+          getPartnerOpener(this.session.studyTopic ?? '', ideology)
+        );
+        this.session.messages.push(opener);
+        this.logger.info(
+          { sessionId: this.session.id, event: 'partner_opener_seeded_on_connect' },
+          '[study] partner opener was missing on connect and has been seeded'
+        );
+      } else {
+        // Which opener to use is determined by the partner's ideology. Picking
+        // one without it would assign the participant a partner position at
+        // random, so the session runs without an opener instead.
+        this.logger.warn(
+          {
+            sessionId: this.session.id,
+            event: 'partner_opener_seed_skipped',
+            studyPartnerIdeology: ideology ?? null,
+          },
+          '[study] partner-opens session has no opener and no usable partner ideology; not guessing one'
+        );
+      }
+    }
 
     const historyMessages: HistoryMessage[] = this.session.messages.map((m) => ({
       id: m.id,
@@ -429,7 +523,13 @@ export class ConversationManager {
       const userMsg = await this.persistMessage('user', content);
       this.session.messages.push(userMsg);
 
-      const turnNumber = this.session.messages.filter((m) => m.role === 'user').length;
+      // Main-thread turns only. This used to count asides too, so a coaching-arm
+      // participant who asked the coach a question before writing to the partner
+      // had their real first turn numbered 2: the coach and scorer treated it as
+      // a mid-conversation turn, and the stored LAPP turnNumber no longer lined
+      // up with the client's walk over main user messages. countParticipantTurns
+      // is the same rule the connected payload already reports.
+      const turnNumber = this.countParticipantTurns();
       await track(
         this.prisma,
         TelemetryEvents.MESSAGE_SENT,
@@ -463,19 +563,32 @@ export class ConversationManager {
         return;
       }
 
-      // Skip coach on the first exchange — let the user form their own response first.
-      const isFirstExchange = this.session.messages.filter((m) => m.role === 'user').length === 1;
+      // Skip coach on the first exchange — let the user form their own response
+      // first. Unless the partner opened, in which case that turn is already a
+      // response; see lib/postExchangeGate.ts for the rule and the reasoning.
+      const partnerOpens = this.session.studyPartnerOpens === true;
 
       send(this.ws, { type: 'exchange:complete' });
       await this.logUsage(partnerResult.usage, null);
       await this.checkQuotaWarning();
 
-      if (!isFirstExchange) {
+      if (shouldRunPostExchangeJobs({ partnerOpens, participantTurnCount: turnNumber })) {
         void this.runPostExchangeJobs({
           userMessageId: userMsg.id,
           userMessage: content,
           partnerMessage: partnerResult.content,
           turnNumber,
+          // On turn 1 of the partner-opens variant the participant is replying
+          // to the fixed opener, and neither the coach nor the scorer is given
+          // conversation history — they see only this exchange. Without the
+          // opener they would judge a reply to something they cannot read.
+          // openingPartnerMessage walks the transcript in order and stops at
+          // the participant's first main message, so it cannot return the
+          // partner's reply to this very turn, which is already in `messages`.
+          precedingPartnerMessage:
+            partnerOpens && turnNumber === 1
+              ? openingPartnerMessage(this.session.messages)
+              : undefined,
         });
       }
     } catch (error) {
@@ -517,6 +630,8 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
+    /** The partner's opening statement, when the exchange is a reply to it. */
+    precedingPartnerMessage?: string;
   }): Promise<void> {
     const coachJob = this.isCoachEnabled()
       ? this.generateCoachInsight(args).catch((error: unknown) => {
@@ -534,7 +649,8 @@ export class ConversationManager {
       args.userMessageId,
       args.userMessage,
       args.partnerMessage,
-      args.turnNumber
+      args.turnNumber,
+      args.precedingPartnerMessage
     ).catch((error: unknown) => {
       this.logger.warn(
         {
@@ -591,21 +707,18 @@ export class ConversationManager {
     let modelString: string;
     let systemPrompt: string;
 
+    // For a custom or study session (no scenario) the live resolution is the
+    // plain default, exactly as the old `role === 'partner' ? DEFAULT_PARTNER_MODEL
+    // : DEFAULT_COACH_MODEL` was: resolving a default against itself is a no-op.
+    const models = this.sessionModels();
     if (scenario) {
-      modelString =
-        role === 'partner'
-          ? (scenario.partnerModel ?? DEFAULT_PARTNER_MODEL)
-          : (scenario.coachModel ?? DEFAULT_COACH_MODEL);
-      modelString = resolveConfiguredModel(
-        modelString,
-        role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL
-      );
+      modelString = role === 'partner' ? models.partner : models.coach;
       systemPrompt =
         role === 'partner'
           ? (scenario.partnerSystemPrompt ?? scenario.description)
           : (scenario.coachSystemPrompt ?? scenario.description);
     } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
-      modelString = role === 'partner' ? DEFAULT_PARTNER_MODEL : DEFAULT_COACH_MODEL;
+      modelString = role === 'partner' ? models.partner : models.coach;
       systemPrompt =
         role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
     } else {
@@ -613,7 +726,7 @@ export class ConversationManager {
     }
 
     if (role === 'partner') {
-      systemPrompt += `\n\n${CURRENT_FACT_CONTEXT}\n${PARTNER_RESPONSE_POLICY}`;
+      systemPrompt = buildPartnerSystemPrompt(systemPrompt);
     }
     if (role === 'coach') {
       systemPrompt +=
@@ -1005,10 +1118,11 @@ export class ConversationManager {
     userMessageId: string | number,
     userMessage: string,
     partnerMessage: string,
-    turnNumber: number
+    turnNumber: number,
+    precedingPartnerMessage?: string
   ): Promise<void> {
     const startMs = Date.now();
-    const model = resolveConfiguredModel(DEFAULT_SCORER_MODEL, DEFAULT_SCORER_MODEL);
+    const model = this.sessionModels().scorer;
 
     try {
       const controller = new AbortController();
@@ -1024,6 +1138,9 @@ export class ConversationManager {
               role: 'user',
               content: [
                 `Turn: ${turnNumber}`,
+                ...(precedingPartnerMessage
+                  ? [`Partner's opening statement: ${precedingPartnerMessage}`]
+                  : []),
                 `User message: ${userMessage}`,
                 `Partner reply: ${partnerMessage}`,
                 'Use 0-5 integer scores for:',
@@ -1102,10 +1219,12 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
+    /** The partner's opening statement, when the exchange is a reply to it. */
+    precedingPartnerMessage?: string;
   }): Promise<void> {
     const startMs = Date.now();
     const scenario = this.session.scenario;
-    const model = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
+    const model = this.sessionModels().coach;
     const basePrompt =
       scenario?.coachSystemPrompt ??
       this.session.customCoachPrompt ??
@@ -1119,7 +1238,7 @@ export class ConversationManager {
       for await (const chunk of streamCompletion(model, {
         systemPrompt: [
           basePrompt,
-          CURRENT_FACT_CONTEXT,
+          buildFactContext(),
           'You are the coach only. You are not the partner character.',
           'Give one short, complete coaching insight to the user about their latest reply.',
           'Do not role-play the partner. Do not answer as the partner. Do not continue the partner conversation.',
@@ -1131,6 +1250,9 @@ export class ConversationManager {
             role: 'user',
             content: [
               `Turn: ${args.turnNumber}`,
+              ...(args.precedingPartnerMessage
+                ? [`Partner's opening statement: ${args.precedingPartnerMessage}`]
+                : []),
               `User message: ${args.userMessage}`,
               `Partner reply: ${args.partnerMessage}`,
               'Return only the coaching insight text.',
@@ -1254,6 +1376,11 @@ export class ConversationManager {
   private buildContext(role: 'partner' | 'coach'): LLMMessage[] {
     const messages = this.session.messages;
     if (role === 'partner') {
+      // In the partner-opens variant this context starts with an assistant
+      // message, which is intentional: verified against claude-sonnet-5 on the
+      // dev stack, 23 Sep 2026 (session 2lpQMC8bduL2BgvfOxWU, attempt 0, no
+      // retries). A provider that rejects a leading assistant message would
+      // have to be handled here, not by inventing a synthetic user turn.
       return messages
         .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
         .map((m) => ({
@@ -1342,8 +1469,13 @@ export class ConversationManager {
 
   private async logUsage(partnerUsage: TokenUsage, coachUsage: TokenUsage | null): Promise<void> {
     const scenario = this.session.scenario;
-    const partnerModel = resolveConfiguredModel(scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL);
-    const coachModel = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_COACH_MODEL);
+    // The snapshot, when a study session has one, is what the streams ran on.
+    // Otherwise unchanged. Note the live partner line resolves with the coach
+    // default as its fallback, unlike streamResponse; left as it was.
+    const partnerModel =
+      this.session.studyPartnerModel ||
+      resolveConfiguredModel(scenario?.partnerModel ?? DEFAULT_PARTNER_MODEL);
+    const coachModel = this.sessionModels().coach;
 
     const partnerEntry = {
       sessionId: this.session.id,
@@ -1512,7 +1644,11 @@ export class ConversationManager {
     usage: TokenUsage;
   } | null> {
     const scenario = this.session.scenario;
-    const modelString = resolveConfiguredModel(scenario?.coachModel ?? DEFAULT_MODEL);
+    // DEFAULT_COACH_MODEL, not DEFAULT_MODEL: an aside is the coach speaking, so
+    // it has to land on the same model as its unprompted insights. Falling back
+    // to the generic default put the two halves of one coach on two different
+    // models, and left asides on Google after COACH_MODEL moved the insights.
+    const modelString = this.sessionModels().coach;
     const systemPrompt =
       (scenario?.coachSystemPrompt ?? this.session.customCoachPrompt ?? '') + ASIDE_INSTRUCTIONS;
 
@@ -1648,7 +1784,9 @@ export class ConversationManager {
   }
 
   private async logAsideUsage(usage: TokenUsage): Promise<void> {
-    const coachModel = resolveConfiguredModel(this.session.scenario?.coachModel ?? DEFAULT_MODEL);
+    // Must match the resolution in streamAside above, or the usage row records
+    // a model the aside never ran on.
+    const coachModel = this.sessionModels().coach;
     await this.prisma.usageLog.create({
       data: {
         sessionId: this.session.id,

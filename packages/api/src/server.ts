@@ -13,10 +13,11 @@ if (process.env.SENTRY_DSN) {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
+import { canonicalRedirectTarget } from './lib/canonicalHost.js';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { isDatabaseEmpty, seedReferenceData, seedTestData } from '@workspace/database';
+import { isDatabaseEmpty, reconcileReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
 import { db as prisma } from './db/firestoreHelpers.js';
 
@@ -26,6 +27,7 @@ import {
   logStartupDiagnostics,
   runStartupChecks,
 } from './lib/startup-checks.js';
+import { runStartupSeedingOnce } from './lib/startupSeeding.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
@@ -50,6 +52,24 @@ if (process.env.SENTRY_DSN) {
 logStartupDiagnostics(fastify.log);
 fastify.log.info(`AI providers available: ${getAIProviderSummary()}`);
 fastify.log.info(`Firestore target: ${getFirestoreTargetSummary()}`);
+
+// Serve the app on one hostname only. www.convolab.us is mapped to this same
+// service, and two live origins would split the session cookie and break the
+// single-origin CORS allowlist below, so the www form is redirected here
+// rather than served. Registered before every other route so it applies to
+// static files, tRPC and the WebSocket upgrade alike.
+fastify.addHook('onRequest', async (request, reply) => {
+  const target = canonicalRedirectTarget(
+    request.headers.host,
+    request.url,
+    process.env.FRONTEND_URL
+  );
+  if (target) {
+    // 301: the canonical host is not expected to change, and a permanent
+    // redirect stops the browser re-asking on every subsequent request.
+    return reply.redirect(target, 301);
+  }
+});
 
 // Register plugins
 await fastify.register(cors, {
@@ -171,19 +191,20 @@ if (!isDev) {
 
 const start = async () => {
   try {
-    // Auto-seed reference data (quota presets, scenarios) in all environments
-    try {
-      if (await isDatabaseEmpty(prisma)) {
-        const logOpts = { log: (msg: string) => fastify.log.info(msg) };
-        await seedReferenceData(prisma, logOpts);
-        // Only seed test data (test admin, test invitation) in development
-        if (isDev) {
-          await seedTestData(prisma, logOpts);
-        }
-      }
-    } catch (seedErr) {
-      fastify.log.error({ err: seedErr }, 'Database seeding failed; continuing without seed data');
-    }
+    // Reconcile reference data (quota presets, scenarios and their prompts)
+    // on every start, so a deploy carries prompt changes. Writes only what
+    // changed; never deletes; never fails startup. Waits a few seconds before
+    // listening, then lets a slow run finish in the background. Test data is
+    // still dev-only and empty-database-only. SEED_REFERENCE_ON_START=false
+    // turns it off. See lib/startupSeeding.ts.
+    await runStartupSeedingOnce({
+      prisma,
+      log: fastify.log,
+      isDev,
+      isDatabaseEmpty,
+      reconcileReferenceData,
+      seedTestData,
+    });
 
     const port = parseInt(process.env.PORT || '3000', 10);
     const host = process.env.HOST || '0.0.0.0';

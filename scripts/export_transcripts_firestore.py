@@ -76,8 +76,61 @@ transcripts can never be joined to the survey again — which is the intended
 property, so decide deliberately.
 
 Note `participant_NNNN` pseudonyms are sequential and therefore export-order
-dependent. They are readable labels, NOT join keys. Always join on
-`survey_join_key`.
+dependent. They are readable labels, NOT join keys.
+
+Three keys are available, in order of convenience:
+
+  1. `session_id` <-> the post-survey's `AppSessionID` embedded field. The app
+     sets it on the redirect and the live post-survey captures it, so this is a
+     plain merge with no salt. Use this for transcripts <-> POST-survey.
+  2. `study.qualtrics_response_id` <-> the PRE-survey's `ResponseId` column.
+     The pre-survey passes its own ResponseID on the redirect. Use this for
+     transcripts <-> PRE-survey.
+  3. `survey_join_key` for an analysis that must carry no raw ids, as above.
+
+     CAUTION on (2): a ResponseID is not unique per transcript. One pre-survey
+     response can produce several app sessions if the participant re-opens the
+     link, and the 20 September test data contains two such pairs. Joining on it
+     is one-to-many; decide which session counts (the PAP's rule) before
+     merging, or join on session_id, which is unique.
+
+------------------------------------------------------------------------------
+THE STUDY BLOCK
+------------------------------------------------------------------------------
+Every record has a `study` key. For a non-study session it is null. For a
+study session (`studySource` set) it holds the stored session fields listed in
+STUDY_FIELDS (condition, topic, partner ideology, end_type, ...) plus three
+coaching-engagement columns computed from the session's messages rather than
+read from the session document (pre-analysis plan 4.1.1, Appendix D):
+
+  - coach_insights_n: coach messages delivered on the main thread (role
+    `coach`, messageType `main` or missing). "Delivered" in the fidelity chain.
+  - coach_aside_n:    participant messages written to the coach (role `user`,
+    messageType `aside`). "Engaged with".
+  - coach_aside:      1 if coach_aside_n >= 1 else 0.
+
+Control-arm sessions have no coach, so they come out 0/0/0 by construction.
+These columns do not change `turns`, which still carries every message
+(asides and coach messages included, each tagged with its `type` and `role`);
+asides stay out of the scored transcript because the DQI loader drops them.
+
+------------------------------------------------------------------------------
+MODEL PROVENANCE
+------------------------------------------------------------------------------
+Every record carries four top-level model columns (session_models()):
+
+  - partner_model, coach_model, scorer_model: the models the session ran on.
+  - models_from_snapshot: True when all three were read from the snapshot the
+    study flow stores on the session at creation (studyPartnerModel,
+    studyCoachModel, studyScorerModel; since 2026-09-25). Only these rows say
+    reliably which model produced the transcript.
+
+When a session has no snapshot, partner_model/coach_model fall back to the
+LIVE `scenarios` record for the session's scenarioId, i.e. today's
+configuration rather than what actually ran, and scorer_model is null.
+Study sessions carry no scenarioId, so without a snapshot all three are null.
+For those rows (models_from_snapshot False) recover provenance from the
+`usageLogs` collection (`model` per `sessionId` and `streamType`).
 """
 
 import argparse
@@ -151,6 +204,11 @@ STUDY_FIELDS = {
     "studyPartnerIdeologyRandomized": "partner_ideology_randomized",
     "studyPartnerGender": "partner_gender",
     "studyPartnerGenderCode": "partner_gender_code",
+    # True when the partner sent a fixed opening message and the participant's
+    # first turn is therefore a response, not an opening. It changes who speaks
+    # first, when the coach starts, and whether the first participant turn is
+    # eligible for Listen/Acknowledge scoring, so it has to reach analysis.
+    "studyPartnerOpens": "partner_opens",
     "studyEnteredAt": "entered_at",
     # entered_at is stamped at Qualtrics entry; conversation_started_at is stamped
     # when the participant actually opens the conversation socket. The gap between
@@ -163,6 +221,25 @@ STUDY_FIELDS = {
     "studyEndType": "end_type",
     "studyRedirectedAt": "redirected_at",
     "participantTurnCount": "participant_turn_count",
+    # The pre-survey's own Qualtrics ResponseID, handed to the app on the
+    # redirect (`rid=${e://Field/ResponseID}`). This is the link to the
+    # PRE-survey row. It is an opaque Qualtrics response id, not a person, so
+    # it is exported raw for the same reason session_id is: the alternative is
+    # forcing every join through the salted key even in testing, where there
+    # is no Prolific PID to protect. The direct identifier (prolificPid) still
+    # never leaves, and the app-to-POST-survey join runs on AppSessionID =
+    # session_id, which the post-survey captures as embedded data.
+    "qualtricsResponseId": "qualtrics_response_id",
+}
+
+
+# Per-field coercions applied on top of the generic STUDY_FIELDS mapping.
+STUDY_FIELD_COERCIONS = {
+    # Sessions created before the partner-opens variant existed carry no such
+    # field, and every one of them ran participant-first, so False is the truth
+    # for them. Exporting null instead would make the variant column
+    # three-valued and leave every analysis to decide what null meant.
+    "studyPartnerOpens": bool,
 }
 
 
@@ -170,7 +247,49 @@ def study_block(s):
     """Study/RCT metadata for a session, or None for a non-study session."""
     if not s.get("studySource"):
         return None
-    return {out: jsonable(s.get(src)) for src, out in STUDY_FIELDS.items()}
+    block = {}
+    for src, out in STUDY_FIELDS.items():
+        coerce = STUDY_FIELD_COERCIONS.get(src)
+        value = s.get(src)
+        block[out] = coerce(value) if coerce else jsonable(value)
+    return block
+
+
+def coaching_engagement(messages):
+    """Coaching-engagement counts for one session's messages (PAP 4.1.1).
+
+    Pure function of the message dicts, so it is testable without Firestore.
+    A message without `messageType` is a main-thread message, matching the
+    `messageType` default used everywhere else in this script.
+    """
+    insights = sum(1 for m in messages
+                   if m.get("role") == "coach"
+                   and m.get("messageType", "main") == "main")
+    asides = sum(1 for m in messages
+                 if m.get("role") == "user" and m.get("messageType") == "aside")
+    return {
+        "coach_insights_n": insights,
+        "coach_aside_n": asides,
+        "coach_aside": 1 if asides >= 1 else 0,
+    }
+
+
+def session_models(s, scenario):
+    """Model provenance columns for one session (see MODEL PROVENANCE above).
+
+    Pure function of the session and scenario dicts, so it is testable without
+    Firestore. The snapshot wins field by field; models_from_snapshot is True
+    only when all three snapshot fields are present.
+    """
+    partner = s.get("studyPartnerModel")
+    coach = s.get("studyCoachModel")
+    scorer = s.get("studyScorerModel")
+    return {
+        "partner_model": partner or scenario.get("partnerModel"),
+        "coach_model": coach or scenario.get("coachModel"),
+        "scorer_model": scorer or None,
+        "models_from_snapshot": bool(partner and coach and scorer),
+    }
 
 
 def load_collection(db, name):
@@ -262,6 +381,22 @@ def show_stats(db):
                             ("studyPartnerIdeology", "partner ideology")):
             dist = Counter(str(s.get(field)) for s in study)
             print(f"  {name}: " + ", ".join(f"{k}={v}" for k, v in sorted(dist.items())))
+        # Coaching engagement (PAP 4.1.1): the same computation the export
+        # writes into each study block. Control should read 0 and 0.00; a
+        # nonzero control figure means coach messages reached the wrong arm.
+        eng_by_cond = defaultdict(list)
+        for sid, s in sessions.items():
+            if s.get("studySource"):
+                eng_by_cond[str(s.get("studyCondition"))].append(
+                    coaching_engagement(by_session.get(str(sid), [])))
+        print("  coaching engagement by condition "
+              "(sessions with coach_aside=1 / n, mean coach_insights_n):")
+        for cond in sorted(eng_by_cond):
+            rows = eng_by_cond[cond]
+            n_aside = sum(r["coach_aside"] for r in rows)
+            mean_ins = sum(r["coach_insights_n"] for r in rows) / len(rows)
+            print(f"    condition {cond}: coach_aside=1 in {n_aside}/{len(rows)}, "
+                  f"mean coach_insights_n {mean_ins:.2f}")
     print()
 
 
@@ -316,18 +451,24 @@ def export(db, args):
                                  "pe": sc.get("pe"), "tone": sc.get("tone")}
                 turns.append(t)
 
+            study = study_block(s)
+            if study is not None:
+                # Computed from messages, not stored on the session, so these
+                # sit outside STUDY_FIELDS. Non-study sessions keep study=null.
+                study.update(coaching_engagement(msgs))
+
             rec = {
                 "session_id": sid,
                 "participant": pseudonym(s.get("userId"), salt, cache, counter),
                 # Join key to the Qualtrics survey export. Never the raw PID.
                 "survey_join_key": survey_join_key(s.get("prolificPid"), salt),
-                "study": study_block(s),
+                "study": study,
                 "scenario": scenario.get("name") or s.get("customScenarioName"),
                 "scenario_slug": scenario.get("slug"),
                 "partner_persona": s.get("customPartnerPersona")
                 or scenario.get("partnerPersona"),
-                "partner_model": scenario.get("partnerModel"),
-                "coach_model": scenario.get("coachModel"),
+                # partner_model, coach_model, scorer_model, models_from_snapshot
+                **session_models(s, scenario),
                 "status": s.get("status"),
                 "started_at": jsonable(s.get("startedAt")),
                 "ended_at": jsonable(s.get("endedAt")),

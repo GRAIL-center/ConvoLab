@@ -6,11 +6,12 @@ import {
   type SetStateAction,
   useEffect,
   useRef,
+  useState,
 } from 'react';
 import Markdown from 'react-markdown';
 import type { AsideMessage, LappScore, Message } from '../../hooks/useConversationSocket';
 
-interface DesktopCoachPanelProps {
+interface CoachPanelProps {
   coachMessages: Message[]; // automatic coach responses (role=coach)
   asideMessages: AsideMessage[]; // user Q&A with coach
   lappScores: Map<string, LappScore>;
@@ -72,6 +73,12 @@ function getCardStyle(tone: Tone | null) {
   }
 }
 
+// How long a newly arrived coach reply keeps its highlight ring.
+const HIGHLIGHT_MS = 2500;
+
+const highlightRing =
+  'ring-2 ring-[rgba(100,180,175,0.8)] shadow-[0_0_24px_rgba(134,199,194,0.55)] dark:ring-[rgba(134,199,194,0.6)] dark:shadow-[0_0_24px_rgba(134,199,194,0.3)]';
+
 // Coach icon (navigation compass / pin)
 function CoachIcon({ className }: { className?: string }) {
   return (
@@ -98,12 +105,22 @@ function CoachIcon({ className }: { className?: string }) {
   );
 }
 
-function CoachInsightCard({ message, tone }: { message: Message; tone: Tone | null }) {
+function CoachInsightCard({
+  message,
+  tone,
+  highlighted,
+}: {
+  message: Message;
+  tone: Tone | null;
+  highlighted: boolean;
+}) {
   const { title, body } = parseCoachMessage(message.content);
   const style = getCardStyle(tone);
 
   return (
-    <div className={`${style.bg} border ${style.border} rounded-xl p-4 transition-colors`}>
+    <div
+      className={`${style.bg} border ${style.border} rounded-xl p-4 transition-[color,background-color,border-color,box-shadow] duration-1000 ${highlighted ? highlightRing : ''}`}
+    >
       {title && (
         <div className={`flex items-center gap-1.5 mb-2`}>
           <CoachIcon className={`w-3.5 h-3.5 ${style.iconColor} flex-shrink-0`} />
@@ -138,12 +155,18 @@ function AsideQuestionCard({ message }: { message: AsideMessage }) {
   );
 }
 
-function AsideResponseCard({ message }: { message: AsideMessage }) {
+function AsideResponseCard({
+  message,
+  highlighted,
+}: {
+  message: AsideMessage;
+  highlighted: boolean;
+}) {
   return (
     <div
-      className="bg-[rgba(212,232,229,0.3)] dark:bg-[rgba(212,232,229,0.08)]
+      className={`bg-[rgba(212,232,229,0.3)] dark:bg-[rgba(212,232,229,0.08)]
                     border border-[rgba(180,210,205,0.6)] dark:border-[rgba(212,232,229,0.12)]
-                    rounded-xl p-3"
+                    rounded-xl p-3 transition-shadow duration-1000 ${highlighted ? highlightRing : ''}`}
     >
       <div
         className="text-sm text-[#1A1A1A] dark:text-[#D4D4D4] leading-relaxed
@@ -156,7 +179,7 @@ function AsideResponseCard({ message }: { message: AsideMessage }) {
   );
 }
 
-export function DesktopCoachPanel({
+export function CoachPanel({
   coachMessages,
   asideMessages,
   lappScores,
@@ -167,7 +190,7 @@ export function DesktopCoachPanel({
   coachInputRef,
   disabled,
   partnerName,
-}: DesktopCoachPanelProps) {
+}: CoachPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on content change
@@ -210,8 +233,38 @@ export function DesktopCoachPanel({
   ].sort((a, b) => a.ts.localeCompare(b.ts));
   const quickPrompts = ['How am I doing?', 'What should I try next?', 'Was that too aggressive?'];
 
+  // Brighten the panel when a coach reply arrives, so the participant notices
+  // it while looking at the partner conversation. A reply is identified by its
+  // timestamp: it survives the streaming -> done swap (the item key does not),
+  // and replies arriving live are stamped client-side at arrival, so anything
+  // older than this mount is history loaded on (re)connect and stays quiet.
+  const mountedAtRef = useRef(new Date().toISOString());
+  const lastFlashedTsRef = useRef<string | null>(null);
+  const [flashCount, setFlashCount] = useState(0);
+  const [highlightTs, setHighlightTs] = useState<string | null>(null);
+  const latestReplyTs =
+    [...panelItems].reverse().find((item) => item.kind === 'insight' || item.msg.role === 'coach')
+      ?.ts ?? null;
+
+  useEffect(() => {
+    if (!latestReplyTs || latestReplyTs < mountedAtRef.current) return;
+    if (latestReplyTs === lastFlashedTsRef.current) return;
+    lastFlashedTsRef.current = latestReplyTs;
+    setFlashCount((count) => count + 1);
+    setHighlightTs(latestReplyTs);
+    const timer = setTimeout(() => setHighlightTs(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [latestReplyTs]);
+
   return (
-    <div className="flex h-full flex-col px-7 py-7">
+    <div className="relative isolate flex h-full flex-col px-5 py-5 sm:px-7 sm:py-7">
+      {flashCount > 0 && (
+        <div
+          key={flashCount}
+          className="coach-flash pointer-events-none absolute inset-0 -z-10"
+          aria-hidden="true"
+        />
+      )}
       <div className="shrink-0">
         <div className="flex items-center gap-3">
           <h3 className="font-serif text-2xl text-[#2e2b25] dark:text-[#f2efe7]">Coach</h3>
@@ -251,7 +304,11 @@ export function DesktopCoachPanel({
               return (
                 <Fragment key={item.key}>
                   {divider}
-                  <CoachInsightCard message={item.msg} tone={item.tone} />
+                  <CoachInsightCard
+                    message={item.msg}
+                    tone={item.tone}
+                    highlighted={item.ts === highlightTs}
+                  />
                 </Fragment>
               );
             }
@@ -261,7 +318,7 @@ export function DesktopCoachPanel({
                 {item.msg.role === 'user' ? (
                   <AsideQuestionCard message={item.msg} />
                 ) : (
-                  <AsideResponseCard message={item.msg} />
+                  <AsideResponseCard message={item.msg} highlighted={item.ts === highlightTs} />
                 )}
               </Fragment>
             );

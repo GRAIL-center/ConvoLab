@@ -4,7 +4,29 @@
 // This lets us unit-test the shim's query translation logic without an
 // emulator and, critically, without ever touching a real Firestore project.
 
+import { Timestamp } from '@google-cloud/firestore';
+
 type Doc = Record<string, any>;
+
+// Real Firestore stores JS Dates as Timestamps and returns Timestamps from
+// doc.data(). Mirror that on every write path so shim tests exercise the
+// Timestamp -> Date conversion the shim performs on reads (B26: a leaked
+// Timestamp compared as "less than" any Date, expiring every invitation).
+function datesToTimestamps(value: unknown): unknown {
+  if (value instanceof Date) return Timestamp.fromDate(value);
+  if (Array.isArray(value)) return value.map(datesToTimestamps);
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    !(value instanceof Timestamp) &&
+    (value as any).constructor?.name !== 'NumericIncrementTransform'
+  ) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, datesToTimestamps(v)])
+    );
+  }
+  return value;
+}
 
 function getAtPath(obj: any, path: string): unknown {
   return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
@@ -47,7 +69,20 @@ function applyUpdate(existing: Doc, data: Doc): Doc {
   return next;
 }
 
-function compare(op: string, actual: unknown, expected: unknown): boolean {
+// Firestore compares timestamps by instant regardless of whether the query
+// value is a Date or a Timestamp; coerce both sides to millis so the fake
+// does too (plain JS comparison of Timestamp vs Date is wrong — see B26).
+function comparable(value: unknown): unknown {
+  if (value instanceof Timestamp) return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  return value;
+}
+
+function compare(op: string, rawActual: unknown, rawExpected: unknown): boolean {
+  const actual = comparable(rawActual);
+  const expected = Array.isArray(rawExpected)
+    ? rawExpected.map(comparable)
+    : comparable(rawExpected);
   switch (op) {
     case '==':
       return actual === expected;
@@ -87,7 +122,7 @@ class FakeDocRef {
   }
 
   async set(data: Doc) {
-    this.store.set(this.id, { ...data });
+    this.store.set(this.id, datesToTimestamps({ ...data }) as Doc);
   }
 
   async update(data: Doc) {
@@ -97,7 +132,7 @@ class FakeDocRef {
       error.code = 5;
       throw error;
     }
-    this.store.set(this.id, applyUpdate(existing, data));
+    this.store.set(this.id, applyUpdate(existing, datesToTimestamps(data) as Doc));
   }
 
   async delete() {
@@ -144,8 +179,8 @@ class FakeQuery {
 
     for (const [field, direction] of this.sorts) {
       entries.sort((a, b) => {
-        const av = getAtPath(a[1], field);
-        const bv = getAtPath(b[1], field);
+        const av = comparable(getAtPath(a[1], field));
+        const bv = comparable(getAtPath(b[1], field));
         if (av === bv) return 0;
         const cmp = (av as any) < (bv as any) ? -1 : 1;
         return direction === 'asc' ? cmp : -cmp;
@@ -214,6 +249,6 @@ export class FakeFirestore {
     if (!this.collections.has(collectionName)) {
       this.collections.set(collectionName, new Map());
     }
-    this.collections.get(collectionName)!.set(id, data);
+    this.collections.get(collectionName)!.set(id, datesToTimestamps(data) as Doc);
   }
 }
