@@ -32,7 +32,7 @@ const LAPP_STEPS = [
 
 export function LappFramework({
   heading = 'The method',
-  intro = 'Your goal is not to win the argument. It is to stay engaged through disagreement — and a coach helps you do it, one turn at a time.',
+  intro = 'Your goal is not to win the argument. It is to stay engaged through disagreement.',
   className = '',
 }: {
   heading?: string;
