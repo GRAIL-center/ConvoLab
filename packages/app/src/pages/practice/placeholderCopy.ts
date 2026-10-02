@@ -85,7 +85,7 @@ export const placeholderCopy = {
   teamTitle: 'The team',
   team: [
     { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
-    { initials: 'DS', name: 'Daniel Schiff', role: 'Faculty mentor' },
+    { initials: 'DS', name: 'Daniel Schiff', role: 'Faculty mentor and co-PI' },
     { initials: 'AL', name: 'Andrew Le Blanc', role: 'Developer' },
     { initials: 'AN', name: 'Anuj Krish Nair', role: 'Developer' },
     { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
