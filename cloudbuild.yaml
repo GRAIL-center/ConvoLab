@@ -24,6 +24,18 @@ substitutions:
   _IMAGE_NAME: convolab-api
   _GOOGLE_CLOUD_LOCATION: us-central1
   _VITE_SITE_BANNER: ''
+  # reCAPTCHA for the public practice landing at `/` (practice.start).
+  # _VITE_RECAPTCHA_SITE_KEY is the PUBLIC site key; Vite inlines it into the
+  # static bundle at image-build time. _RECAPTCHA_SECRET_REF is the Secret
+  # Manager reference for the server-side secret. Both default to empty, so the
+  # pipeline keeps deploying before the PI has created the reCAPTCHA site and
+  # secret; in that state `/` renders but Start fails closed in production
+  # (/pilot and /study are unaffected). Once secret RECAPTCHA_SECRET_KEY exists:
+  #   gcloud builds submit --project=convolab-490517 --config=cloudbuild.yaml \
+  #     --substitutions=_TAG=$(git rev-parse HEAD),_VITE_RECAPTCHA_SITE_KEY=<site key>,_RECAPTCHA_SECRET_REF=RECAPTCHA_SECRET_KEY:latest
+  # See docs/recaptcha-setup.md.
+  _VITE_RECAPTCHA_SITE_KEY: ''
+  _RECAPTCHA_SECRET_REF: ''
 
 steps:
   - id: build-image
@@ -36,6 +48,8 @@ steps:
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
       - --build-arg
       - VITE_SITE_BANNER=${_VITE_SITE_BANNER}
+      - --build-arg
+      - VITE_RECAPTCHA_SITE_KEY=${_VITE_RECAPTCHA_SITE_KEY}
       - .
 
   - id: push-image
@@ -44,31 +58,37 @@ steps:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
 
+  # Runs through bash so the secret list can be extended conditionally: a
+  # --set-secrets entry whose secret does not exist fails the deploy, and an
+  # entry with an empty reference (RECAPTCHA_SECRET_KEY=) is rejected by gcloud
+  # ("No secret version specified"), so RECAPTCHA_SECRET_KEY is appended only
+  # when _RECAPTCHA_SECRET_REF is non-empty. ($$ escapes a shell variable from
+  # Cloud Build substitution.)
+  # No --allow-unauthenticated: that flag sets the service's IAM policy,
+  # which roles/run.developer deliberately cannot do. The service already
+  # has allUsers -> roles/run.invoker, and that binding survives redeploys
+  # untouched (verified 13 Aug 2026), so the flag was a no-op anyway.
+  # NB: if this service is ever deleted and recreated from scratch it will
+  # come up private, and the binding has to be restored by hand.
+  # GIT_SHA is the image tag (the commit), stamped as `seedVersion` on the
+  # scenario and quota preset documents the API reconciles at startup.
   - id: deploy-cloud-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
     args:
-      - gcloud
-      - run
-      - deploy
-      - ${_SERVICE_NAME}
-      - --image
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
-      - --region
-      - ${_REGION}
-      - --platform
-      - managed
-      # No --allow-unauthenticated: that flag sets the service's IAM policy,
-      # which roles/run.developer deliberately cannot do. The service already
-      # has allUsers -> roles/run.invoker, and that binding survives redeploys
-      # untouched (verified 13 Aug 2026), so the flag was a no-op anyway.
-      # NB: if this service is ever deleted and recreated from scratch it will
-      # come up private, and the binding has to be restored by hand.
-      # GIT_SHA is the image tag (the commit), stamped as `seedVersion` on the
-      # scenario and quota preset documents the API reconciles at startup.
-      - --set-env-vars
-      - NODE_ENV=production,HOST=0.0.0.0,FIRESTORE_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_GOOGLE_CLOUD_LOCATION},GIT_SHA=${_TAG}
-      - --set-secrets
-      - SESSION_KEY=SESSION_KEY:latest,FRONTEND_URL=FRONTEND_URL:latest,ADMIN_EMAILS=ADMIN_EMAILS:latest,GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,POST_SURVEY_URL=POST_SURVEY_URL:latest
+      - -c
+      - |
+        set -euo pipefail
+        SECRETS="SESSION_KEY=SESSION_KEY:latest,FRONTEND_URL=FRONTEND_URL:latest,ADMIN_EMAILS=ADMIN_EMAILS:latest,GOOGLE_CALLBACK_URL=GOOGLE_CALLBACK_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,POST_SURVEY_URL=POST_SURVEY_URL:latest"
+        if [ -n "${_RECAPTCHA_SECRET_REF}" ]; then
+          SECRETS="$${SECRETS},RECAPTCHA_SECRET_KEY=${_RECAPTCHA_SECRET_REF}"
+        fi
+        gcloud run deploy "${_SERVICE_NAME}" \
+          --image "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}" \
+          --region "${_REGION}" \
+          --platform managed \
+          --set-env-vars "NODE_ENV=production,HOST=0.0.0.0,FIRESTORE_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_GOOGLE_CLOUD_LOCATION},GIT_SHA=${_TAG}" \
+          --set-secrets "$${SECRETS}"
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
