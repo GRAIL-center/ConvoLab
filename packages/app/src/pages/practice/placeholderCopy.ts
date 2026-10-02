@@ -8,7 +8,7 @@
 export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
   heroSupport:
-    'Talk with an AI partner who genuinely disagrees with you, while a coach helps you stay in the conversation.',
+    'Talk with an AI partner who genuinely disagrees with you, while a coach trains you to navigate the conversation better.',
   purdueLine: 'Built by researchers at Harvard and Purdue University.',
 
   howTitle: 'How it works',
