@@ -14,7 +14,7 @@ interface MobileMessageInputProps {
  * nothing on a narrow screen rendered the coach's reply, so choosing "coach"
  * sent a question into a thread the participant could not see and read as the
  * app doing nothing at all. Asking the coach now happens inside the coach
- * sheet, next to its answers.
+ * tab, next to its answers.
  */
 export function MobileMessageInput({
   onSendPartner,
