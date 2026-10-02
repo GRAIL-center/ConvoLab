@@ -13,14 +13,14 @@ interface MobileSheetProps {
 }
 
 /**
- * Bottom sheet for the panels that live in the right-hand rails on wide
- * screens. Below those breakpoints the rails collapse to zero width, so
- * without this the coach and the LAPP metrics are simply unreachable.
+ * Bottom sheet for the LAPP metrics panel, which lives in a side rail on wide
+ * screens. Below xl the rail collapses to zero width, so without this the
+ * metrics are simply unreachable. (The coach uses a tab in the main pane.)
  *
- * Children are mounted only while the sheet is open. Both panels are also
- * rendered in their (display:none) rails on narrow screens, and mounting a
+ * Children are mounted only while the sheet is open. The panel is also
+ * rendered in its (display:none) rail on narrow screens, and mounting a
  * second copy permanently would duplicate the element ids inside the radar
- * SVG and give the coach panel two textareas competing for one ref.
+ * SVG.
  */
 export function MobileSheet({ open, onClose, label, children }: MobileSheetProps) {
   // Enter animation only. Animating the exit means keeping the children
