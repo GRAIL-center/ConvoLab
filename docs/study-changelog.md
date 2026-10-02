@@ -70,6 +70,12 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-09-29 — coach panel highlights a newly arrived coach reply (treatment arm only; merged by Andrew as PR #129, entry added 30 Sep)
+
+When the coach posts an unprompted insight or answers a participant's question, the coach panel now shows a soft highlight ring around the new card for about two and a half seconds, so a participant who is reading the partner conversation notices that the coach has spoken. On narrow screens a dot appears on the coach icon; study sessions never show that icon, so this part does not reach the pilot. Nothing about the coach's text, timing or frequency changed, and the control arm has no coach panel, so it is unaffected. This is item #104 from the 15 September team meeting. It changes how noticeable the treatment is, not what it says, and is recorded here because anything a participant in either arm can see belongs in this log.
+
+---
+
 ## 2026-09-27: a deploy now carries prompt and scenario changes (reference data reconciled at startup) (code only, not yet live)
 
 - **What it does.** Every time the API starts (every Cloud Run revision, every
