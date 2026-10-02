@@ -96,10 +96,14 @@ function FullScreenMessage({
 // study sessions: an experimenter-supplied opener would shape the participant's
 // first turn, which is a scored turn, and would land in both arms unequally.
 // Kept topic-agnostic so they read sensibly for any partisan scenario.
+// Regular-app starter chips only (study sessions never show them, see
+// the isStudySession guard where they render). They have to OPEN a
+// conversation, so each is a question a person could ask in the first ten
+// seconds, about any topic. Hanna, 2 Oct 2026.
 const OPENING_PROMPTS = [
-  'What matters most to you here?',
-  'How did you come to see it that way?',
-  'What do people get wrong about your side?',
+  'What are your thoughts on the current administration?',
+  'What political issue worries you most these days?',
+  'Has anything in the news lately really gotten under your skin?',
 ];
 
 // "Angry Uncle at Thanksgiving" → "Angry Uncle"
