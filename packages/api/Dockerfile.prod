@@ -29,6 +29,9 @@ RUN pnpm -F @workspace/database build
 # Build args for Vite (baked into static build)
 ARG VITE_SITE_BANNER
 ENV VITE_SITE_BANNER=$VITE_SITE_BANNER
+# Public reCAPTCHA site key for the practice landing at `/` (not a secret).
+ARG VITE_RECAPTCHA_SITE_KEY
+ENV VITE_RECAPTCHA_SITE_KEY=$VITE_RECAPTCHA_SITE_KEY
 
 # Build API and App
 RUN pnpm -F @workspace/api build
