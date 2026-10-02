@@ -42,7 +42,7 @@ export const placeholderCopy = {
     },
     {
       title: 'Skill over scorekeeping',
-      body: 'The point is staying in the conversation, not converting anyone.',
+      body: 'The point is practicing how to have the conversation, not converting anyone.',
     },
   ],
 
