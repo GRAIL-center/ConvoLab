@@ -37,7 +37,7 @@ export function AboutSection() {
         <div className="flex flex-col gap-6">
           <Reveal delayMs={100}>
             <h3 className="text-[0.95rem] font-semibold">{placeholderCopy.teamTitle}</h3>
-            <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {placeholderCopy.team.map((member) => (
                 <li
                   key={member.role}
