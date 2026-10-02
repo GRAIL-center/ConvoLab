@@ -9,8 +9,7 @@ export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
   heroSupport:
     'Talk with an AI partner who genuinely disagrees with you, while a coach helps you stay in the conversation.',
-  purdueLine:
-    'A research project from Purdue University and the Edmond and Lily Safra Center for Ethics at Harvard University',
+  purdueLine: 'Built by researchers at Harvard and Purdue University.',
 
   howTitle: 'How it works',
   howSteps: [
@@ -80,17 +79,25 @@ export const placeholderCopy = {
 
   aboutTitle: 'About',
   aboutMission:
-    'ConvoLab is a research project studying how people can talk across political difference. We build tools that let anyone practice the skills that keep those conversations going.',
+    'ConvoLab is a research project on talking across political difference. We build tools that let anyone practice the skills that keep those conversations going.',
   aboutMission2:
-    'The coach is grounded in Listen, Acknowledge, Pivot, Perspective, a dialogue method developed by Braver Angels. A separate research study tests whether coaching with it helps; this practice app is for anyone who wants to try.',
+    'Conversations you have here help us understand what types of communication actually work, and for whom.',
   teamTitle: 'The team',
   team: [
-    { initials: 'DS', name: 'Daniel Schiff', role: 'Principal investigator, Purdue University' },
-    { initials: 'HS', name: 'Hanna Sistek', role: 'Co-principal investigator, Harvard University' },
+    { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
+    { initials: 'DS', name: 'Daniel Schiff', role: 'Faculty mentor' },
+    { initials: 'AL', name: 'Andrew Le Blanc', role: 'Developer' },
+    { initials: 'AN', name: 'Anuj Krish Nair', role: 'Developer' },
+    { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
+    { initials: 'KK', name: 'Kiki Khosla', role: 'Developer' },
+    { initials: 'NA', name: 'Nebras Alam', role: 'Developer' },
+    { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
+    { initials: 'AR', name: 'Abbey Ripstra', role: 'Design researcher (consulting)' },
+    { initials: 'MJ', name: 'Mikael Johansson', role: 'Technologist (consulting)' },
   ],
   contactTitle: 'Contact',
   contactBody: 'Questions about the project? Email us at',
-  contactEmail: 'hsistek@purdue.edu',
+  contactEmail: 'hsistek@fas.harvard.edu',
 
   faqTitle: 'Questions',
   faq: [
@@ -100,7 +107,7 @@ export const placeholderCopy = {
     },
     {
       q: 'Is my conversation private?',
-      a: 'Your conversation is stored on our servers so the app can work and so we can improve the coach. The AI providers that generate the partner and coach replies process it under agreements that do not let them keep it or train on it. We do not sell it or share it outside the research team. If you signed in, your conversations are tied to your account; if you were a guest, email us the date and the partner you talked to and we will remove it.',
+      a: 'Your conversation is stored on our servers so the app can work, so we can improve the coach, and so our research team can study what works. The AI providers that generate the partner and coach replies process it under agreements that do not let them keep it or train on it. We do not sell it or share it outside the research team. If you signed in, your conversations are tied to your account; if you were a guest, email us the date and the partner you talked to and we will remove it.',
     },
     {
       q: 'Is the partner a real person?',

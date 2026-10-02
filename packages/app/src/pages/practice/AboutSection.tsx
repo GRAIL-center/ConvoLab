@@ -37,20 +37,17 @@ export function AboutSection() {
         <div className="flex flex-col gap-6">
           <Reveal delayMs={100}>
             <h3 className="text-[0.95rem] font-semibold">{placeholderCopy.teamTitle}</h3>
-            <ul className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <ul className="mt-4 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
               {placeholderCopy.team.map((member) => (
-                <li
-                  key={member.role}
-                  className={`${panel} flex items-center gap-3.5 p-4 xl:flex-col xl:items-start`}
-                >
+                <li key={member.name} className={`${panel} flex flex-col items-start gap-2.5 p-3.5`}>
                   <span
-                    className={`${serif} flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e7ece9] text-[0.95rem] font-medium text-[#3f5c56] dark:bg-[#243330] dark:text-[#b9d4ce]`}
+                    className={`${serif} flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e7ece9] text-[0.85rem] font-medium text-[#3f5c56] dark:bg-[#243330] dark:text-[#b9d4ce]`}
                   >
                     {member.initials}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 break-words">
                     <div className="text-[0.88rem] font-semibold leading-snug">{member.name}</div>
-                    <div className={`mt-0.5 text-[0.8rem] ${muted}`}>{member.role}</div>
+                    <div className={`mt-0.5 text-[0.8rem] leading-snug ${muted}`}>{member.role}</div>
                   </div>
                 </li>
               ))}

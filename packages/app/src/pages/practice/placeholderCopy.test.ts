@@ -30,7 +30,16 @@ describe('placeholderCopy', () => {
     expect(strings.filter((s) => /[–—]/.test(s))).toEqual([]);
   });
 
-  it('uses a purdue.edu contact email', () => {
-    expect(placeholderCopy.contactEmail.endsWith('@purdue.edu')).toBe(true);
+  it('uses a fas.harvard.edu contact email', () => {
+    expect(placeholderCopy.contactEmail.endsWith('@fas.harvard.edu')).toBe(true);
+  });
+
+  it('lists ten team members with initials, name and role', () => {
+    expect(placeholderCopy.team).toHaveLength(10);
+    for (const member of placeholderCopy.team) {
+      expect(member.initials).toMatch(/^[A-Z]{2}$/);
+      expect(member.name.trim()).not.toBe('');
+      expect(member.role.trim()).not.toBe('');
+    }
   });
 });
