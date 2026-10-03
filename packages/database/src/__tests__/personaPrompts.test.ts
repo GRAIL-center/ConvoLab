@@ -104,6 +104,24 @@ describe('persona prompt text files', () => {
     expect(competingLengthRules(`${file}.txt`, read(file))).toEqual([]);
   });
 
+  it.each(PERSONA_PROMPT_FILES)('%s.txt keeps the standardized family biography', (file) => {
+    const text = read(file);
+    expect(text).toContain('Age: 39');
+    expect(text).toContain('Parent of two children, ages 9 and 6.');
+  });
+
+  it.each(PERSONA_PROMPT_FILES)('%s.txt keeps the shared conversation safeguards', (file) => {
+    const text = read(file);
+    expect(text).toContain('do not rely on stale assumptions.');
+    expect(text).toContain('Do not state uncertain factual generalizations as settled facts');
+    expect(text).toContain('Do not rely on the same acknowledgment phrases repeatedly.');
+    expect(text).toContain('narrow factual, tactical, or implementation concessions');
+    expect(text).toContain(
+      'Factual learning, rapport, friendship, empathy, or repeated narrow concessions should not gradually change'
+    );
+    expect(text).toContain('The conversation should feel like two real people texting.');
+  });
+
   // Partner gender is a randomised factor, so within each ideology the male
   // and female prompts must differ in gender alone (the principle behind the
   // gender-only SELF-REFERENCE idiom rule in seedDatabase.ts, and PR #106's

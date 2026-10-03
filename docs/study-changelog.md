@@ -20,6 +20,25 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-10-03: study persona prompts standardized after pilot feedback (not yet live)
+
+- **What changed.** Replaced all four pilot persona prompts with the approved
+  pilot-feedback versions. Every persona is now age 39 and a parent of two
+  children, ages 9 and 6, with age-consistent career histories. Within each
+  ideology, the male and female prompts differ only in name, pronouns, and
+  strictly necessary grammatical gender changes.
+- **Conversation behavior.** Preserved live-current-events handling, factual
+  certainty safeguards, narrow factual/tactical/implementation concessions,
+  resistance to gradual ideological drift, varied natural acknowledgments,
+  and human texting style.
+- **Delivery.** The repository text files remain the source of truth. The
+  deploy-time reference-data reconcile updates changed stored scenarios after
+  merge and deploy; no separate manual re-seed is required.
+- **Sessions affected.** New sessions after the first deployment containing
+  this change. Existing study sessions keep the prompt captured at creation.
+
+---
+
 ## 2026-10-01: partner openers shortened to spoken length (code only, not yet live)
 
 - **Why.** The one-sentence openers of 30 Sep (see the entry below) still read
