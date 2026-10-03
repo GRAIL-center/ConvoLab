@@ -5,6 +5,16 @@
  * never appear here again; placeholderCopy.test.ts enforces this. Keep the
  * keys stable.
  */
+export type TeamMember = {
+  initials: string;
+  name: string;
+  role: string;
+  /** 50 to 70 words, third person (80 max). A card with a bio opens it on click; without one it stays a plain card. */
+  bio?: string;
+  /** One optional link shown under the bio, e.g. a personal site. */
+  link?: { label: string; url: string };
+};
+
 export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
   heroSupport:
@@ -94,7 +104,7 @@ export const placeholderCopy = {
     { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
     { initials: 'AR', name: 'Abbey Ripstra', role: 'Design researcher (consulting)' },
     { initials: 'MJ', name: 'Mikael Johansson', role: 'Technologist (consulting)' },
-  ],
+  ] as TeamMember[],
   contactTitle: 'Contact',
   contactBody: 'Questions about the project? Email us at',
   contactEmail: 'hsistek@fas.harvard.edu',
