@@ -198,6 +198,12 @@ describe('precedingPartnerTurn', () => {
 
 describe('buildAsideTranscript', () => {
   const main = (role: string, content: string) => ({ role, content, messageType: 'main' });
+  const aside = (role: string, content: string, asideThreadId: string) => ({
+    role,
+    content,
+    messageType: 'aside',
+    asideThreadId,
+  });
 
   const CONVERSATION = [
     main('partner', PARTNER_OPENER),
@@ -238,17 +244,71 @@ describe('buildAsideTranscript', () => {
     expect(transcript).toMatch(/Participant \(turn 2\): Second thing I said\./);
   });
 
-  it('leaves earlier asides out of the transcript', () => {
+  it('keeps earlier asides, marked as private and distinct from spoken turns', () => {
     const transcript = buildAsideTranscript(
       [
         ...CONVERSATION,
-        { role: 'user', content: 'An earlier private question.', messageType: 'aside' },
-        { role: 'coach', content: 'An earlier private answer.', messageType: 'aside' },
+        aside('user', 'An earlier private question.', 't1'),
+        aside('coach', 'An earlier private answer.', 't1'),
       ],
-      'q'
+      'and how should I respond?',
+      't2'
     );
-    expect(transcript).not.toContain('An earlier private question.');
-    expect(transcript).not.toContain('An earlier private answer.');
+
+    expect(transcript).toMatch(/Participant asked you privately: An earlier private question\./);
+    expect(transcript).toMatch(/You answered privately: An earlier private answer\./);
+  });
+
+  it('keeps asides in sequence with the turns they followed', () => {
+    const transcript = buildAsideTranscript(
+      [
+        main('partner', PARTNER_OPENER),
+        aside('user', 'What did she mean by that?', 't1'),
+        aside('coach', 'She is testing the water.', 't1'),
+        main('user', USER_TURN),
+      ],
+      'next question',
+      't2'
+    );
+
+    expect(transcript.indexOf(PARTNER_OPENER)).toBeLessThan(
+      transcript.indexOf('What did she mean by that?')
+    );
+    expect(transcript.indexOf('She is testing the water.')).toBeLessThan(
+      transcript.indexOf(USER_TURN)
+    );
+  });
+
+  it('does not repeat the question being asked now', () => {
+    const question = 'how should I respond?';
+    const transcript = buildAsideTranscript(
+      [...CONVERSATION, aside('user', question, 't9')],
+      question,
+      't9'
+    );
+
+    expect(transcript.split(question).length - 1).toBe(1);
+    expect(transcript).not.toMatch(/Participant asked you privately: how should I respond\?/);
+  });
+
+  it('does not count private questions as spoken turns', () => {
+    const transcript = buildAsideTranscript(
+      [
+        main('user', USER_TURN),
+        aside('user', 'A private question.', 't1'),
+        aside('coach', 'A private answer.', 't1'),
+        main('user', 'Second thing I said out loud.'),
+      ],
+      'q',
+      't2'
+    );
+
+    expect(transcript).toMatch(/Participant \(turn 2\): Second thing I said out loud\./);
+    expect(transcript).not.toMatch(/Participant \(turn 3\)/);
+  });
+
+  it('tells the coach which lines were private', () => {
+    expect(buildAsideTranscript(CONVERSATION, 'q', 't1')).toMatch(/said out loud/);
   });
 
   it('tells the coach it is not a speaker in the conversation', () => {
