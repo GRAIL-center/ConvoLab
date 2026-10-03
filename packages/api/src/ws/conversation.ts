@@ -1600,7 +1600,7 @@ export class ConversationManager {
         ],
       });
 
-      const context = this.buildAsideContext(question);
+      const context = this.buildAsideContext(question, threadId);
       const result = await this.streamAsideResponse(threadId, context);
       if (result) {
         await this.logAsideUsage(result.usage);
@@ -1620,11 +1620,11 @@ export class ConversationManager {
     }
   }
 
-  private buildAsideContext(question: string): LLMMessage[] {
+  private buildAsideContext(question: string, threadId: string): LLMMessage[] {
     return [
       {
         role: 'user' as const,
-        content: buildAsideTranscript(this.session.messages, question),
+        content: buildAsideTranscript(this.session.messages, question, threadId),
       },
     ];
   }

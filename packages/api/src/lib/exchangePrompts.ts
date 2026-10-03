@@ -58,6 +58,7 @@ export interface AsideTurn {
   role?: string | null;
   content?: string | null;
   messageType?: string | null;
+  asideThreadId?: string | null;
 }
 
 /**
@@ -75,13 +76,31 @@ export interface AsideTurn {
  * the transcript goes in as one labelled block instead of being forced into
  * two chat roles.
  */
-export function renderAsideTranscript(messages: readonly AsideTurn[]): string {
+export function renderAsideTranscript(
+  messages: readonly AsideTurn[],
+  options: { excludeThreadId?: string } = {}
+): string {
   const lines: string[] = [];
   let participantTurn = 0;
   for (const message of messages) {
-    if ((message.messageType ?? 'main') !== 'main') continue;
+    const isAside = (message.messageType ?? 'main') === 'aside';
+    if (isAside && options.excludeThreadId && message.asideThreadId === options.excludeThreadId) {
+      continue;
+    }
     const content = typeof message.content === 'string' ? message.content.trim() : '';
     if (!content) continue;
+    if (isAside) {
+      // Earlier private exchanges stay in sequence rather than in a block of
+      // their own, because an aside usually points at the moment it was asked
+      // ("what did she mean by that?"). They never advance the turn counter:
+      // a private question is not something the partner heard.
+      if (message.role === 'user') {
+        lines.push(`Participant asked you privately: ${content}`);
+      } else if (message.role === 'coach') {
+        lines.push(`You answered privately: ${content}`);
+      }
+      continue;
+    }
     if (message.role === 'user') {
       participantTurn += 1;
       lines.push(`Participant (turn ${participantTurn}): ${content}`);
@@ -94,11 +113,22 @@ export function renderAsideTranscript(messages: readonly AsideTurn[]): string {
   return lines.join('\n\n');
 }
 
-/** The single user message handed to the coach for an aside question. */
-export function buildAsideTranscript(messages: readonly AsideTurn[], question: string): string {
-  const transcript = renderAsideTranscript(messages);
+/**
+ * The single user message handed to the coach for an aside question.
+ *
+ * `currentThreadId` drops the question now being asked: it is persisted and
+ * pushed onto the session before the context is built, so without this it would
+ * appear once in the transcript and again as the question below it.
+ */
+export function buildAsideTranscript(
+  messages: readonly AsideTurn[],
+  question: string,
+  currentThreadId?: string
+): string {
+  const transcript = renderAsideTranscript(messages, { excludeThreadId: currentThreadId });
   return [
     'The participant is practising a conversation with the partner below. You are their coach: you are not a speaker in it, and the partner cannot see you.',
+    'Lines marked privately are between you and the participant alone. Everything else was said out loud in the conversation.',
     '',
     transcript
       ? `CONVERSATION SO FAR:\n\n${transcript}`
