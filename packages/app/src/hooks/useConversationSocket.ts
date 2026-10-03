@@ -205,6 +205,17 @@ function estimateProvisionalTone(content: string): LappScore["tone"] {
 	return "neutral";
 }
 
+/** Empty streaming bubble: renders the typing dots until the first partner token arrives. */
+function pendingPartnerBubble(): Message {
+	return {
+		id: -1,
+		role: "partner",
+		content: "",
+		timestamp: new Date().toISOString(),
+		isStreaming: true,
+	};
+}
+
 export function useConversationSocket(
 	sessionId: string,
 ): UseConversationSocketResult {
@@ -244,6 +255,11 @@ export function useConversationSocket(
 	const isStreamingRef = useRef(false);
 	const activeAsideThreadIdRef = useRef<string | null>(null);
 	const fatalErrorRef = useRef<ConversationError | null>(null);
+	// True from the moment a message is sent until the partner's first token (or
+	// any terminal event). The server confirms the user's message with a
+	// `history` event before the model has produced anything; this flag keeps
+	// the typing dots up through that gap instead of clearing them.
+	const awaitingPartnerRef = useRef(false);
 
 	// Keep refs in sync with state for use in callbacks
 	useEffect(() => {
@@ -254,10 +270,12 @@ export function useConversationSocket(
 		activeAsideThreadIdRef.current = activeAsideThreadId;
 	}, [activeAsideThreadId]);
 
-	const send = useCallback((msg: ClientMessage) => {
+	const send = useCallback((msg: ClientMessage): boolean => {
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify(msg));
+			return true;
 		}
+		return false;
 	}, []);
 
 	const sendMessage = useCallback(
@@ -277,7 +295,15 @@ export function useConversationSocket(
 			};
 			setMessages((prev) => [...prev, userMessage]);
 
-			send({ type: "message", content: content.trim() });
+			if (send({ type: "message", content: content.trim() })) {
+				// Show the typing dots straight away; without them the participant
+				// stares at a still screen while the model starts up.
+				awaitingPartnerRef.current = true;
+				isStreamingRef.current = true;
+				setIsStreaming(true);
+				setStreamingRole("partner");
+				setMessages((prev) => [...prev, pendingPartnerBubble()]);
+			}
 		},
 		[send],
 	);
@@ -346,6 +372,7 @@ export function useConversationSocket(
 				asideStreamingContentRef.current = "";
 
 				// Clear any in-progress streaming state left over from a dropped connection
+				awaitingPartnerRef.current = false;
 				setIsStreaming(false);
 				setStreamingRole(null);
 				setIsAsideStreaming(false);
@@ -425,8 +452,11 @@ export function useConversationSocket(
 						break;
 
 					case "history": {
-						setIsStreaming(false);
-						setStreamingRole(null);
+						const keepWaiting = awaitingPartnerRef.current;
+						if (!keepWaiting) {
+							setIsStreaming(false);
+							setStreamingRole(null);
+						}
 						partnerStreamingContentRef.current = "";
 						coachStreamingContentRef.current = "";
 
@@ -483,7 +513,9 @@ export function useConversationSocket(
 									}
 									return true;
 								});
-								return [...confirmed, ...mainMessages];
+								return keepWaiting
+									? [...confirmed, ...mainMessages, pendingPartnerBubble()]
+									: [...confirmed, ...mainMessages];
 							});
 						}
 						if (newAsideMessages.length > 0) {
@@ -497,6 +529,7 @@ export function useConversationSocket(
 					}
 
 					case "partner:retry":
+						awaitingPartnerRef.current = false;
 						// Sent on a model fallback (e.g. Gemini quota → Claude) and before
 						// every backoff retry. Clear any partial reply so the retry's output
 						// isn't appended to the failed attempt's text.
@@ -538,6 +571,7 @@ export function useConversationSocket(
 						break;
 
 					case "partner:delta": {
+						awaitingPartnerRef.current = false;
 						setIsStreaming(true);
 						setStreamingRole("partner");
 						partnerStreamingContentRef.current += msg.content;
@@ -565,11 +599,13 @@ export function useConversationSocket(
 					}
 
 					case "exchange:complete":
+						awaitingPartnerRef.current = false;
 						setIsStreaming(false);
 						setStreamingRole(null);
 						break;
 
 					case "partner:done":
+						awaitingPartnerRef.current = false;
 						setMessages((prev) => {
 							const last = prev[prev.length - 1];
 							if (last?.role === "partner" && last.isStreaming) {
@@ -789,6 +825,7 @@ export function useConversationSocket(
 						break;
 
 					case "error":
+						awaitingPartnerRef.current = false;
 						setError({
 							code: msg.code,
 							message: msg.message,
@@ -831,6 +868,17 @@ export function useConversationSocket(
 								? { ...prev, exhausted: true }
 								: { remaining: 0, total: 0, exhausted: true },
 						);
+						// The server drops the message without a terminal event, so end the
+						// wait here and remove the empty typing bubble.
+						if (awaitingPartnerRef.current) {
+							awaitingPartnerRef.current = false;
+							setIsStreaming(false);
+							setStreamingRole(null);
+							setMessages((prev) => {
+								const last = prev[prev.length - 1];
+								return last?.isStreaming && !last.content ? prev.slice(0, -1) : prev;
+							});
+						}
 						break;
 				}
 			};
