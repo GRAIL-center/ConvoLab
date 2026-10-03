@@ -3,7 +3,7 @@ import Recaptcha from '../../components/Recaptcha';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PersonaDetailsModal } from './PersonaDetailsModal';
 import { Reveal } from './Reveal';
-import { accent, muted, primaryButton, serif, textLink } from './ui';
+import { accent, muted, primaryButton, secondaryButton, serif, textLink } from './ui';
 
 export type PracticeScenario = {
   id: number | string;
@@ -33,6 +33,8 @@ type PersonaPickerProps = {
   onContinue: () => void;
   canStartLive: boolean;
   showPreviewBadge: boolean;
+  listStatus: 'ready' | 'loading' | 'error';
+  onRetry: () => void;
   isSignedIn: boolean;
   isPending: boolean;
   isError: boolean;
@@ -50,6 +52,8 @@ export function PersonaPicker({
   onContinue,
   canStartLive,
   showPreviewBadge,
+  listStatus,
+  onRetry,
   isSignedIn,
   isPending,
   isError,
@@ -115,6 +119,26 @@ export function PersonaPicker({
             One partner, one conversation. Open details to get to know someone before you start.
           </p>
         </Reveal>
+
+        {scenarios.length === 0 ? (
+          <div
+            className="mx-auto mt-14 flex max-w-md flex-col items-center gap-4 text-center"
+            aria-live="polite"
+          >
+            {listStatus === 'loading' ? (
+              <p className={`text-[1rem] ${muted}`}>Loading partners…</p>
+            ) : (
+              <>
+                <p className={`text-[1rem] ${muted}`}>
+                  We could not load the partners. Check your connection and try again.
+                </p>
+                <button type="button" onClick={onRetry} className={secondaryButton}>
+                  Try again
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
 
         <ul className="mt-14 flex list-none flex-wrap justify-center gap-6 p-0">
           {scenarios.map((scenario, index) => {
@@ -193,7 +217,7 @@ export function PersonaPicker({
           })}
         </ul>
 
-        {!canStartLive ? (
+        {!canStartLive && scenarios.length > 0 ? (
           <p className={`mx-auto mt-10 max-w-md text-center text-xs ${muted}`}>
             {showPreviewBadge
               ? 'Waiting for live partners from the API. If this stays empty, restart Docker so the emulator can seed.'
