@@ -36,7 +36,7 @@ export const placeholderCopy = {
       body: 'Your partner holds a real position and will not fold just to make you comfortable.',
     },
     {
-      title: 'A coach on your side',
+      title: 'A coach in your corner',
       body: 'Private guidance helps you stay curious when the urge is to argue or shut down.',
     },
     {

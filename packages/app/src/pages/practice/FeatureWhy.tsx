@@ -44,7 +44,7 @@ function CoachVisual() {
             Coach
           </div>
           <p className="mt-2 text-[12px] leading-snug text-[#34463f] dark:text-[#c9ddd8]">
-            They sound worried, not hostile. Try naming that first.
+            Before you answer, ask what led them to that view.
           </p>
           <div className="mt-3 flex gap-1.5">
             <span className="h-1.5 w-10 rounded-full bg-[#6f8f89]/50" />
