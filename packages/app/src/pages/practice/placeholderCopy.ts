@@ -68,7 +68,7 @@ export const placeholderCopy = {
     },
   ],
 
-  lappTitle: 'Four moves. Listen, Acknowledge, Pivot, Perspective.',
+  lappTitle: 'Listen, Acknowledge, Pivot, Perspective.',
   lappIntro: 'Four moves that keep a difficult conversation from collapsing into a fight.',
   lappDetails: {
     Listen: 'Hear what actually matters underneath their position.',
