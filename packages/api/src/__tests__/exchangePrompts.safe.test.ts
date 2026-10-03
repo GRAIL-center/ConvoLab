@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildCoachTranscript, buildLappTranscript } from '../lib/exchangePrompts.js';
+import {
+  buildAsideTranscript,
+  buildCoachTranscript,
+  buildLappTranscript,
+} from '../lib/exchangePrompts.js';
 import { precedingPartnerTurn } from '../lib/postExchangeGate.js';
 
 // The exchange that exposed the bug on 3 Oct 2026. The participant raised
@@ -189,5 +193,77 @@ describe('precedingPartnerTurn', () => {
   it('treats a blank partner turn as absent', () => {
     const messages = [msg('1', 'partner', '   '), msg('2', 'user', USER_TURN)];
     expect(precedingPartnerTurn(messages, '2')).toBe(undefined);
+  });
+});
+
+describe('buildAsideTranscript', () => {
+  const main = (role: string, content: string) => ({ role, content, messageType: 'main' });
+
+  const CONVERSATION = [
+    main('partner', PARTNER_OPENER),
+    main('user', USER_TURN),
+    main('partner', PARTNER_REPLY),
+    main('coach', 'Try asking what led them to that view.'),
+  ];
+
+  it('attributes the partner and the coach to different speakers', () => {
+    const transcript = buildAsideTranscript(CONVERSATION, 'what did she mean by that?');
+
+    const partnerLine = transcript.split('\n').find((line) => line.includes(PARTNER_REPLY));
+    const coachLine = transcript
+      .split('\n')
+      .find((line) => line.includes('Try asking what led them'));
+
+    expect(partnerLine).toMatch(/^Partner:/);
+    expect(coachLine).toMatch(/^You, the coach/);
+    expect(partnerLine).not.toEqual(coachLine);
+  });
+
+  it('separates what the participant said to the partner from what they ask the coach', () => {
+    const transcript = buildAsideTranscript(CONVERSATION, 'how should I respond?');
+
+    expect(transcript).toMatch(/Participant \(turn 1\): /);
+    expect(transcript.split('\n').find((line) => line.includes(USER_TURN))).toMatch(
+      /^Participant \(turn 1\)/
+    );
+    expect(transcript).toContain('[ASIDE QUESTION]');
+    expect(transcript.indexOf(USER_TURN)).toBeLessThan(transcript.indexOf('[ASIDE QUESTION]'));
+  });
+
+  it('numbers participant turns in order', () => {
+    const transcript = buildAsideTranscript(
+      [...CONVERSATION, main('user', 'Second thing I said.')],
+      'q'
+    );
+    expect(transcript).toMatch(/Participant \(turn 2\): Second thing I said\./);
+  });
+
+  it('leaves earlier asides out of the transcript', () => {
+    const transcript = buildAsideTranscript(
+      [
+        ...CONVERSATION,
+        { role: 'user', content: 'An earlier private question.', messageType: 'aside' },
+        { role: 'coach', content: 'An earlier private answer.', messageType: 'aside' },
+      ],
+      'q'
+    );
+    expect(transcript).not.toContain('An earlier private question.');
+    expect(transcript).not.toContain('An earlier private answer.');
+  });
+
+  it('tells the coach it is not a speaker in the conversation', () => {
+    expect(buildAsideTranscript(CONVERSATION, 'q')).toMatch(/not a speaker/);
+  });
+
+  it('says so plainly when nothing has been said yet', () => {
+    const transcript = buildAsideTranscript([], 'what should I open with?');
+    expect(transcript).toMatch(/has not started yet/);
+    expect(transcript).toContain('what should I open with?');
+  });
+
+  it('skips blank turns rather than emitting an empty speaker line', () => {
+    const transcript = buildAsideTranscript([main('partner', '   '), main('user', USER_TURN)], 'q');
+    expect(transcript).not.toMatch(/Partner:\s*$/m);
+    expect(transcript).toMatch(/Participant \(turn 1\)/);
   });
 });

@@ -35,7 +35,11 @@ import {
   resolveSessionModels,
   type SessionModels,
 } from '../lib/modelResolution.js';
-import { buildCoachTranscript, buildLappTranscript } from '../lib/exchangePrompts.js';
+import {
+  buildAsideTranscript,
+  buildCoachTranscript,
+  buildLappTranscript,
+} from '../lib/exchangePrompts.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
 import { precedingPartnerTurn, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
@@ -1618,13 +1622,10 @@ export class ConversationManager {
 
   private buildAsideContext(question: string): LLMMessage[] {
     return [
-      ...this.session.messages
-        .filter((m) => m.messageType === 'main' || m.messageType === null)
-        .map((m) => ({
-          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
-          content: m.content,
-        })),
-      { role: 'user' as const, content: `[ASIDE QUESTION]: ${question}` },
+      {
+        role: 'user' as const,
+        content: buildAsideTranscript(this.session.messages, question),
+      },
     ];
   }
 
