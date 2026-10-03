@@ -130,6 +130,6 @@ export const placeholderCopy = {
 export const MARKETING_ARCHETYPES = [
   { id: 'holiday', label: 'Holiday table relative', hint: 'Family dinner politics' },
   { id: 'systems', label: 'Progressive left', hint: 'Structural arguments' },
-  { id: 'community', label: 'MAGA supporter', hint: 'Fairness and institutions' },
+  { id: 'community', label: 'MAGA right', hint: 'Fairness and institutions' },
   { id: 'coworker', label: 'Defensive coworker', hint: 'Workplace feedback' },
 ] as const;
