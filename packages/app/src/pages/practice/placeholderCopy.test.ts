@@ -42,4 +42,18 @@ describe('placeholderCopy', () => {
       expect(member.role.trim()).not.toBe('');
     }
   });
+
+  it('keeps any team bio to 80 words and any bio link to https', () => {
+    for (const member of placeholderCopy.team) {
+      if (member.bio !== undefined) {
+        const words = member.bio.trim().split(/\s+/).filter(Boolean);
+        expect(words.length, member.name).toBeGreaterThan(0);
+        expect(words.length, member.name).toBeLessThanOrEqual(80);
+      }
+      if (member.link) {
+        expect(member.link.url, member.name).toMatch(/^https:\/\//);
+        expect(member.link.label.trim(), member.name).not.toBe('');
+      }
+    }
+  });
 });
