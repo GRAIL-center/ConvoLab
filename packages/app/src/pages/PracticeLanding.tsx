@@ -81,9 +81,13 @@ export function PracticeLanding() {
   const trpc = useTRPC();
   const resumeAttempted = useRef(false);
 
-  const [picking, setPicking] = useState(false);
-  const [awaitingAuthChoice, setAwaitingAuthChoice] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<PracticeScenario | null>(null);
+  // The screen lives in the URL (?step=pick, ?step=auth) so the browser's own Back
+  // button, and the Android back gesture, step back one screen instead of leaving
+  // the site.
+  const step = searchParams.get('step');
+  const picking = step === 'pick' || step === 'auth';
+  const awaitingAuthChoice = step === 'auth' && selectedScenario !== null;
   const recaptchaSiteKey = (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined) ?? '';
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(
     recaptchaSiteKey ? null : 'local-dev'
@@ -92,11 +96,24 @@ export function PracticeLanding() {
   const { data: authData } = useQuery(trpc.auth.me.queryOptions());
   const isSignedIn = Boolean(authData?.user && authData.user.role !== 'GUEST');
 
-  const { data: scenarios, isError } = useQuery(trpc.scenario.list.queryOptions());
+  const {
+    data: scenarios,
+    isError,
+    isPending: scenariosLoading,
+    refetch: refetchScenarios,
+  } = useQuery(trpc.scenario.list.queryOptions());
   const liveScenarios = (scenarios as PracticeScenario[] | undefined) ?? [];
   const usingLiveScenarios = !isError && liveScenarios.length > 0;
-  const displayScenarios = usingLiveScenarios ? liveScenarios : PREVIEW_SCENARIOS;
-  const showPreviewBadge = !usingLiveScenarios;
+  // Stand-in partners are for local development only. In production a slow or
+  // failed load shows a loading or error state, never partners nobody can pick.
+  const isDev = import.meta.env.DEV;
+  const displayScenarios = usingLiveScenarios ? liveScenarios : isDev ? PREVIEW_SCENARIOS : [];
+  const showPreviewBadge = isDev && !usingLiveScenarios;
+  const listStatus: 'ready' | 'loading' | 'error' = usingLiveScenarios
+    ? 'ready'
+    : scenariosLoading
+      ? 'loading'
+      : 'error';
   const canStartLive = usingLiveScenarios && !isPreviewScenario(selectedScenario);
 
   const startMutation = useMutation({
@@ -147,13 +164,19 @@ export function PracticeLanding() {
     startWithScenario(selectedScenario.id, recaptchaToken);
   };
 
+  // Leaving the picker clears the choice; going back from the sign-in step keeps it.
+  useEffect(() => {
+    if (!picking) setSelectedScenario(null);
+  }, [picking]);
+
   const goBackFromPicker = () => {
-    if (awaitingAuthChoice) {
-      setAwaitingAuthChoice(false);
-      return;
+    // idx > 0 means an earlier entry in this app's history exists (the screen we
+    // came from); on a direct load of ?step=... there is none, so replace instead.
+    if ((window.history.state?.idx ?? 0) > 0) {
+      navigate(-1);
+    } else {
+      setSearchParams({}, { replace: true });
     }
-    setPicking(false);
-    setSelectedScenario(null);
   };
 
   const primaryCtaLabel = startMutation.isPending
@@ -168,7 +191,7 @@ export function PracticeLanding() {
         <PracticeMarketing
           isSignedIn={isSignedIn}
           showPreviewBadge={showPreviewBadge}
-          onChoosePartner={() => setPicking(true)}
+          onChoosePartner={() => setSearchParams({ step: 'pick' })}
         />
       ) : awaitingAuthChoice && !isSignedIn ? (
         <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-7 sm:px-10 sm:py-10">
@@ -228,6 +251,8 @@ export function PracticeLanding() {
       ) : (
         <PersonaPicker
           scenarios={displayScenarios}
+          listStatus={listStatus}
+          onRetry={() => refetchScenarios()}
           selectedScenario={selectedScenario}
           onSelect={setSelectedScenario}
           onBack={goBackFromPicker}
@@ -237,7 +262,7 @@ export function PracticeLanding() {
               handleStartSignedIn();
               return;
             }
-            setAwaitingAuthChoice(true);
+            setSearchParams({ step: 'auth' });
           }}
           canStartLive={canStartLive}
           showPreviewBadge={showPreviewBadge}
