@@ -206,10 +206,13 @@ const PILOT_NAME: Record<'man' | 'woman', PersonaName> = {
   woman: { first: 'Megan', last: 'Johnson' },
 };
 
+// Card copy for the public picker only. Nothing in the pilot or study renders a
+// scenario description: those surfaces carry their own partner summaries in
+// trpc/routers/study.ts and pages/PilotLanding.tsx, so edits here stay public-side.
 const PROGRESSIVE_DESCRIPTION =
-  'A politically engaged progressive who argues from systemic and structural reasoning.';
+  'A leftist who argues from systemic and structural reasoning.';
 const POPULIST_DESCRIPTION =
-  'A blunt right-populist who argues from fairness, accountability, and distrust of elites.';
+  'A MAGA supporter who argues from fairness, accountability, and distrust of elites.';
 
 const STUDY_PERSONAS = [
   {
