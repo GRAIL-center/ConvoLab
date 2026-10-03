@@ -52,3 +52,58 @@ export function buildCoachTranscript(input: ExchangeInput): string {
 export function buildLappTranscript(input: ExchangeInput, rubric: readonly string[]): string {
   return [...exchangeLines(input, 'score'), ...rubric].join('\n');
 }
+
+/** A persisted main-thread turn, as the aside transcript needs to read it. */
+export interface AsideTurn {
+  role?: string | null;
+  content?: string | null;
+  messageType?: string | null;
+}
+
+/**
+ * The conversation as the coach sees it when the participant asks an aside.
+ *
+ * The aside context used to be sent as chat messages mapped
+ * `role === 'user' ? 'user' : 'assistant'`. That is wrong twice over. Coach
+ * insights persist with messageType 'main', so the coach's own earlier notes
+ * and the partner's turns both arrived as `assistant`: asked "what did she mean
+ * by that?", the coach could not tell its own words from the partner's. And the
+ * participant's turns and the aside question both arrived as `user`, so what
+ * was said to the partner looked the same as what was being asked of the coach.
+ *
+ * A coach is a third party to this dialogue, not one of its two speakers, so
+ * the transcript goes in as one labelled block instead of being forced into
+ * two chat roles.
+ */
+export function renderAsideTranscript(messages: readonly AsideTurn[]): string {
+  const lines: string[] = [];
+  let participantTurn = 0;
+  for (const message of messages) {
+    if ((message.messageType ?? 'main') !== 'main') continue;
+    const content = typeof message.content === 'string' ? message.content.trim() : '';
+    if (!content) continue;
+    if (message.role === 'user') {
+      participantTurn += 1;
+      lines.push(`Participant (turn ${participantTurn}): ${content}`);
+    } else if (message.role === 'partner') {
+      lines.push(`Partner: ${content}`);
+    } else if (message.role === 'coach') {
+      lines.push(`You, the coach, told the participant: ${content}`);
+    }
+  }
+  return lines.join('\n\n');
+}
+
+/** The single user message handed to the coach for an aside question. */
+export function buildAsideTranscript(messages: readonly AsideTurn[], question: string): string {
+  const transcript = renderAsideTranscript(messages);
+  return [
+    'The participant is practising a conversation with the partner below. You are their coach: you are not a speaker in it, and the partner cannot see you.',
+    '',
+    transcript
+      ? `CONVERSATION SO FAR:\n\n${transcript}`
+      : 'CONVERSATION SO FAR: the conversation has not started yet.',
+    '',
+    `[ASIDE QUESTION] The participant is asking you privately: ${question}`,
+  ].join('\n');
+}
