@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCoachTranscript } from '../lib/coachPrompt.js';
+import { buildCoachTranscript, buildLappTranscript } from '../lib/exchangePrompts.js';
 import { precedingPartnerTurn } from '../lib/postExchangeGate.js';
 
 // The exchange that exposed the bug on 3 Oct 2026. The participant raised
@@ -58,6 +58,68 @@ describe('buildCoachTranscript', () => {
         partnerTurnAnswered: '   ',
       })
     ).not.toMatch(/replying to/);
+  });
+});
+
+const RUBRIC = ['Use 0-5 integer scores for:', 'l = listen/reflect the partner concern'] as const;
+
+describe('buildLappTranscript', () => {
+  it('shows the partner turn being answered, which is what l and a are scored against', () => {
+    const transcript = buildLappTranscript(
+      {
+        turnNumber: 2,
+        userMessage: USER_TURN,
+        partnerMessage: PARTNER_REPLY,
+        partnerTurnAnswered: PARTNER_OPENER,
+      },
+      RUBRIC
+    );
+
+    expect(transcript).toContain(PARTNER_OPENER);
+    expect(transcript.indexOf(PARTNER_OPENER)).toBeLessThan(transcript.indexOf(USER_TURN));
+  });
+
+  it('marks the user message as the one to score and the later reply as context', () => {
+    const lines = buildLappTranscript(
+      {
+        turnNumber: 2,
+        userMessage: USER_TURN,
+        partnerMessage: PARTNER_REPLY,
+        partnerTurnAnswered: PARTNER_OPENER,
+      },
+      RUBRIC
+    ).split('\n');
+
+    expect(lines.find((line) => line.includes(USER_TURN))).toMatch(/score this one/);
+    expect(lines.find((line) => line.includes(PARTNER_REPLY))).toMatch(/context only/);
+  });
+
+  it('puts the rubric after the exchange', () => {
+    const transcript = buildLappTranscript(
+      { turnNumber: 2, userMessage: USER_TURN, partnerMessage: PARTNER_REPLY },
+      RUBRIC
+    );
+    expect(transcript.indexOf(USER_TURN)).toBeLessThan(transcript.indexOf(RUBRIC[0]));
+    expect(transcript.endsWith(RUBRIC[RUBRIC.length - 1])).toBe(true);
+  });
+
+  it('labels the same exchange the same way the coach sees it', () => {
+    const input = {
+      turnNumber: 3,
+      userMessage: USER_TURN,
+      partnerMessage: PARTNER_REPLY,
+      partnerTurnAnswered: PARTNER_OPENER,
+    };
+    const shared = (text: string) =>
+      text.split('\n').filter((line) => !line.includes('this one') && line.trim() !== '');
+
+    const coachLines = shared(buildCoachTranscript(input)).filter(
+      (line) => !line.startsWith('Return only')
+    );
+    const lappLines = shared(buildLappTranscript(input, RUBRIC)).filter(
+      (line) => !RUBRIC.includes(line as (typeof RUBRIC)[number])
+    );
+    expect(coachLines).toEqual(lappLines);
   });
 });
 

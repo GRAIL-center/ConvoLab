@@ -35,14 +35,10 @@ import {
   resolveSessionModels,
   type SessionModels,
 } from '../lib/modelResolution.js';
+import { buildCoachTranscript, buildLappTranscript } from '../lib/exchangePrompts.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
-import { buildCoachTranscript } from '../lib/coachPrompt.js';
-import {
-  openingPartnerMessage,
-  precedingPartnerTurn,
-  shouldRunPostExchangeJobs,
-} from '../lib/postExchangeGate.js';
+import { precedingPartnerTurn, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
@@ -88,6 +84,21 @@ const LAPP_SCORE_TIMEOUT_MS = 15_000;
 // LAPP scorer instrument version — stored on every score row for reproducibility/
 // audit. Bump when the prompt, schema, model default, or sampling params change.
 const LAPP_SCORER_VERSION = 'lapp-v1-2026-08-08';
+/**
+ * Sent after the exchange, so the scorer reads the rubric with the turn in
+ * front of it. `l` and `a` are judged against the partner turn the participant
+ * answered, which is why that line has to be in the payload at all.
+ */
+const LAPP_RUBRIC = [
+  'Use 0-5 integer scores for:',
+  'l = listen/reflect the partner concern',
+  'a = acknowledge emotion or values',
+  'p = pivot with curiosity or a useful question',
+  'pe = perspective/explains own view constructively',
+  'tone must be one of constructive, warm, neutral, tense.',
+  'Return shape: {"l":0,"a":0,"p":0,"pe":0,"tone":"neutral"}',
+] as const;
+
 // Gemini structured-output schema: forces valid {l,a,p,pe: int, tone: enum} so the
 // scorer cannot return unparseable output (which previously triggered a fabricated
 // heuristic score). Types use Gemini's uppercase Type enum values.
@@ -583,20 +594,11 @@ export class ConversationManager {
           userMessage: content,
           partnerMessage: partnerResult.content,
           turnNumber,
-          // On turn 1 of the partner-opens variant the participant is replying
-          // to the fixed opener, and neither the coach nor the scorer is given
-          // conversation history — they see only this exchange. Without the
-          // opener they would judge a reply to something they cannot read.
-          // openingPartnerMessage walks the transcript in order and stops at
-          // the participant's first main message, so it cannot return the
-          // partner's reply to this very turn, which is already in `messages`.
-          precedingPartnerMessage:
-            partnerOpens && turnNumber === 1
-              ? openingPartnerMessage(this.session.messages)
-              : undefined,
-          // What the participant was actually replying to. The coach judges
-          // listening and acknowledgement, so without this it sees only the
-          // partner's reply and credits the participant with it.
+          // Neither the coach nor the scorer is given conversation history:
+          // they see one exchange. Both judge whether the participant listened
+          // and acknowledged, so without the turn being answered they see only
+          // the partner's reply and credit the participant with it. On turn 1
+          // of the partner-opens variant this is the fixed opener.
           partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
         });
       }
@@ -639,13 +641,7 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
-    /** The partner's opening statement, when the exchange is a reply to it. */
-    precedingPartnerMessage?: string;
-    /**
-     * The partner turn the participant was replying to. Coach only: the live
-     * scorer feeds a registered outcome, so it stays on its old input until
-     * that change is decided on its own.
-     */
+    /** The partner turn the participant was replying to, for the coach and the scorer. */
     partnerTurnAnswered?: string;
   }): Promise<void> {
     const coachJob = this.isCoachEnabled()
@@ -665,7 +661,7 @@ export class ConversationManager {
       args.userMessage,
       args.partnerMessage,
       args.turnNumber,
-      args.precedingPartnerMessage
+      args.partnerTurnAnswered
     ).catch((error: unknown) => {
       this.logger.warn(
         {
@@ -1134,7 +1130,7 @@ export class ConversationManager {
     userMessage: string,
     partnerMessage: string,
     turnNumber: number,
-    precedingPartnerMessage?: string
+    partnerTurnAnswered?: string
   ): Promise<void> {
     const startMs = Date.now();
     const model = this.sessionModels().scorer;
@@ -1147,25 +1143,14 @@ export class ConversationManager {
       try {
         for await (const chunk of streamCompletion(model, {
           systemPrompt:
-            'You are a JSON-only LAPP dialogue scorer. Score only the user message in context of the partner reply. Return exactly one JSON object and no prose.',
+            'You are a JSON-only LAPP dialogue scorer. Score only the user message. The partner lines are context: the first is what the user is replying to, the second is what the partner said afterwards. Never score the partner. Return exactly one JSON object and no prose.',
           messages: [
             {
               role: 'user',
-              content: [
-                `Turn: ${turnNumber}`,
-                ...(precedingPartnerMessage
-                  ? [`Partner's opening statement: ${precedingPartnerMessage}`]
-                  : []),
-                `User message: ${userMessage}`,
-                `Partner reply: ${partnerMessage}`,
-                'Use 0-5 integer scores for:',
-                'l = listen/reflect the partner concern',
-                'a = acknowledge emotion or values',
-                'p = pivot with curiosity or a useful question',
-                'pe = perspective/explains own view constructively',
-                'tone must be one of constructive, warm, neutral, tense.',
-                'Return shape: {"l":0,"a":0,"p":0,"pe":0,"tone":"neutral"}',
-              ].join('\n'),
+              content: buildLappTranscript(
+                { turnNumber, userMessage, partnerMessage, partnerTurnAnswered },
+                LAPP_RUBRIC
+              ),
             },
           ],
           maxTokens: 256,

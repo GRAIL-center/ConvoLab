@@ -34,34 +34,6 @@ export interface GateMessage {
 }
 
 /**
- * The partner's opening statement, i.e. the main-thread partner message that
- * comes BEFORE the participant has said anything.
- *
- * Order matters, which is why this walks the transcript instead of taking the
- * first partner message it can find. By the time a turn is scored the
- * partner's reply to that turn is already in `messages`, so "first partner
- * message" would hand back the reply itself on a session that has no opener,
- * and the coach would be told the partner opened with something it said in
- * response to the participant. Stopping at the first main user message makes
- * that impossible: if the participant spoke first, there is no opener.
- *
- * Asides are skipped. A coaching-arm participant may ask the coach a question
- * before writing anything to the partner, and that is not the start of the
- * conversation.
- */
-export function openingPartnerMessage(messages: readonly GateMessage[]): string | undefined {
-  for (const message of messages) {
-    if ((message.messageType ?? 'main') !== 'main') continue;
-    if (message.role === 'user') return undefined;
-    if (message.role === 'partner') {
-      const content = typeof message.content === 'string' ? message.content.trim() : '';
-      return content || undefined;
-    }
-  }
-  return undefined;
-}
-
-/**
  * The main-thread partner turn the participant was replying to, i.e. the last
  * partner message BEFORE the participant message identified by `userMessageId`.
  *
