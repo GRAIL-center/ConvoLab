@@ -37,7 +37,12 @@ import {
 } from '../lib/modelResolution.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
-import { openingPartnerMessage, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
+import { buildCoachTranscript } from '../lib/coachPrompt.js';
+import {
+  openingPartnerMessage,
+  precedingPartnerTurn,
+  shouldRunPostExchangeJobs,
+} from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
@@ -589,6 +594,10 @@ export class ConversationManager {
             partnerOpens && turnNumber === 1
               ? openingPartnerMessage(this.session.messages)
               : undefined,
+          // What the participant was actually replying to. The coach judges
+          // listening and acknowledgement, so without this it sees only the
+          // partner's reply and credits the participant with it.
+          partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
         });
       }
     } catch (error) {
@@ -632,6 +641,12 @@ export class ConversationManager {
     turnNumber: number;
     /** The partner's opening statement, when the exchange is a reply to it. */
     precedingPartnerMessage?: string;
+    /**
+     * The partner turn the participant was replying to. Coach only: the live
+     * scorer feeds a registered outcome, so it stays on its old input until
+     * that change is decided on its own.
+     */
+    partnerTurnAnswered?: string;
   }): Promise<void> {
     const coachJob = this.isCoachEnabled()
       ? this.generateCoachInsight(args).catch((error: unknown) => {
@@ -1219,8 +1234,8 @@ export class ConversationManager {
     userMessage: string;
     partnerMessage: string;
     turnNumber: number;
-    /** The partner's opening statement, when the exchange is a reply to it. */
-    precedingPartnerMessage?: string;
+    /** The partner turn the participant was replying to, when there is one. */
+    partnerTurnAnswered?: string;
   }): Promise<void> {
     const startMs = Date.now();
     const scenario = this.session.scenario;
@@ -1240,7 +1255,8 @@ export class ConversationManager {
           basePrompt,
           buildFactContext(),
           'You are the coach only. You are not the partner character.',
-          'Give one short, complete coaching insight to the user about their latest reply.',
+          'Give one short, complete coaching insight to the user about the message labelled "User message" below.',
+          'The partner lines are context only. Never credit the user with something the partner said, and never describe the partner reply as the user listening or acknowledging.',
           'Do not role-play the partner. Do not answer as the partner. Do not continue the partner conversation.',
           'If the user asked a factual aside, coach how that affected dialogue instead of answering as the partner.',
           'Use one or two complete sentences. Always finish the final sentence.',
@@ -1248,15 +1264,7 @@ export class ConversationManager {
         messages: [
           {
             role: 'user',
-            content: [
-              `Turn: ${args.turnNumber}`,
-              ...(args.precedingPartnerMessage
-                ? [`Partner's opening statement: ${args.precedingPartnerMessage}`]
-                : []),
-              `User message: ${args.userMessage}`,
-              `Partner reply: ${args.partnerMessage}`,
-              'Return only the coaching insight text.',
-            ].join('\n'),
+            content: buildCoachTranscript(args),
           },
         ],
         maxTokens: 220,
