@@ -129,7 +129,7 @@ export const placeholderCopy = {
 /** Anonymous marketing archetypes. Never use study persona names here. */
 export const MARKETING_ARCHETYPES = [
   { id: 'holiday', label: 'Holiday table relative', hint: 'Family dinner politics' },
-  { id: 'systems', label: 'Systems-minded progressive', hint: 'Structural arguments' },
-  { id: 'community', label: 'Community & distrust populist', hint: 'Fairness and institutions' },
+  { id: 'systems', label: 'Progressive left', hint: 'Structural arguments' },
+  { id: 'community', label: 'MAGA supporter', hint: 'Fairness and institutions' },
   { id: 'coworker', label: 'Defensive coworker', hint: 'Workplace feedback' },
 ] as const;
