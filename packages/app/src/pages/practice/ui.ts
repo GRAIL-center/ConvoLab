@@ -11,6 +11,9 @@ export const container = 'mx-auto w-full max-w-6xl';
 
 export const sectionTitle = `${serif} text-[clamp(1.9rem,3.8vw,2.6rem)] font-medium leading-[1.12] tracking-[-0.02em] text-balance`;
 
+/** For a heading that must stay on one line at every width; the size scales with the viewport. */
+export const sectionTitleOneLine = `${serif} whitespace-nowrap text-[clamp(1rem,4.6vw,2.4rem)] font-medium leading-[1.12] tracking-[-0.02em]`;
+
 const focusRing =
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171614] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f5f0] dark:focus-visible:ring-[#eeeae1] dark:focus-visible:ring-offset-[#11110f]';
 

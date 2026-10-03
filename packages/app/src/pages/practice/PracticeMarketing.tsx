@@ -16,6 +16,7 @@ import {
   secondaryButton,
   section,
   sectionTitle,
+  sectionTitleOneLine,
   serif,
   soft,
 } from './ui';
@@ -86,11 +87,14 @@ export function PracticeMarketing({
 
         <section className={section} aria-labelledby="lapp-title">
           <div className={container}>
-            <Reveal className="mx-auto max-w-2xl text-center">
-              <h2 id="lapp-title" className={sectionTitle}>
+            <Reveal className="mx-auto max-w-4xl text-center">
+              <h2
+                id="lapp-title"
+                className={sectionTitleOneLine}
+              >
                 {placeholderCopy.lappTitle}
               </h2>
-              <p className={`mt-5 text-[1.02rem] leading-relaxed ${soft}`}>
+              <p className={`mx-auto mt-5 max-w-2xl text-[1.02rem] leading-relaxed ${soft}`}>
                 {placeholderCopy.lappIntro}
               </p>
             </Reveal>
