@@ -54,3 +54,4 @@ test-results/
 # Python bytecode (scripts/)
 __pycache__/
 *.pyc
+.claude/

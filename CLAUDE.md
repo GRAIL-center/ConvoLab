@@ -121,6 +121,24 @@ Biome for both. Run `pnpm check`.
 
 Free-tier recipe (no API cost, verified 2026-08-07): the key's free tier caps each Gemini model at ~20 requests/day, so a single model can't sustain even one 6-turn conversation (~22 calls) per day. Instead put each role on its own model (= its own quota bucket): participant `google:gemini-3-flash-preview`, partner `google:gemini-3.6-flash`, coach `google:gemini-3.1-flash-lite`, `LAPP_SCORER_MODEL=google:gemini-2.5-flash`, with `--pace-seconds 30`. Models with free quota on this key (probed): gemini-2.5-flash, gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-3.5-flash, gemini-3.6-flash, gemma-4-*. Caveats: gemini-3.5-flash returns empty text at our small per-lane maxTokens (thinking eats the budget) and Gemma goes silent on political roleplay — avoid both. When the scorer bucket empties, LAPP falls back to the local heuristic (free, still produces a score). `scripts/synthetic-batch.sh` loops this recipe continuously with daily-quota backoff. Paid alternative: all-Anthropic Haiku 4.5 runs a 6-turn conversation for ~$0.05, no pacing needed.
 
+## ⚠️ The DQI / LAPP outcome scorer is NOT in this repo
+
+Searching here for the registered scoring pipeline (Modified DQI, HEAR dimensions,
+justification/interactivity, LAPP adherence, replicate aggregation, freeze/hash) will
+find nothing, because it lives in a **separate private repo: `~/dqi-scoring`**
+(`hannasistek/dqi-scoring`). The split is deliberate: the git tag there is the
+freeze artifact the pre-analysis plan requires. It scores a whole conversation in
+one call, with every turn labelled by speaker.
+
+What IS here is `runLappScorer()` in `packages/api/src/ws/conversation.ts`, the
+**live per-turn coaching scorer**. It is part of the treatment, not the measurement:
+PAP Section 4.1.2 says the live coach's in-conversation scores "are not used in any
+registered analysis". Do not mistake it for the study instrument, and do not
+conclude the instrument is missing. What it and the coach are shown is built in
+`packages/api/src/lib/exchangePrompts.ts`.
+
+Full memo: `~/Documents/Claude Memory/projects/dqi-scoring/SCORER-STATUS-MEMO.md`.
+
 ## Orientation Docs
 
 - `docs/plans/16-firestore-status-update.md` — freshest migration status write-up
