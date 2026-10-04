@@ -6,7 +6,7 @@ export function Benefits() {
   return (
     <section
       id="benefits"
-      className="scroll-mt-16 px-6 py-24 sm:px-10 sm:py-32"
+      className="scroll-mt-16 px-6 py-20 sm:px-10 sm:py-24"
       aria-labelledby="benefits-title"
     >
       <div
@@ -23,10 +23,7 @@ export function Benefits() {
 
         <div className="relative grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
           <Reveal>
-            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#8fb5ae]">
-              Benefits
-            </p>
-            <h2 id="benefits-title" className={`${sectionTitle} mt-3`}>
+            <h2 id="benefits-title" className={sectionTitle}>
               {placeholderCopy.benefitsTitle}
             </h2>
           </Reveal>

@@ -47,7 +47,7 @@ export function PracticeMarketing({
         <HowItWorks />
         <FeatureWhy />
 
-        <section className={section} aria-labelledby="archetypes-title">
+        <section id="meet" className={section} aria-labelledby="archetypes-title">
           <div className={`${container} text-center`}>
             <Reveal>
               <h2 id="archetypes-title" className={sectionTitle}>
@@ -85,13 +85,14 @@ export function PracticeMarketing({
 
         <Benefits />
 
-        <section className={section} aria-labelledby="lapp-title">
+        <section id="lapp" className={section} aria-labelledby="lapp-title">
           <div className={container}>
             <Reveal className="mx-auto max-w-4xl text-center">
-              <h2
-                id="lapp-title"
-                className={sectionTitleOneLine}
-              >
+              {/* Matches the nav label, as the About section's label does. */}
+              <p className={`text-[11px] font-medium uppercase tracking-[0.22em] ${accent}`}>
+                The four moves
+              </p>
+              <h2 id="lapp-title" className={`${sectionTitleOneLine} mt-3`}>
                 {placeholderCopy.lappTitle}
               </h2>
               <p className={`mx-auto mt-5 max-w-2xl text-[1.02rem] leading-relaxed ${soft}`}>

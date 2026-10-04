@@ -6,7 +6,7 @@ export const muted = 'text-[#7a756c] dark:text-[#8f8a80]';
 export const soft = 'text-[#4a4741] dark:text-[#c8c3b8]';
 export const accent = 'text-[#5f8079] dark:text-[#8fb5ae]';
 
-export const section = 'scroll-mt-24 px-6 py-24 sm:px-10 sm:py-32';
+export const section = 'scroll-mt-24 px-6 py-20 sm:px-10 sm:py-24';
 export const container = 'mx-auto w-full max-w-6xl';
 
 export const sectionTitle = `${serif} text-[clamp(1.9rem,3.8vw,2.6rem)] font-medium leading-[1.12] tracking-[-0.02em] text-balance`;

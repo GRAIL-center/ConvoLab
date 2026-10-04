@@ -41,16 +41,12 @@ export function Hero({ onChoosePartner }: { onChoosePartner: () => void }) {
               : 'translate-y-4 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100'
           }`}
         >
+          {/* The name lives in the nav; the hero leads with the promise (Daniel, 4 Oct 2026). */}
           <h1
-            className={`${serif} text-[clamp(3.5rem,9vw,6.5rem)] font-medium leading-[0.95] tracking-[-0.045em]`}
-          >
-            ConvoLab
-          </h1>
-          <p
-            className={`${serif} mx-auto mt-6 max-w-[20ch] text-[clamp(1.5rem,3vw,2.1rem)] leading-[1.18] tracking-[-0.015em] text-balance lg:mx-0`}
+            className={`${serif} mx-auto max-w-[16ch] text-[clamp(2.5rem,6vw,4.4rem)] font-medium leading-[1.04] tracking-[-0.03em] text-balance lg:mx-0`}
           >
             {placeholderCopy.heroHeadline}
-          </p>
+          </h1>
           <p className={`mx-auto mt-5 max-w-[46ch] text-[1.05rem] leading-relaxed lg:mx-0 ${soft}`}>
             {placeholderCopy.heroSupport}
           </p>

@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { muted, scrollToSection, textLink } from './ui';
 
+// Each label is the exact heading it scrolls to, listed in page order, so the
+// nav never promises a section the reader cannot then find by name.
 const LINKS = [
-  { id: 'about', label: 'About' },
   { id: 'how', label: 'How it works' },
+  { id: 'meet', label: 'Who you might meet' },
   { id: 'benefits', label: 'Benefits' },
+  { id: 'lapp', label: 'The four moves' },
+  { id: 'about', label: 'About' },
   { id: 'faq', label: 'FAQ' },
 ] as const;
 
@@ -61,7 +65,7 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
           <span className="text-[1.05rem] font-semibold tracking-[-0.02em]">ConvoLab</span>
         </button>
 
-        <ul className="hidden list-none items-center gap-8 p-0 md:flex">
+        <ul className="hidden list-none items-center gap-7 p-0 lg:flex">
           {LINKS.map((link) => (
             <li key={link.id}>
               <a
@@ -70,7 +74,7 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
                   e.preventDefault();
                   go(link.id);
                 }}
-                className={`text-sm ${muted} ${textLink}`}
+                className={`whitespace-nowrap text-sm ${muted} ${textLink}`}
               >
                 {link.label}
               </a>
@@ -86,11 +90,11 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
               Preview
             </span>
           ) : null}
-          <span className="hidden md:inline">{accountLink}</span>
+          <span className="hidden whitespace-nowrap lg:inline">{accountLink}</span>
           <ThemeToggle />
           <button
             type="button"
-            className={`flex h-10 w-10 items-center justify-center rounded-full border border-black/10 md:hidden dark:border-white/15 ${textLink}`}
+            className={`flex h-10 w-10 items-center justify-center rounded-full border border-black/10 lg:hidden dark:border-white/15 ${textLink}`}
             aria-expanded={menuOpen}
             aria-controls="practice-mobile-menu"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -114,7 +118,7 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
       {menuOpen ? (
         <div
           id="practice-mobile-menu"
-          className="border-t border-black/[0.08] px-6 pb-6 pt-2 md:hidden dark:border-white/[0.08]"
+          className="border-t border-black/[0.08] px-6 pb-6 pt-2 lg:hidden dark:border-white/[0.08]"
         >
           <ul className="flex list-none flex-col gap-1 p-0">
             {LINKS.map((link) => (

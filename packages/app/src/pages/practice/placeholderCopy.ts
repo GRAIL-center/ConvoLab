@@ -48,7 +48,7 @@ export const placeholderCopy = {
   archetypesLabel: 'Who you might meet',
   archetypesHint: 'Archetypes only. You choose a specific partner next.',
 
-  benefitsTitle: 'What you get out of it',
+  benefitsTitle: 'Benefits',
   benefits: [
     {
       title: 'Low stakes',
@@ -99,7 +99,7 @@ export const placeholderCopy = {
   contactBody: 'Questions about the project? Email us at',
   contactEmail: 'hsistek@fas.harvard.edu',
 
-  faqTitle: 'Questions',
+  faqTitle: 'FAQ',
   faq: [
     {
       q: 'Do I need an account?',
