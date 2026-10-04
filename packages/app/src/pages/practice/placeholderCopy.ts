@@ -104,7 +104,13 @@ export const placeholderCopy = {
     { initials: 'NA', name: 'Nebras Alam', role: 'Developer' },
     { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
     { initials: 'AR', name: 'Abbey Ripstra', role: 'Design researcher (consulting)' },
-    { initials: 'MJ', name: 'Mikael Johansson', role: 'Technologist (consulting)' },
+    {
+      initials: 'MJ',
+      name: 'Mikael Johansson',
+      role: 'Technologist (consulting)',
+      // Mikael's own wording, 4 Oct 2026; his two companies are linked in place.
+      bio: 'Experienced startup and scale-up CTO, founder of [renable.com](https://renable.com) and [verke.co](https://verke.co). Keenly interested in everything from psychology and leadership, to artificial intelligence and distributed systems.',
+    },
   ] as TeamMember[],
   contactTitle: 'Contact',
   contactBody: 'Questions about the project? Email us at',
