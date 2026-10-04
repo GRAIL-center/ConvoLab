@@ -29,7 +29,11 @@ export function Hero({ onChoosePartner }: { onChoosePartner: () => void }) {
     >
       <DialogueGraphic className="pointer-events-none absolute inset-0 h-full w-full text-[#1a1916] dark:text-[#f2efe7]" />
       <div
-        className="pointer-events-none absolute -right-24 top-24 h-[420px] w-[420px] rounded-full bg-[#6f8f89]/[0.12] blur-3xl dark:bg-[#8fb5ae]/[0.08]"
+        className="pointer-events-none absolute -right-24 top-24 h-[460px] w-[460px] rounded-full bg-[#86c7c2]/[0.30] blur-3xl dark:bg-[#8fb5ae]/[0.08]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -left-32 top-[38%] h-[380px] w-[380px] rounded-full bg-[#ceb888]/[0.28] blur-3xl dark:bg-[#ceb888]/[0.07]"
         aria-hidden="true"
       />
 
@@ -42,17 +46,21 @@ export function Hero({ onChoosePartner }: { onChoosePartner: () => void }) {
           }`}
         >
           {/* The name lives in the nav; the hero leads with the promise (Daniel, 4 Oct 2026). */}
+          <span
+            className="mx-auto mb-6 block h-[5px] w-16 rounded-full bg-[#ceb888] lg:mx-0"
+            aria-hidden="true"
+          />
           <h1
             className={`${serif} mx-auto max-w-[16ch] text-[clamp(2.5rem,6vw,4.4rem)] font-medium leading-[1.04] tracking-[-0.03em] text-balance lg:mx-0`}
           >
             {placeholderCopy.heroHeadline}
           </h1>
-          <p className={`mx-auto mt-5 max-w-[46ch] text-[1.05rem] leading-relaxed lg:mx-0 ${soft}`}>
+          <p className={`mx-auto mt-5 max-w-[46ch] text-[1.05rem] leading-relaxed text-balance lg:mx-0 ${soft}`}>
             {placeholderCopy.heroSupport}
           </p>
           <div className="mt-9 flex flex-col items-center gap-4 lg:items-start">
             <button type="button" onClick={onChoosePartner} className={primaryButton}>
-              Choose who to practice with
+              {placeholderCopy.ctaLabel}
             </button>
             <p className={`${serif} text-[1.02rem] italic ${muted}`}>
               {placeholderCopy.purdueLine}

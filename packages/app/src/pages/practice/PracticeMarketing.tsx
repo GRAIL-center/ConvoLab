@@ -61,7 +61,7 @@ export function PracticeMarketing({
               {MARKETING_ARCHETYPES.map((archetype, index) => (
                 <li key={archetype.id}>
                   <Reveal delayMs={index * 90}>
-                    <div className="rounded-full border border-black/10 bg-[#fffcf7] px-6 py-3.5 dark:border-white/10 dark:bg-[#171612]">
+                    <div className="rounded-full border border-black/10 bg-[#ffffff] px-6 py-3.5 dark:border-white/10 dark:bg-[#171612]">
                       <div className={`${serif} text-[1.05rem] font-medium tracking-[-0.01em]`}>
                         {archetype.label}
                       </div>
@@ -74,7 +74,7 @@ export function PracticeMarketing({
 
             <Reveal delayMs={150} className="mt-16 flex flex-col items-center gap-3">
               <button type="button" onClick={onChoosePartner} className={primaryButton}>
-                Choose who to practice with
+                {placeholderCopy.ctaLabel}
               </button>
               <p className={`text-xs ${muted}`}>
                 About ten minutes. You can leave whenever you like.
@@ -126,7 +126,7 @@ export function PracticeMarketing({
           <Reveal className="mx-auto max-w-xl">
             <h2 className={sectionTitle}>Ready when you are.</h2>
             <button type="button" onClick={onChoosePartner} className={`${secondaryButton} mt-8`}>
-              Choose who to practice with
+              {placeholderCopy.ctaLabel}
             </button>
           </Reveal>
         </section>

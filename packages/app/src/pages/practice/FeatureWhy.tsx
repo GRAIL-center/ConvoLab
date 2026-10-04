@@ -17,7 +17,7 @@ function PushbackVisual() {
           If we don't enforce the border, citizenship means nothing.
         </div>
         <div
-          className={`${bubble} max-w-[80%] self-end rounded-br-md bg-[#171614] text-[#f7f5f0] dark:bg-[#eeeae1] dark:text-[#151513]`}
+          className={`${bubble} max-w-[80%] self-end rounded-br-md bg-[#328278] text-white dark:bg-[#eeeae1] dark:text-[#151513]`}
         >
           What worries you most about that, day to day?
         </div>
@@ -35,10 +35,10 @@ function CoachVisual() {
   return (
     <div className="relative h-full w-full">
       <span className="absolute -right-8 -top-10 h-36 w-36 rounded-full bg-[#dde8e5] dark:bg-[#1c2927]" />
-      <span className="absolute bottom-5 left-6 h-3 w-3 rounded-full bg-[#6f8f89]/50" />
-      <span className="absolute bottom-9 left-11 h-2 w-2 rounded-full bg-[#6f8f89]/30" />
+      <span className="absolute bottom-5 left-6 h-3 w-3 rounded-full bg-[#86c7c2]/50" />
+      <span className="absolute bottom-9 left-11 h-2 w-2 rounded-full bg-[#86c7c2]/30" />
       <div className="relative flex h-full items-center justify-center px-6">
-        <div className="w-full max-w-[240px] rounded-2xl border border-[#6f8f89]/30 bg-white/90 p-4 shadow-sm dark:border-[#8fb5ae]/25 dark:bg-[#1b2624]">
+        <div className="w-full max-w-[240px] rounded-2xl border border-[#86c7c2]/30 bg-white/90 p-4 shadow-sm dark:border-[#8fb5ae]/25 dark:bg-[#1b2624]">
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4f6f68] dark:text-[#9cc2bb]">
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
             Coach
@@ -47,8 +47,8 @@ function CoachVisual() {
             Before you answer, ask what led them to that view.
           </p>
           <div className="mt-3 flex gap-1.5">
-            <span className="h-1.5 w-10 rounded-full bg-[#6f8f89]/50" />
-            <span className="h-1.5 w-6 rounded-full bg-[#6f8f89]/25" />
+            <span className="h-1.5 w-10 rounded-full bg-[#86c7c2]/50" />
+            <span className="h-1.5 w-6 rounded-full bg-[#86c7c2]/25" />
           </div>
         </div>
       </div>

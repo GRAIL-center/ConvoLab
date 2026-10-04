@@ -26,7 +26,7 @@ export function HowItWorks() {
             <li key={step.title}>
               <Reveal delayMs={index * 120} className="flex flex-col items-center text-center">
                 <span
-                  className={`${serif} relative flex h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-[#fffcf7] text-[1.4rem] font-medium dark:border-white/10 dark:bg-[#171612] ${accent}`}
+                  className={`${serif} relative flex h-14 w-14 items-center justify-center rounded-full border border-black/10 bg-[#ffffff] text-[1.4rem] font-medium dark:border-white/10 dark:bg-[#171612] ${accent}`}
                 >
                   {index + 1}
                 </span>

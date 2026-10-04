@@ -43,14 +43,14 @@ export function PhoneMockup({ style }: { style?: CSSProperties }) {
           <div className="max-w-[82%] self-start rounded-2xl rounded-bl-md bg-[#efebe3] px-3.5 py-2.5 text-[#2a2824] dark:bg-[#24221d] dark:text-[#e8e4da]">
             Honestly, people who think like you never want to hear the other side.
           </div>
-          <div className="max-w-[82%] self-end rounded-2xl rounded-br-md bg-[#171614] px-3.5 py-2.5 text-[#f7f5f0] dark:bg-[#eeeae1] dark:text-[#151513]">
+          <div className="max-w-[82%] self-end rounded-2xl rounded-br-md bg-[#328278] px-3.5 py-2.5 text-white dark:bg-[#eeeae1] dark:text-[#151513]">
             That’s fair to push on. What part do you feel gets ignored most?
           </div>
           <div className="max-w-[82%] self-start rounded-2xl rounded-bl-md bg-[#efebe3] px-3.5 py-2.5 text-[#2a2824] dark:bg-[#24221d] dark:text-[#e8e4da]">
             Mostly that folks around here feel talked down to.
           </div>
 
-          <div className="mt-1 rounded-2xl border border-[#6f8f89]/30 bg-[#eef3f1] px-3.5 py-3 dark:border-[#8fb5ae]/25 dark:bg-[#1b2624]">
+          <div className="mt-1 rounded-2xl border border-[#86c7c2]/30 bg-[#eef3f1] px-3.5 py-3 dark:border-[#8fb5ae]/25 dark:bg-[#1b2624]">
             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4f6f68] dark:text-[#9cc2bb]">
               <span className="h-1.5 w-1.5 rounded-full bg-current" />
               Coach
@@ -64,7 +64,7 @@ export function PhoneMockup({ style }: { style?: CSSProperties }) {
         <div className="mx-4 mb-3 flex items-center justify-between rounded-2xl bg-[#f1eee7] px-4 py-2.5 dark:bg-[#1e1c18]">
           {LAPP_SCORES.map(([move, score]) => (
             <div key={move} className="flex flex-col items-center gap-1">
-              <span className="font-[Newsreader,Georgia,serif] text-[13px] font-medium text-[#5f8079] dark:text-[#8fb5ae]">
+              <span className="font-[Newsreader,Georgia,serif] text-[13px] font-medium text-[#2f5a53] dark:text-[#8fb5ae]">
                 {move.charAt(0)}
               </span>
               <span className="flex gap-[2px]">
@@ -72,7 +72,7 @@ export function PhoneMockup({ style }: { style?: CSSProperties }) {
                   <span
                     key={n}
                     className={`h-1 w-1.5 rounded-full ${
-                      n <= score ? 'bg-[#6f8f89] dark:bg-[#8fb5ae]' : 'bg-black/10 dark:bg-white/10'
+                      n <= score ? 'bg-[#86c7c2] dark:bg-[#8fb5ae]' : 'bg-black/10 dark:bg-white/10'
                     }`}
                   />
                 ))}
@@ -83,11 +83,11 @@ export function PhoneMockup({ style }: { style?: CSSProperties }) {
 
         <div className="mx-4 mb-5 flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 py-2.5 text-[11.5px] text-[#9a948a] dark:border-white/[0.08] dark:bg-[#1c1a16]">
           Type your reply…
-          <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-[#171614] dark:bg-[#eeeae1]">
+          <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-[#328278] dark:bg-[#eeeae1]">
             <svg
               aria-hidden="true"
               viewBox="0 0 12 12"
-              className="h-3 w-3 text-[#f7f5f0] dark:text-[#151513]"
+              className="h-3 w-3 text-[#f7faf9] dark:text-[#151513]"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.6"

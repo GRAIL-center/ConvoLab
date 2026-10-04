@@ -70,11 +70,11 @@ export function PersonaPicker({
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
       <div
-        className="pointer-events-none absolute -left-40 top-20 h-[460px] w-[460px] rounded-full bg-[#6f8f89]/[0.1] blur-3xl dark:bg-[#8fb5ae]/[0.06]"
+        className="pointer-events-none absolute -left-40 top-20 h-[460px] w-[460px] rounded-full bg-[#86c7c2]/[0.1] blur-3xl dark:bg-[#8fb5ae]/[0.06]"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -right-32 bottom-32 h-[380px] w-[380px] rounded-full bg-[#c9a877]/[0.12] blur-3xl dark:bg-[#c9a877]/[0.05]"
+        className="pointer-events-none absolute -right-32 bottom-32 h-[380px] w-[380px] rounded-full bg-[#ceb888]/[0.12] blur-3xl dark:bg-[#ceb888]/[0.05]"
         aria-hidden="true"
       />
 
@@ -151,9 +151,9 @@ export function PersonaPicker({
               >
                 <Reveal delayMs={index * 80} className="h-full">
                   <div
-                    className={`group relative flex h-full flex-col rounded-[28px] border bg-[#fffcf7] transition duration-300 dark:bg-[#171612] ${
+                    className={`group relative flex h-full flex-col rounded-[28px] border bg-[#ffffff] transition duration-300 dark:bg-[#171612] ${
                       isSelected
-                        ? 'border-[#171614] shadow-[0_24px_48px_-28px_rgba(23,22,20,0.45)] dark:border-[#eeeae1]'
+                        ? 'border-[#328278] shadow-[0_24px_48px_-28px_rgba(23,22,20,0.45)] dark:border-[#eeeae1]'
                         : 'border-black/[0.08] hover:-translate-y-1 hover:shadow-[0_24px_48px_-30px_rgba(23,22,20,0.35)] dark:border-white/[0.08]'
                     }`}
                   >
@@ -161,7 +161,7 @@ export function PersonaPicker({
                       type="button"
                       onClick={() => onSelect(scenario)}
                       aria-pressed={isSelected}
-                      className="flex flex-1 flex-col items-center rounded-t-[28px] px-7 pb-6 pt-9 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#171614] dark:focus-visible:ring-[#eeeae1]"
+                      className="flex flex-1 flex-col items-center rounded-t-[28px] px-7 pb-6 pt-9 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#328278] dark:focus-visible:ring-[#eeeae1]"
                     >
                       <span
                         className={`${serif} flex h-16 w-16 items-center justify-center rounded-full text-[1.6rem] font-medium transition-transform duration-300 group-hover:scale-105 ${tint}`}
@@ -191,7 +191,7 @@ export function PersonaPicker({
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full border transition ${
                           isSelected
-                            ? 'border-[#171614] bg-[#171614] text-[#f7f5f0] dark:border-[#eeeae1] dark:bg-[#eeeae1] dark:text-[#151513]'
+                            ? 'border-[#328278] bg-[#328278] text-white dark:border-[#eeeae1] dark:bg-[#eeeae1] dark:text-[#151513]'
                             : 'border-black/15 text-transparent dark:border-white/20'
                         }`}
                         aria-hidden="true"
@@ -226,7 +226,7 @@ export function PersonaPicker({
         ) : null}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.08] bg-[#f7f5f0]/90 backdrop-blur-md dark:border-white/[0.08] dark:bg-[#11110f]/90">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.08] bg-[#f7faf9]/90 backdrop-blur-md dark:border-white/[0.08] dark:bg-[#11110f]/90">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-6 py-4 sm:flex-row sm:justify-between sm:px-10">
           <p className={`text-sm ${muted}`} aria-live="polite">
             {selectedScenario ? (

@@ -48,7 +48,7 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
     <header
       className={`sticky top-0 z-30 transition-[background-color,border-color,backdrop-filter] duration-300 ${
         scrolled || menuOpen
-          ? 'border-b border-black/[0.08] bg-[#f7f5f0]/85 backdrop-blur-md dark:border-white/[0.08] dark:bg-[#11110f]/85'
+          ? 'border-b border-black/[0.08] bg-[#f7faf9]/85 backdrop-blur-md dark:border-white/[0.08] dark:bg-[#11110f]/85'
           : 'border-b border-transparent bg-transparent'
       }`}
     >
