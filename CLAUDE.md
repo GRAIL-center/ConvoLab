@@ -61,6 +61,11 @@ STAFF = researchers who run user testing sessions. ADMIN = full system access.
 - **Disposable prototypes welcome.**
 - **Concise docs**: Primary audience is Claude Code. No boilerplate.
 - **AI-assisted coding is the norm.**
+- **Check every UI change at phone, tablet and desktop before calling it done.**
+  Render at 390, 768 and 1280 px (plus 1024 if the nav or a layout breakpoint
+  changed), look at each, and include the three screenshots in the PR. Check
+  every section the change touches, not only the one you were asked about.
+  A desktop-only check would have shipped a broken tablet nav in #168.
 
 ## Technical Notes
 
