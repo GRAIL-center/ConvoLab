@@ -186,7 +186,7 @@ export function PracticeLanding() {
       : 'Continue';
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0] text-[#1a1916] antialiased [font-family:Inter,ui-sans-serif,system-ui,sans-serif] dark:bg-[#11110f] dark:text-[#f2efe7]">
+    <div className="min-h-screen bg-[#f7faf9] text-[#1a1916] antialiased [font-family:Inter,ui-sans-serif,system-ui,sans-serif] dark:bg-[#11110f] dark:text-[#f2efe7]">
       {!picking ? (
         <PracticeMarketing
           isSignedIn={isSignedIn}
@@ -230,7 +230,7 @@ export function PracticeLanding() {
                   e.preventDefault();
                   handleSignIn();
                 }}
-                className="flex w-full items-center justify-center rounded-full bg-[#171614] px-7 py-[15px] text-[0.95rem] font-semibold text-[#f7f5f0] transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171614] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f5f0] dark:bg-[#eeeae1] dark:text-[#151513] dark:focus-visible:ring-[#eeeae1] dark:focus-visible:ring-offset-[#11110f]"
+                className="flex w-full items-center justify-center rounded-full bg-[#328278] px-7 py-[15px] text-[0.95rem] font-semibold text-white transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#328278] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7faf9] dark:bg-[#eeeae1] dark:text-[#151513] dark:focus-visible:ring-[#eeeae1] dark:focus-visible:ring-offset-[#11110f]"
               >
                 Sign in
               </a>
@@ -238,7 +238,7 @@ export function PracticeLanding() {
                 type="button"
                 onClick={handleContinueAsGuest}
                 disabled={!recaptchaToken || startMutation.isPending || !canStartLive}
-                className="w-full rounded-full border border-black/15 bg-transparent px-7 py-[15px] text-[0.95rem] font-semibold text-[#1a1916] transition hover:border-black/25 hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171614] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f5f0] dark:border-white/15 dark:text-[#f2efe7] dark:hover:border-white/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-[#eeeae1] dark:focus-visible:ring-offset-[#11110f]"
+                className="w-full rounded-full border border-black/15 bg-transparent px-7 py-[15px] text-[0.95rem] font-semibold text-[#1a1916] transition hover:border-black/25 hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#328278] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7faf9] dark:border-white/15 dark:text-[#f2efe7] dark:hover:border-white/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-[#eeeae1] dark:focus-visible:ring-offset-[#11110f]"
               >
                 {startMutation.isPending ? 'Preparing…' : 'Continue as guest'}
               </button>

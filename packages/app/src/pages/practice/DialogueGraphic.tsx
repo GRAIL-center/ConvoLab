@@ -53,9 +53,9 @@ export function DialogueGraphic({ className = '' }: { className?: string }) {
           strokeOpacity="0.16"
           strokeWidth="1.5"
         />
-        <circle cx="150" cy="180" r="5" fill="#6f8f89" fillOpacity="0.5" />
-        <circle cx="185" cy="180" r="5" fill="#6f8f89" fillOpacity="0.32" />
-        <circle cx="220" cy="180" r="5" fill="#6f8f89" fillOpacity="0.18" />
+        <circle cx="150" cy="180" r="5" fill="#86c7c2" fillOpacity="0.5" />
+        <circle cx="185" cy="180" r="5" fill="#86c7c2" fillOpacity="0.32" />
+        <circle cx="220" cy="180" r="5" fill="#86c7c2" fillOpacity="0.18" />
       </g>
 
       <g className="motion-safe:animate-[practiceDrift_14s_ease-in-out_infinite_reverse]">
