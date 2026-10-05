@@ -15,7 +15,7 @@ export interface StreamParams {
   systemPrompt: string;
   messages: LLMMessage[];
   maxTokens?: number;
-  /** Enable web search grounding (currently only supported by Google/Gemini) */
+  /** Offer the model web search (Anthropic web_search tool, Gemini googleSearch grounding) */
   useWebSearch?: boolean;
   /** AbortSignal for cancelling in-progress streams */
   signal?: AbortSignal;
@@ -38,6 +38,18 @@ export interface StreamChunk {
   content?: string;
   usage?: TokenUsage;
   error?: StreamError;
+  /** On 'done', when web search was offered: what the model searched for and what came back. */
+  search?: WebSearchTrace;
+}
+
+/**
+ * What a turn did with web search. Empty arrays mean search was offered and
+ * the model chose not to use it. Recorded on partner messages so the analysis
+ * can report how often the partner searched, by arm.
+ */
+export interface WebSearchTrace {
+  queries: string[];
+  sources: { url: string; title?: string }[];
 }
 
 export interface TokenUsage {

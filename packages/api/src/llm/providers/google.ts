@@ -81,6 +81,9 @@ export const googleProvider: LLMProvider = {
 
 			let inputTokens = 0;
 			let outputTokens = 0;
+			// Grounding metadata can arrive on any chunk; collect it all.
+			const searchQueries = new Set<string>();
+			const searchSources = new Map<string, string | undefined>();
 			let firstResponseDone = false;
 
 			for await (const chunk of response) {
@@ -113,6 +116,12 @@ export const googleProvider: LLMProvider = {
 					}
 				}
 
+				const grounding = chunk.candidates?.[0]?.groundingMetadata;
+				for (const q of grounding?.webSearchQueries ?? []) searchQueries.add(q);
+				for (const g of grounding?.groundingChunks ?? []) {
+					if (g.web?.uri) searchSources.set(g.web.uri, g.web.title);
+				}
+
 				// Usage metadata comes with chunks (may arrive after STOP)
 				if (chunk.usageMetadata) {
 					inputTokens = chunk.usageMetadata.promptTokenCount ?? 0;
@@ -123,6 +132,16 @@ export const googleProvider: LLMProvider = {
 			yield {
 				type: "done",
 				usage: { inputTokens, outputTokens },
+				...(params.useWebSearch
+					? {
+							search: {
+								queries: [...searchQueries],
+								sources: [...searchSources].map(([url, title]) =>
+									title ? { url, title } : { url },
+								),
+							},
+						}
+					: {}),
 			};
 		} catch (error) {
 			// Handle abort errors gracefully

@@ -47,7 +47,7 @@ import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
 import { streamCompletion } from '../llm/registry.js';
-import type { LLMMessage, TokenUsage } from '../llm/types.js';
+import type { LLMMessage, TokenUsage, WebSearchTrace } from '../llm/types.js';
 import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
@@ -798,12 +798,14 @@ export class ConversationManager {
       }
       let fullContent = '';
       let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+      let search: WebSearchTrace | undefined;
       let retries = 0;
       const maxRetries = 2;
 
       while (retries <= maxRetries) {
         try {
           fullContent = '';
+          search = undefined;
           // Caps, not targets: prompts keep replies short, so non-thinking
           // models are unaffected. Thinking models (Gemini 3+) spend part of
           // this budget on reasoning — tight caps truncate their text
@@ -837,6 +839,7 @@ export class ConversationManager {
               });
             } else if (chunk.type === 'done' && chunk.usage) {
               usage = chunk.usage;
+              search = chunk.search;
               this.logger.info(
                 {
                   sessionId: this.session.id,
@@ -988,7 +991,26 @@ export class ConversationManager {
             return null;
           }
 
-          const message = await this.persistMessage(role, fullContent.trim());
+          // Every partner reply records whether search was offered and what,
+          // if anything, the model searched for, so search use can be
+          // reported by arm. The emergency lane turns search off, which is
+          // why `offered` is per message rather than per scenario.
+          const message = await this.persistMessage(
+            role,
+            fullContent.trim(),
+            role === 'partner'
+              ? {
+                  metadata: {
+                    webSearch: {
+                      offered: useWebSearch,
+                      model: currentModel,
+                      queries: search?.queries ?? [],
+                      sources: search?.sources ?? [],
+                    },
+                  },
+                }
+              : undefined
+          );
           this.session.messages.push(message);
 
           this.logger.info(
@@ -998,6 +1020,7 @@ export class ConversationManager {
               model: currentModel,
               messageId: message.id,
               contentLength: fullContent.trim().length,
+              webSearches: search?.queries.length ?? 0,
             },
             '[stream] Response persisted and sent'
           );
