@@ -6,7 +6,7 @@ export function Benefits() {
   return (
     <section
       id="benefits"
-      className="scroll-mt-16 px-6 py-6 sm:px-10 sm:py-10"
+      className="scroll-mt-16 px-6 py-12 sm:px-10 sm:py-20"
       aria-labelledby="benefits-title"
     >
       <div
