@@ -104,7 +104,9 @@ export function PracticeMarketing({
                 <li key={title}>
                   <Reveal delayMs={index * 100} className="h-full">
                     <div className={`${panel} h-full p-5 sm:p-7`}>
-                      <span className={`${serif} text-[2rem] font-medium leading-none sm:text-[2.6rem] ${accent}`}>
+                      <span
+                        className={`${serif} text-[2rem] font-medium leading-none sm:text-[2.6rem] ${accent}`}
+                      >
                         {letter}
                       </span>
                       <span className="mt-3 block text-[1rem] font-semibold sm:mt-5">{title}</span>
