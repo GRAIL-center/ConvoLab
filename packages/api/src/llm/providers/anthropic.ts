@@ -1,5 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { LLMMessage, LLMProvider, StreamChunk, StreamParams } from '../types.js';
+import type {
+  LLMMessage,
+  LLMProvider,
+  StreamChunk,
+  StreamParams,
+  WebSearchTrace,
+} from '../types.js';
 
 let anthropic: Anthropic | null = null;
 
@@ -51,6 +57,37 @@ export function webSearchTool(model: string) {
         name: 'web_search';
       })
     : ({ type: 'web_search_20250305', name: 'web_search' } as const);
+}
+
+/**
+ * Pull the searches out of a finished response. The 2026 tool runs searches
+ * from inside code execution, but each one still appears as its own
+ * `server_tool_use` block named web_search, followed by a
+ * `web_search_tool_result` listing the pages returned (or an error object).
+ */
+export function extractWebSearch(content: readonly unknown[]): WebSearchTrace {
+  const queries: string[] = [];
+  const sources: WebSearchTrace['sources'] = [];
+  const seen = new Set<string>();
+  for (const block of content as {
+    type?: string;
+    name?: string;
+    input?: unknown;
+    content?: unknown;
+  }[]) {
+    if (block?.type === 'server_tool_use' && block.name === 'web_search') {
+      const query = (block.input as { query?: unknown } | undefined)?.query;
+      if (typeof query === 'string') queries.push(query);
+    } else if (block?.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+      for (const r of block.content as { type?: string; url?: unknown; title?: unknown }[]) {
+        if (r?.type !== 'web_search_result' || typeof r.url !== 'string' || seen.has(r.url))
+          continue;
+        seen.add(r.url);
+        sources.push(typeof r.title === 'string' ? { url: r.url, title: r.title } : { url: r.url });
+      }
+    }
+  }
+  return { queries, sources };
 }
 
 export const anthropicProvider: LLMProvider = {
@@ -133,6 +170,7 @@ export const anthropicProvider: LLMProvider = {
           cacheReadInputTokens: cacheRead,
           cacheCreationInputTokens: cacheCreation,
         },
+        ...(params.useWebSearch ? { search: extractWebSearch(final.content) } : {}),
       };
     } catch (error) {
       // Handle abort errors gracefully
