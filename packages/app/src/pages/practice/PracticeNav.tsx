@@ -85,7 +85,7 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
         <div className="flex items-center gap-4">
           {showPreviewBadge ? (
             <span
-              className={`hidden rounded-full border border-black/10 px-3 py-1 text-[11px] sm:inline dark:border-white/10 ${muted}`}
+              className={`hidden rounded-md border border-black/10 px-2.5 py-1 text-[11px] sm:inline dark:border-white/10 ${muted}`}
             >
               Preview
             </span>
