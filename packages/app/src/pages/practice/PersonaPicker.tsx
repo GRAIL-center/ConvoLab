@@ -151,7 +151,7 @@ export function PersonaPicker({
               >
                 <Reveal delayMs={index * 80} className="h-full">
                   <div
-                    className={`group relative flex h-full flex-col rounded-[28px] border bg-[#ffffff] transition duration-300 dark:bg-[#171612] ${
+                    className={`group relative flex h-full flex-col rounded-2xl border bg-[#ffffff] transition duration-300 dark:bg-[#171612] ${
                       isSelected
                         ? 'border-[#328278] shadow-[0_24px_48px_-28px_rgba(23,22,20,0.45)] dark:border-[#eeeae1]'
                         : 'border-black/[0.08] hover:-translate-y-1 hover:shadow-[0_24px_48px_-30px_rgba(23,22,20,0.35)] dark:border-white/[0.08]'
@@ -161,7 +161,7 @@ export function PersonaPicker({
                       type="button"
                       onClick={() => onSelect(scenario)}
                       aria-pressed={isSelected}
-                      className="flex flex-1 flex-col items-center rounded-t-[28px] px-7 pb-6 pt-9 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#328278] dark:focus-visible:ring-[#eeeae1]"
+                      className="flex flex-1 flex-col items-center rounded-t-2xl px-7 pb-6 pt-9 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#328278] dark:focus-visible:ring-[#eeeae1]"
                     >
                       <span
                         className={`${serif} flex h-16 w-16 items-center justify-center rounded-full text-[1.6rem] font-medium transition-transform duration-300 group-hover:scale-105 ${tint}`}

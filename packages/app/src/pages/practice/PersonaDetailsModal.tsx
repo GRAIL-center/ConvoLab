@@ -40,7 +40,7 @@ export function PersonaDetailsModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-auto w-[min(560px,calc(100vw-2rem))] max-w-none rounded-[28px] border border-black/[0.08] bg-[#ffffff] p-0 text-[#1a1916] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.5)] backdrop:bg-[#11110f]/55 backdrop:backdrop-blur-sm open:motion-safe:animate-[practiceDialogIn_220ms_ease-out] dark:border-white/[0.08] dark:bg-[#171612] dark:text-[#f2efe7]"
+      className="m-auto w-[min(560px,calc(100vw-2rem))] max-w-none rounded-2xl border border-black/[0.08] bg-[#ffffff] p-0 text-[#1a1916] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.5)] backdrop:bg-[#11110f]/55 backdrop:backdrop-blur-sm open:motion-safe:animate-[practiceDialogIn_220ms_ease-out] dark:border-white/[0.08] dark:bg-[#171612] dark:text-[#f2efe7]"
     >
       {scenario ? (
         <div className="p-7 sm:p-9">
