@@ -35,7 +35,10 @@ export function Benefits() {
                   <span className={`${serif} text-[0.95rem] text-white dark:text-[#8fb5ae]`}>
                     {String(index + 1).padStart(2, '0')}
                   </span>
-                  <div className="mt-3 h-px w-full bg-white/30 dark:bg-white/10" aria-hidden="true" />
+                  <div
+                    className="mt-3 h-px w-full bg-white/30 dark:bg-white/10"
+                    aria-hidden="true"
+                  />
                   <h3 className="mt-5 text-[1.05rem] font-semibold tracking-[-0.01em]">
                     {benefit.title}
                   </h3>
