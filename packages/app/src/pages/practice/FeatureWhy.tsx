@@ -97,17 +97,17 @@ export function FeatureWhy() {
           <p className={`mt-5 text-[1.05rem] leading-relaxed ${soft}`}>{placeholderCopy.whyBody}</p>
         </Reveal>
 
-        <ul className="mt-16 grid list-none gap-6 p-0 md:grid-cols-3">
+        <ul className="mt-10 grid list-none gap-5 p-0 sm:mt-16 sm:gap-6 md:grid-cols-3">
           {placeholderCopy.whyPanels.map((item, index) => (
             <li key={item.title}>
               <Reveal delayMs={index * 120} className="h-full">
                 <article
                   className={`${panel} group flex h-full flex-col overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-28px_rgba(23,22,20,0.35)]`}
                 >
-                  <div className={`relative h-52 overflow-hidden ${TINTS[index]}`}>
+                  <div className={`relative h-36 overflow-hidden sm:h-52 ${TINTS[index]}`}>
                     {VISUALS[index]}
                   </div>
-                  <div className="flex flex-1 flex-col p-7">
+                  <div className="flex flex-1 flex-col p-5 sm:p-7">
                     <h3 className="text-[1.1rem] font-semibold tracking-[-0.01em]">{item.title}</h3>
                     <p className={`mt-2 text-[0.92rem] leading-relaxed ${muted}`}>{item.body}</p>
                   </div>

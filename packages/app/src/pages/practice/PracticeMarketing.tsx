@@ -57,11 +57,11 @@ export function PracticeMarketing({
                 {placeholderCopy.archetypesHint}
               </p>
             </Reveal>
-            <ul className="mt-12 flex list-none flex-wrap justify-center gap-3 p-0">
+            <ul className="mt-10 grid list-none grid-cols-2 gap-3 p-0 sm:mt-12 sm:flex sm:flex-wrap sm:justify-center">
               {MARKETING_ARCHETYPES.map((archetype, index) => (
                 <li key={archetype.id}>
-                  <Reveal delayMs={index * 90}>
-                    <div className="rounded-full border border-black/10 bg-[#ffffff] px-6 py-3.5 dark:border-white/10 dark:bg-[#171612]">
+                  <Reveal delayMs={index * 90} className="h-full">
+                    <div className="h-full rounded-2xl border border-black/10 bg-[#ffffff] px-4 py-3 text-center sm:px-6 sm:py-3.5 dark:border-white/10 dark:bg-[#171612]">
                       <div className={`${serif} text-[1.05rem] font-medium tracking-[-0.01em]`}>
                         {archetype.label}
                       </div>
@@ -72,7 +72,7 @@ export function PracticeMarketing({
               ))}
             </ul>
 
-            <Reveal delayMs={150} className="mt-16 flex flex-col items-center gap-3">
+            <Reveal delayMs={150} className="mt-10 flex flex-col items-center gap-3 sm:mt-16">
               <button type="button" onClick={onChoosePartner} className={primaryButton}>
                 {placeholderCopy.ctaLabel}
               </button>
@@ -99,15 +99,17 @@ export function PracticeMarketing({
                 {placeholderCopy.lappIntro}
               </p>
             </Reveal>
-            <ul className="mt-14 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="mt-10 grid list-none grid-cols-2 gap-3 p-0 sm:mt-14 sm:gap-5 lg:grid-cols-4">
               {LAPP.map(([letter, title], index) => (
                 <li key={title}>
                   <Reveal delayMs={index * 100} className="h-full">
-                    <div className={`${panel} h-full p-7`}>
-                      <span className={`${serif} text-[2.6rem] font-medium leading-none ${accent}`}>
+                    <div className={`${panel} h-full p-5 sm:p-7`}>
+                      <span
+                        className={`${serif} text-[2rem] font-medium leading-none sm:text-[2.6rem] ${accent}`}
+                      >
                         {letter}
                       </span>
-                      <span className="mt-5 block text-[1rem] font-semibold">{title}</span>
+                      <span className="mt-3 block text-[1rem] font-semibold sm:mt-5">{title}</span>
                       <span className={`mt-2 block text-[0.88rem] leading-relaxed ${muted}`}>
                         {placeholderCopy.lappDetails[title]}
                       </span>
