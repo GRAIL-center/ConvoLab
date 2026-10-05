@@ -10,7 +10,7 @@ export function Benefits() {
       aria-labelledby="benefits-title"
     >
       <div
-        className={`${container} relative overflow-hidden rounded-2xl bg-[#328278] px-7 py-12 text-white sm:px-14 sm:py-20 dark:bg-[#1d1c18] dark:text-[#f2efe7]`}
+        className={`${container} relative overflow-hidden rounded-2xl bg-[#2f3b3a] px-7 py-12 text-white sm:px-14 sm:py-20 dark:bg-[#1d1c18] dark:text-[#f2efe7]`}
       >
         <span
           className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#86c7c2]/25 blur-3xl"
