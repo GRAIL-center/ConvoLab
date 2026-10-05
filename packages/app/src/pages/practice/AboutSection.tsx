@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { placeholderCopy, type TeamMember } from './placeholderCopy';
 import { Reveal } from './Reveal';
+import { MemberAvatar } from './MemberAvatar';
 import { TeamBioModal } from './TeamBioModal';
 import {
   accent,
@@ -19,11 +20,7 @@ const cardClass = `${panel} flex flex-col items-start gap-2.5 p-3.5`;
 function MemberCardBody({ member, hasBio }: { member: TeamMember; hasBio: boolean }) {
   return (
     <>
-      <span
-        className={`${serif} flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e7ece9] text-[0.85rem] font-medium text-[#3f5c56] dark:bg-[#243330] dark:text-[#b9d4ce]`}
-      >
-        {member.initials}
-      </span>
+      <MemberAvatar member={member} size="sm" />
       <div className="min-w-0 break-words">
         <div className="text-[0.88rem] font-semibold leading-snug">{member.name}</div>
         <div className={`mt-0.5 text-[0.8rem] leading-snug ${muted}`}>{member.role}</div>

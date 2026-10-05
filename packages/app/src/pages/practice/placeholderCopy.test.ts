@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { bioPlainText } from './bioText';
 import { placeholderCopy } from './placeholderCopy';
@@ -72,5 +74,14 @@ describe('placeholderCopy', () => {
     expect(bioPlainText('founder of [renable.com](https://renable.com).')).toBe(
       'founder of renable.com.'
     );
+  });
+
+  it('points every team photo at a real file under public/team/', () => {
+    for (const member of placeholderCopy.team) {
+      if (member.photo === undefined) continue;
+      expect(member.photo, member.name).toMatch(/^\/team\/[a-z0-9-]+\.(jpg|png|webp)$/);
+      const onDisk = fileURLToPath(new URL(`../../../public${member.photo}`, import.meta.url));
+      expect(existsSync(onDisk), `${member.name}: ${member.photo}`).toBe(true);
+    }
   });
 });
