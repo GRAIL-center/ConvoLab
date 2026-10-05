@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bioPlainText } from './bioText';
 import { placeholderCopy } from './placeholderCopy';
 
 function collectStrings(value: unknown, out: string[] = []): string[] {
@@ -41,5 +42,35 @@ describe('placeholderCopy', () => {
       expect(member.name.trim()).not.toBe('');
       expect(member.role.trim()).not.toBe('');
     }
+  });
+
+  it('keeps any team bio to 80 words and any bio link to https', () => {
+    for (const member of placeholderCopy.team) {
+      if (member.bio !== undefined) {
+        const words = bioPlainText(member.bio).trim().split(/\s+/).filter(Boolean);
+        expect(words.length, member.name).toBeGreaterThan(0);
+        expect(words.length, member.name).toBeLessThanOrEqual(80);
+      }
+      // Every markdown-style link inside a bio must be a well-formed https link;
+      // anything else would render as visible brackets on the live page.
+      for (const target of (member.bio ?? '').matchAll(/\]\(([^)]*)\)/g)) {
+        expect(target[1], member.name).toMatch(/^https:\/\/\S+$/);
+      }
+      if (member.link) {
+        expect(member.link.url, member.name).toMatch(/^https:\/\//);
+        expect(member.link.label.trim(), member.name).not.toBe('');
+      }
+    }
+  });
+
+  it('renders bio links in place and leaves non-https links as text', async () => {
+    const { renderBio } = await import('./bioText');
+    const parts = renderBio('founder of [a](https://a.example) and [b](http://b.example).', 'x');
+    const anchors = parts.filter((p) => typeof p === 'object');
+    expect(anchors).toHaveLength(1);
+    expect(parts.join('')).toContain('[b](http://b.example)');
+    expect(bioPlainText('founder of [renable.com](https://renable.com).')).toBe(
+      'founder of renable.com.'
+    );
   });
 });

@@ -5,6 +5,16 @@
  * never appear here again; placeholderCopy.test.ts enforces this. Keep the
  * keys stable.
  */
+export type TeamMember = {
+  initials: string;
+  name: string;
+  role: string;
+  /** 50 to 70 words, third person (80 max). A card with a bio opens it on click; without one it stays a plain card. */
+  bio?: string;
+  /** One optional link shown under the bio, e.g. a personal site. */
+  link?: { label: string; url: string };
+};
+
 export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
   ctaLabel: 'Start practicing',
@@ -86,16 +96,34 @@ export const placeholderCopy = {
   teamTitle: 'The team',
   team: [
     { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
-    { initials: 'DS', name: 'Daniel Schiff', role: 'Faculty mentor and co-PI' },
+    {
+      initials: 'DS',
+      name: 'Daniel Schiff',
+      role: 'Faculty mentor and co-PI',
+      // Facts from danielschiff.com/about; approved by Daniel, 5 Oct 2026.
+      bio: "Daniel Schiff is an Associate Professor of Technology Policy in Purdue University's Department of Political Science and founding Co-Director of GRAIL, the Governance and Responsible AI Lab. His research examines how AI is governed, from public policy to industry practice, and its effects on education, work and misinformation. Before academia, he was JP Morgan Chase's founding Responsible AI Lead.",
+    },
     { initials: 'AL', name: 'Andrew Le Blanc', role: 'Developer' },
     { initials: 'AN', name: 'Anuj Krish Nair', role: 'Developer' },
     { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
     { initials: 'KK', name: 'Kiki Khosla', role: 'Developer' },
     { initials: 'NA', name: 'Nebras Alam', role: 'Developer' },
     { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
-    { initials: 'AR', name: 'Abbey Ripstra', role: 'Design researcher (consulting)' },
-    { initials: 'MJ', name: 'Mikael Johansson', role: 'Technologist (consulting)' },
-  ],
+    {
+      initials: 'AR',
+      name: 'Abbey Ripstra',
+      role: 'Design researcher (consulting)',
+      // Abbey's own wording, 5 Oct 2026.
+      bio: 'Abbey is a human centered design researcher who conducts research informing design decisions and strategy. She runs Design Research Services, a consultancy advising on and conducting design research work for a variety of clients. Abbey studied design research and strategy at the Institute of Design at the Illinois Institute of Technology. Part of her work is educating and mentoring people who want to use human centered design in their work to improve the world.',
+    },
+    {
+      initials: 'MJ',
+      name: 'Mikael Johansson',
+      role: 'Technologist (consulting)',
+      // Mikael's own wording, 4 Oct 2026; his two companies are linked in place.
+      bio: 'Experienced startup and scale-up CTO, founder of [renable.com](https://renable.com) and [verke.co](https://verke.co). Keenly interested in everything from psychology and leadership, to artificial intelligence and distributed systems.',
+    },
+  ] as TeamMember[],
   contactTitle: 'Contact',
   contactBody: 'Questions about the project? Email us at',
   contactEmail: 'hsistek@fas.harvard.edu',
