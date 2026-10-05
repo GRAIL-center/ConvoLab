@@ -68,7 +68,7 @@ export function Hero({ onChoosePartner }: { onChoosePartner: () => void }) {
           </div>
         </div>
 
-        <div className="flex justify-center [perspective:1400px] lg:justify-end">
+        <div className="hidden justify-center [perspective:1400px] lg:flex lg:justify-end">
           <PhoneMockup style={{ transform: phoneTransform }} />
         </div>
       </div>
