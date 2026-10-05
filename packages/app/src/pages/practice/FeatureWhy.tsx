@@ -104,7 +104,7 @@ export function FeatureWhy() {
                 <article
                   className={`${panel} group flex h-full flex-col overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-28px_rgba(23,22,20,0.35)]`}
                 >
-                  <div className={`relative h-36 overflow-hidden sm:h-52 ${TINTS[index]}`}>
+                  <div className={`relative h-48 overflow-hidden sm:h-52 ${TINTS[index]}`}>
                     {VISUALS[index]}
                   </div>
                   <div className="flex flex-1 flex-col p-5 sm:p-7">

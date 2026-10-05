@@ -28,7 +28,7 @@ export const placeholderCopy = {
     },
   ],
 
-  whyTitle: 'Why ConvoLab exists',
+  whyTitle: 'Why practice',
   whyBody:
     'Hard conversations across political lines are where relationships fray. ConvoLab gives you a low-stakes place to rehearse them, so you can feel more confident at the next one.',
   whyPanels: [
