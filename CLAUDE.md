@@ -61,6 +61,11 @@ STAFF = researchers who run user testing sessions. ADMIN = full system access.
 - **Disposable prototypes welcome.**
 - **Concise docs**: Primary audience is Claude Code. No boilerplate.
 - **AI-assisted coding is the norm.**
+- **Check every UI change at phone, tablet and desktop before calling it done.**
+  Render at 390, 768 and 1280 px (plus 1024 if the nav or a layout breakpoint
+  changed), look at each, and include the three screenshots in the PR. Check
+  every section the change touches, not only the one you were asked about.
+  A desktop-only check would have shipped a broken tablet nav in #168.
 
 ## Technical Notes
 
@@ -115,6 +120,24 @@ Biome for both. Run `pnpm check`.
 `pnpm -F @workspace/api synthetic` drives the real partner/coach/LAPP pipeline with an LLM-simulated participant and persists full sessions exactly as the app would. It refuses to run unless `FIRESTORE_EMULATOR_HOST` is set (`firebase emulators:start --only firestore`, port 8080 per firebase.json) so synthetic data never lands in the real project. `--fake-llm` switches all agents to the deterministic offline `fake:` provider (no API keys needed); `--user-model`/`--partner-model`/`--coach-model` pick the LLMs; the participant gets a sampled survey-grounded profile — topic (of the 7 policy areas), 0-10 positions on that topic's V10 items, and a dialogue-skill level (novice/developing/skilled, so LAPP scores span the full range) — pinnable via `--topic`/`--skill`, recorded as `participant_profile` in the JSONL; `--out file.jsonl` also writes records in the same schema as the `export_transcripts*.py` scripts. `LAPP_SCORER_MODEL` env var overrides the scorer model. Covered end-to-end by `packages/api/src/cli/synthetic.test.ts` against the fake Firestore double.
 
 Free-tier recipe (no API cost, verified 2026-08-07): the key's free tier caps each Gemini model at ~20 requests/day, so a single model can't sustain even one 6-turn conversation (~22 calls) per day. Instead put each role on its own model (= its own quota bucket): participant `google:gemini-3-flash-preview`, partner `google:gemini-3.6-flash`, coach `google:gemini-3.1-flash-lite`, `LAPP_SCORER_MODEL=google:gemini-2.5-flash`, with `--pace-seconds 30`. Models with free quota on this key (probed): gemini-2.5-flash, gemini-3-flash-preview, gemini-3.1-flash-lite, gemini-3.5-flash, gemini-3.6-flash, gemma-4-*. Caveats: gemini-3.5-flash returns empty text at our small per-lane maxTokens (thinking eats the budget) and Gemma goes silent on political roleplay — avoid both. When the scorer bucket empties, LAPP falls back to the local heuristic (free, still produces a score). `scripts/synthetic-batch.sh` loops this recipe continuously with daily-quota backoff. Paid alternative: all-Anthropic Haiku 4.5 runs a 6-turn conversation for ~$0.05, no pacing needed.
+
+## ⚠️ The DQI / LAPP outcome scorer is NOT in this repo
+
+Searching here for the registered scoring pipeline (Modified DQI, HEAR dimensions,
+justification/interactivity, LAPP adherence, replicate aggregation, freeze/hash) will
+find nothing, because it lives in a **separate private repo: `~/dqi-scoring`**
+(`hannasistek/dqi-scoring`). The split is deliberate: the git tag there is the
+freeze artifact the pre-analysis plan requires. It scores a whole conversation in
+one call, with every turn labelled by speaker.
+
+What IS here is `runLappScorer()` in `packages/api/src/ws/conversation.ts`, the
+**live per-turn coaching scorer**. It is part of the treatment, not the measurement:
+PAP Section 4.1.2 says the live coach's in-conversation scores "are not used in any
+registered analysis". Do not mistake it for the study instrument, and do not
+conclude the instrument is missing. What it and the coach are shown is built in
+`packages/api/src/lib/exchangePrompts.ts`.
+
+Full memo: `~/Documents/Claude Memory/projects/dqi-scoring/SCORER-STATUS-MEMO.md`.
 
 ## Orientation Docs
 
