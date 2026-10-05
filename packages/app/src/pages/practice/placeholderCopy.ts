@@ -96,14 +96,26 @@ export const placeholderCopy = {
   teamTitle: 'The team',
   team: [
     { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
-    { initials: 'DS', name: 'Daniel Schiff', role: 'Faculty mentor and co-PI' },
+    {
+      initials: 'DS',
+      name: 'Daniel Schiff',
+      role: 'Faculty mentor and co-PI',
+      // Facts from danielschiff.com/about; approved by Daniel, 5 Oct 2026.
+      bio: "Daniel Schiff is an Associate Professor of Technology Policy in Purdue University's Department of Political Science and founding Co-Director of GRAIL, the Governance and Responsible AI Lab. His research examines how AI is governed, from public policy to industry practice, and its effects on education, work and misinformation. Before academia, he was JP Morgan Chase's founding Responsible AI Lead.",
+    },
     { initials: 'AL', name: 'Andrew Le Blanc', role: 'Developer' },
     { initials: 'AN', name: 'Anuj Krish Nair', role: 'Developer' },
     { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
     { initials: 'KK', name: 'Kiki Khosla', role: 'Developer' },
     { initials: 'NA', name: 'Nebras Alam', role: 'Developer' },
     { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
-    { initials: 'AR', name: 'Abbey Ripstra', role: 'Design researcher (consulting)' },
+    {
+      initials: 'AR',
+      name: 'Abbey Ripstra',
+      role: 'Design researcher (consulting)',
+      // Abbey's own wording, 5 Oct 2026.
+      bio: 'Abbey is a human centered design researcher who conducts research informing design decisions and strategy. She runs Design Research Services, a consultancy advising on and conducting design research work for a variety of clients. Abbey studied design research and strategy at the Institute of Design at the Illinois Institute of Technology. Part of her work is educating and mentoring people who want to use human centered design in their work to improve the world.',
+    },
     {
       initials: 'MJ',
       name: 'Mikael Johansson',

@@ -30,7 +30,7 @@ export function TeamBioModal({ member, onClose }: TeamBioModalProps) {
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="m-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-b-none rounded-t-[28px] border border-black/[0.08] bg-[#ffffff] p-0 text-[#1a1916] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.5)] backdrop:bg-[#11110f]/55 backdrop:backdrop-blur-sm open:motion-safe:animate-[practiceDialogIn_220ms_ease-out] sm:m-auto sm:w-[min(520px,calc(100vw-2rem))] sm:rounded-[28px] dark:border-white/[0.08] dark:bg-[#171612] dark:text-[#f2efe7]"
+      className="m-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-b-none rounded-t-2xl border border-black/[0.08] bg-[#ffffff] p-0 text-[#1a1916] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.5)] backdrop:bg-[#11110f]/55 backdrop:backdrop-blur-sm open:motion-safe:animate-[practiceDialogIn_220ms_ease-out] sm:m-auto sm:w-[min(520px,calc(100vw-2rem))] sm:rounded-2xl dark:border-white/[0.08] dark:bg-[#171612] dark:text-[#f2efe7]"
     >
       {member ? (
         <div className="p-6 pb-8 sm:p-8">
