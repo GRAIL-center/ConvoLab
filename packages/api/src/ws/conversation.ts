@@ -249,9 +249,19 @@ function parseJsonObject(content: string): Record<string, unknown> | null {
   }
 }
 
-function looksLikeCurrentFactQuestion(content: string): boolean {
-  return /\b(current|today|right now|latest|recent|news|president|governor|mayor|prime minister|what year|who is|when is|as of)\b/i.test(
-    content
+/**
+ * Whether a turn is offered web search. It follows the scenario's flag for the
+ * role and nothing else: the model decides per turn whether to actually search.
+ * A keyword gate on the participant's message used to sit here and withheld
+ * search from questions like "what do you think of the case at Cornell",
+ * so the partner answered news questions from training memory.
+ */
+export function webSearchFor(
+  role: 'partner' | 'coach',
+  scenario: { partnerUseWebSearch?: unknown; coachUseWebSearch?: unknown } | null | undefined
+): boolean {
+  return (
+    (role === 'partner' ? scenario?.partnerUseWebSearch : scenario?.coachUseWebSearch) === true
   );
 }
 
@@ -749,22 +759,7 @@ export class ConversationManager {
     }
 
     const context = this.buildContext(role);
-    let useWebSearch =
-      role === 'partner'
-        ? (this.session.scenario?.partnerUseWebSearch ?? false)
-        : (this.session.scenario?.coachUseWebSearch ?? false);
-    if (role === 'partner' && useWebSearch) {
-      const latestUserMessage =
-        this.session.messages.filter((m) => m.role === 'user' && m.messageType !== 'aside').at(-1)
-          ?.content ?? '';
-      useWebSearch = looksLikeCurrentFactQuestion(latestUserMessage);
-      if (!useWebSearch) {
-        this.logger.info(
-          { sessionId: this.session.id, role },
-          '[stream] Skipping web search for non-current dialogue turn'
-        );
-      }
-    }
+    const useWebSearch = webSearchFor(role, this.session.scenario);
     return await this.tryStreamWithFallback(role, modelString, systemPrompt, context, useWebSearch);
   }
 
