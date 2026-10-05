@@ -6,7 +6,10 @@ export const muted = 'text-[#7a756c] dark:text-[#8f8a80]';
 export const soft = 'text-[#4a4741] dark:text-[#c8c3b8]';
 export const accent = 'text-[#2f5a53] dark:text-[#8fb5ae]';
 
-export const section = 'scroll-mt-24 px-6 py-20 sm:px-10 sm:py-24';
+// Neighbouring sections stack their padding: py-12 gives 96px between sections
+// on phones and sm:py-20 gives 160px on larger screens. At py-20 phones had
+// 160px of empty space at every boundary.
+export const section = 'scroll-mt-24 px-6 py-12 sm:px-10 sm:py-20';
 export const container = 'mx-auto w-full max-w-6xl';
 
 export const sectionTitle = `${serif} text-[clamp(1.9rem,3.8vw,2.6rem)] font-medium leading-[1.12] tracking-[-0.02em] text-balance`;
