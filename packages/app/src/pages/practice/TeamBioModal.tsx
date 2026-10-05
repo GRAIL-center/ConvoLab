@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { renderBio } from './bioText';
+import { MemberAvatar } from './MemberAvatar';
 import type { TeamMember } from './placeholderCopy';
 import { accent, muted, serif, soft, textLink } from './ui';
 
@@ -36,12 +37,7 @@ export function TeamBioModal({ member, onClose }: TeamBioModalProps) {
         <div className="p-6 pb-8 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <span
-                className={`${serif} flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#e7ece9] text-[1.25rem] font-medium text-[#3f5c56] dark:bg-[#243330] dark:text-[#b9d4ce]`}
-                aria-hidden="true"
-              >
-                {member.initials}
-              </span>
+              <MemberAvatar member={member} size="lg" />
               <div className="min-w-0">
                 <h2
                   id="team-bio-title"
