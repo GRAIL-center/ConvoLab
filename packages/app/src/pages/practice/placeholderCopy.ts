@@ -116,8 +116,8 @@ export const placeholderCopy = {
       name: 'Abbey Ripstra',
       role: 'Design researcher (consulting)',
       photo: '/team/abbey-ripstra.jpg',
-      // Abbey's own wording, 5 Oct 2026.
-      bio: 'Abbey is a human centered design researcher who conducts research informing design decisions and strategy. She runs Design Research Services, a consultancy advising on and conducting design research work for a variety of clients. Abbey studied design research and strategy at the Institute of Design at the Illinois Institute of Technology. Part of her work is educating and mentoring people who want to use human centered design in their work to improve the world.',
+      // Abbey's own wording, 5 Oct 2026; her company is linked in place.
+      bio: 'Abbey is a human centered design researcher who conducts research informing design decisions and strategy. She runs [Design Research Services](https://www.designresearchservices.com/), a consultancy advising on and conducting design research work for a variety of clients. Abbey studied design research and strategy at the Institute of Design at the Illinois Institute of Technology. Part of her work is educating and mentoring people who want to use human centered design in their work to improve the world.',
     },
     {
       initials: 'MJ',
