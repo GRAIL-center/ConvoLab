@@ -48,15 +48,32 @@ const DYNAMIC_SEARCH_MODELS = [
  * type system. That is safe because the wire call was verified to be accepted,
  * but it means a typo here fails at runtime rather than at compile time —
  * hence the explicit model allowlist rather than a looser check.
+ *
+ * Capped at MAX_SEARCHES_PER_REPLY. Measured 6 Oct 2026 on the Ashley persona
+ * asked "Has anything in the news lately really gotten under your skin?",
+ * once the runtime prompt told the partner to check result dates: uncapped,
+ * it searched 4 to 9 times and the reply took 27 to 73 s; capped at 2, every
+ * reply still drew on October coverage and most took about 15 s.
  */
+export const MAX_SEARCHES_PER_REPLY = 2;
+
 export function webSearchTool(model: string) {
   const supportsDynamicFiltering = DYNAMIC_SEARCH_MODELS.some((m) => model.includes(m));
   return supportsDynamicFiltering
-    ? ({ type: 'web_search_20260209', name: 'web_search' } as unknown as {
+    ? ({
+        type: 'web_search_20260209',
+        name: 'web_search',
+        max_uses: MAX_SEARCHES_PER_REPLY,
+      } as unknown as {
         type: 'web_search_20250305';
         name: 'web_search';
+        max_uses: number;
       })
-    : ({ type: 'web_search_20250305', name: 'web_search' } as const);
+    : ({
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: MAX_SEARCHES_PER_REPLY,
+      } as const);
 }
 
 /**

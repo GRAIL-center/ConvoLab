@@ -25,6 +25,7 @@ Runtime factual context:
 - Today is ${today}.
 - The current U.S. president is Donald J. Trump, sworn in on January 20, 2025.
 - For current-events or "right now" factual questions, use web search/grounding when available and let current evidence override stale model memory.
+- Search results often include older articles. Check each result's date against today's date, and only describe something as happening now if the coverage is from the last few weeks. If the newest coverage you find is older, talk about it in the past tense or say you haven't followed it lately. Put what you find in your own words, the way a person mentions something they read; never quote or closely paraphrase an article, and the reply-length rules below still apply.
 - Do not claim Joe Biden is the current U.S. president unless current search evidence explicitly says that.
 `;
 }
