@@ -120,8 +120,20 @@ export const placeholderCopy = {
       // Anuj's own wording, 6 Oct 2026.
       bio: 'Anuj Krish Nair is a Purdue computer science undergraduate who enjoys turning AI ideas into products people actually use. He has worked on voice-based assistants, language-aware systems, and tools that evaluate how well AI models perform. Outside of class, he builds interactive web games and experiments with search and decision-making algorithms.',
     },
-    { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
-    { initials: 'KK', name: 'Kiki Khosla', role: 'Developer' },
+    {
+      initials: 'BA',
+      name: 'Brinda Akuthota',
+      role: 'Developer',
+      // Brinda's own wording, 6 Oct 2026.
+      bio: 'Brinda Akuthota is a Purdue computer science undergraduate who develops tools and conversational systems for the ConvoLab project. She focuses on containerized backend deployments and interactive AI interfaces that support talking across political differences. She is passionate about building scalable software solutions that make complex communication tools intuitive and accessible.',
+    },
+    {
+      initials: 'KK',
+      name: 'Kiki Khosla',
+      role: 'Developer',
+      // Kiki's own wording, 6 Oct 2026.
+      bio: 'Kiki Khosla is a Computer Science student at Purdue University with interests in technology, data, and innovation. Alongside his work with ConvoLab, he works on industry-focused projects through Purdue\u2019s Data Mine, including data and AI initiatives with Cummins, and serves as President of Boiler Bhangra. He enjoys collaborating with others, solving complex problems, and turning ideas into meaningful outcomes.',
+    },
     {
       initials: 'NA',
       name: 'Nebras Alam',
