@@ -14,13 +14,17 @@
  * of them would be judging a different conversation from the other.
  */
 
-/** One exchange: the turn being judged, what it answered, and what followed. */
+/**
+ * One exchange: the turn being judged and what it answered.
+ *
+ * The partner's reply is not part of it. Both jobs start as soon as the
+ * participant sends (6 Oct 2026), so that the coach's note appears while the
+ * partner is still answering rather than after; the reply does not exist yet.
+ */
 export interface ExchangeInput {
   turnNumber: number;
   /** The participant message being judged. */
   userMessage: string;
-  /** The partner's reply to it, which arrives before either job runs. */
-  partnerMessage: string;
   /** The partner turn the participant was replying to, when it is known. */
   partnerTurnAnswered?: string;
 }
@@ -39,7 +43,6 @@ function exchangeLines(input: ExchangeInput, verb: 'coach' | 'score'): string[] 
     `Turn: ${input.turnNumber}`,
     ...(answered ? [`Partner said this first, and the user is replying to it: ${answered}`] : []),
     `User message (${verb} this one): ${input.userMessage}`,
-    `Partner reply that came after, for context only: ${input.partnerMessage}`,
   ];
 }
 

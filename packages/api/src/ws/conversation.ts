@@ -582,6 +582,25 @@ export class ConversationManager {
         ],
       });
 
+      // Coach and scorer start now, beside the partner, rather than after its
+      // reply: the note is about the participant's message, so it should
+      // appear while the partner is still answering. First exchange skipped
+      // unless the partner opened; see lib/postExchangeGate.ts.
+      const partnerOpens = this.session.studyPartnerOpens === true;
+      if (shouldRunPostExchangeJobs({ partnerOpens, participantTurnCount: turnNumber })) {
+        void this.runPostExchangeJobs({
+          userMessageId: userMsg.id,
+          userMessage: content,
+          turnNumber,
+          // Neither the coach nor the scorer is given conversation history:
+          // they see the participant's message and the partner turn it
+          // answered. Without that turn they credit the participant with the
+          // partner's words (3 Oct 2026). On turn 1 of the partner-opens
+          // variant this is the fixed opener.
+          partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
+        });
+      }
+
       const partnerStart = Date.now();
       const partnerResult = await this.streamResponse('partner');
       this.logTiming('partner', partnerStart, {
@@ -593,29 +612,9 @@ export class ConversationManager {
         return;
       }
 
-      // Skip coach on the first exchange — let the user form their own response
-      // first. Unless the partner opened, in which case that turn is already a
-      // response; see lib/postExchangeGate.ts for the rule and the reasoning.
-      const partnerOpens = this.session.studyPartnerOpens === true;
-
       send(this.ws, { type: 'exchange:complete' });
       await this.logUsage(partnerResult.usage, null);
       await this.checkQuotaWarning();
-
-      if (shouldRunPostExchangeJobs({ partnerOpens, participantTurnCount: turnNumber })) {
-        void this.runPostExchangeJobs({
-          userMessageId: userMsg.id,
-          userMessage: content,
-          partnerMessage: partnerResult.content,
-          turnNumber,
-          // Neither the coach nor the scorer is given conversation history:
-          // they see one exchange. Both judge whether the participant listened
-          // and acknowledged, so without the turn being answered they see only
-          // the partner's reply and credit the participant with it. On turn 1
-          // of the partner-opens variant this is the fixed opener.
-          partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
-        });
-      }
     } catch (error) {
       const message = errorMessage(error);
       this.logger.error(
@@ -653,7 +652,6 @@ export class ConversationManager {
   private async runPostExchangeJobs(args: {
     userMessageId: string | number;
     userMessage: string;
-    partnerMessage: string;
     turnNumber: number;
     /** The partner turn the participant was replying to, for the coach and the scorer. */
     partnerTurnAnswered?: string;
@@ -673,7 +671,6 @@ export class ConversationManager {
     const lappJob = this.runLappScorer(
       args.userMessageId,
       args.userMessage,
-      args.partnerMessage,
       args.turnNumber,
       args.partnerTurnAnswered
     ).catch((error: unknown) => {
@@ -1150,7 +1147,6 @@ export class ConversationManager {
   private async runLappScorer(
     userMessageId: string | number,
     userMessage: string,
-    partnerMessage: string,
     turnNumber: number,
     partnerTurnAnswered?: string
   ): Promise<void> {
@@ -1165,12 +1161,12 @@ export class ConversationManager {
       try {
         for await (const chunk of streamCompletion(model, {
           systemPrompt:
-            'You are a JSON-only LAPP dialogue scorer. Score only the user message. The partner lines are context: the first is what the user is replying to, the second is what the partner said afterwards. Never score the partner. Return exactly one JSON object and no prose.',
+            'You are a JSON-only LAPP dialogue scorer. Score only the user message. The partner line is context: it is what the user is replying to. Never score the partner. Return exactly one JSON object and no prose.',
           messages: [
             {
               role: 'user',
               content: buildLappTranscript(
-                { turnNumber, userMessage, partnerMessage, partnerTurnAnswered },
+                { turnNumber, userMessage, partnerTurnAnswered },
                 LAPP_RUBRIC
               ),
             },
@@ -1239,7 +1235,6 @@ export class ConversationManager {
   private async generateCoachInsight(args: {
     userMessageId: string | number;
     userMessage: string;
-    partnerMessage: string;
     turnNumber: number;
     /** The partner turn the participant was replying to, when there is one. */
     partnerTurnAnswered?: string;

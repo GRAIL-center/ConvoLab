@@ -18,7 +18,6 @@ describe('buildCoachTranscript', () => {
     const transcript = buildCoachTranscript({
       turnNumber: 2,
       userMessage: USER_TURN,
-      partnerMessage: PARTNER_REPLY,
       partnerTurnAnswered: PARTNER_OPENER,
     });
 
@@ -26,17 +25,15 @@ describe('buildCoachTranscript', () => {
     expect(transcript.indexOf(PARTNER_OPENER)).toBeLessThan(transcript.indexOf(USER_TURN));
   });
 
-  it('marks the later partner reply as context, not as the turn being coached', () => {
+  it('shows no partner reply: the coach runs before the partner has answered', () => {
     const transcript = buildCoachTranscript({
       turnNumber: 2,
       userMessage: USER_TURN,
-      partnerMessage: PARTNER_REPLY,
       partnerTurnAnswered: PARTNER_OPENER,
     });
 
-    const replyLine = transcript.split('\n').find((line) => line.includes(PARTNER_REPLY));
-    expect(replyLine).toMatch(/came after/);
-    expect(replyLine).toMatch(/context only/);
+    expect(transcript).not.toMatch(/came after/);
+    expect(transcript.split('\n').filter((line) => line.startsWith('Partner'))).toHaveLength(1);
     const userLine = transcript.split('\n').find((line) => line.includes(USER_TURN));
     expect(userLine).toMatch(/coach this one/);
   });
@@ -45,7 +42,6 @@ describe('buildCoachTranscript', () => {
     const transcript = buildCoachTranscript({
       turnNumber: 4,
       userMessage: USER_TURN,
-      partnerMessage: PARTNER_REPLY,
     });
 
     expect(transcript).not.toMatch(/replying to/);
@@ -58,7 +54,6 @@ describe('buildCoachTranscript', () => {
       buildCoachTranscript({
         turnNumber: 2,
         userMessage: USER_TURN,
-        partnerMessage: PARTNER_REPLY,
         partnerTurnAnswered: '   ',
       })
     ).not.toMatch(/replying to/);
@@ -73,7 +68,6 @@ describe('buildLappTranscript', () => {
       {
         turnNumber: 2,
         userMessage: USER_TURN,
-        partnerMessage: PARTNER_REPLY,
         partnerTurnAnswered: PARTNER_OPENER,
       },
       RUBRIC
@@ -83,26 +77,22 @@ describe('buildLappTranscript', () => {
     expect(transcript.indexOf(PARTNER_OPENER)).toBeLessThan(transcript.indexOf(USER_TURN));
   });
 
-  it('marks the user message as the one to score and the later reply as context', () => {
+  it('marks the user message as the one to score', () => {
     const lines = buildLappTranscript(
       {
         turnNumber: 2,
         userMessage: USER_TURN,
-        partnerMessage: PARTNER_REPLY,
         partnerTurnAnswered: PARTNER_OPENER,
       },
       RUBRIC
     ).split('\n');
 
     expect(lines.find((line) => line.includes(USER_TURN))).toMatch(/score this one/);
-    expect(lines.find((line) => line.includes(PARTNER_REPLY))).toMatch(/context only/);
+    expect(lines.some((line) => line.includes(PARTNER_REPLY))).toBe(false);
   });
 
   it('puts the rubric after the exchange', () => {
-    const transcript = buildLappTranscript(
-      { turnNumber: 2, userMessage: USER_TURN, partnerMessage: PARTNER_REPLY },
-      RUBRIC
-    );
+    const transcript = buildLappTranscript({ turnNumber: 2, userMessage: USER_TURN }, RUBRIC);
     expect(transcript.indexOf(USER_TURN)).toBeLessThan(transcript.indexOf(RUBRIC[0]));
     expect(transcript.endsWith(RUBRIC[RUBRIC.length - 1])).toBe(true);
   });
@@ -111,7 +101,6 @@ describe('buildLappTranscript', () => {
     const input = {
       turnNumber: 3,
       userMessage: USER_TURN,
-      partnerMessage: PARTNER_REPLY,
       partnerTurnAnswered: PARTNER_OPENER,
     };
     const shared = (text: string) =>
