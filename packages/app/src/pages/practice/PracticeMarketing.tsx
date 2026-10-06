@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { AboutSection } from './AboutSection';
 import { Benefits } from './Benefits';
 import { FaqSection } from './FaqSection';
 import { FeatureWhy } from './FeatureWhy';
 import { Hero } from './Hero';
 import { HowItWorks } from './HowItWorks';
+import { LappGuideModal } from './LappGuideModal';
+import { LAPP_GUIDE } from './lappGuide';
 import { PracticeNav } from './PracticeNav';
 import { MARKETING_ARCHETYPES, placeholderCopy } from './placeholderCopy';
 import { Reveal } from './Reveal';
@@ -19,6 +22,7 @@ import {
   sectionTitleOneLine,
   serif,
   soft,
+  textLink,
 } from './ui';
 
 const LAPP = [
@@ -39,6 +43,8 @@ export function PracticeMarketing({
   showPreviewBadge,
   onChoosePartner,
 }: PracticeMarketingProps) {
+  const [lappGuideOpen, setLappGuideOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen flex-col">
       <PracticeNav isSignedIn={isSignedIn} showPreviewBadge={showPreviewBadge} />
@@ -118,6 +124,16 @@ export function PracticeMarketing({
                 </li>
               ))}
             </ul>
+            <div className="mt-8 text-center sm:mt-10">
+              <button
+                type="button"
+                onClick={() => setLappGuideOpen(true)}
+                className={`text-[0.95rem] font-medium underline decoration-black/20 underline-offset-4 dark:decoration-white/25 ${accent} ${textLink}`}
+              >
+                {LAPP_GUIDE.linkLabel}
+              </button>
+            </div>
+            <LappGuideModal open={lappGuideOpen} onClose={() => setLappGuideOpen(false)} />
           </div>
         </section>
 
