@@ -19,7 +19,7 @@ export type TeamMember = {
 
 export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
-  ctaLabel: 'Start practicing',
+  ctaLabel: 'Get started',
   heroSupport:
     'Talk it out with an AI partner in a low\u2011stakes environment, while a coach trains you to navigate the conversation better.',
   purdueLine: 'Built by researchers at Harvard and Purdue University.',
@@ -27,7 +27,7 @@ export const placeholderCopy = {
   howTitle: 'How it works',
   howSteps: [
     {
-      title: 'Pick a partner',
+      title: 'Pick an AI partner',
       body: 'Choose someone whose views differ from yours, from a relative at the holiday table to a coworker.',
     },
     {
@@ -42,7 +42,7 @@ export const placeholderCopy = {
 
   whyTitle: 'Why practice',
   whyBody:
-    'Hard conversations across political lines are where relationships fray. ConvoLab gives you a low-stakes place to rehearse them, so you can feel more confident at the next one.',
+    'Hard conversations across political lines are where relationships CAN fray. ConvoLab gives you a low-stakes place to rehearse them, so you can feel more confident at the next one.',
   whyPanels: [
     {
       title: 'A partner who pushes back',
@@ -59,7 +59,7 @@ export const placeholderCopy = {
   ],
 
   archetypesLabel: 'Who you might meet',
-  archetypesHint: 'Archetypes only. You choose a specific partner next.',
+  archetypesHint: 'Pick from the following AI partners.',
 
   benefitsTitle: 'Benefits',
   benefits: [
@@ -73,7 +73,7 @@ export const placeholderCopy = {
     },
     {
       title: 'Feedback on every turn',
-      body: 'See how each reply did on listening, acknowledging, pivoting, and perspective.',
+      body: 'See how you did on listening, acknowledging, pivoting, and perspective.',
     },
     {
       title: 'About ten minutes',
@@ -85,8 +85,8 @@ export const placeholderCopy = {
   lappIntro: 'Four moves that keep a difficult conversation from collapsing into a fight.',
   lappDetails: {
     Listen: 'Hear what actually matters underneath their position.',
-    Acknowledge: 'Name something real in what they said, without agreeing to all of it.',
-    Pivot: 'Ask whether they are open to hearing how you see it, and wait for the answer.',
+    Acknowledge: 'Try to understand where they are coming from, even if you disagree with their opinions.',
+    Pivot: 'Ask whether they are open to hearing your perspective and wait for the answer.',
     Perspective: 'Speak in the first person about what you believe and why.',
   } as Record<string, string>,
 
