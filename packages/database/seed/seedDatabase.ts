@@ -186,6 +186,18 @@ const QUOTA_PRESETS = [
     quota: { tokens: 200000 },
     sortOrder: 2,
   },
+  // Walk-up guests on the public landing page (practice.start). Sized from a
+  // 5 Oct 2026 guest session: ~16,300 tokens per partner turn now that the
+  // web-search tool (~6,000 tokens of its own instructions) is offered on every
+  // turn (#179). 25,000 (Quick chat, the previous guest preset) ran out after
+  // two exchanges; 200,000 is ~12, more than a 12-minute conversation uses.
+  {
+    name: 'public-practice',
+    label: 'Public practice',
+    description: 'Guest conversations started from the public landing page',
+    quota: { tokens: 200000 },
+    sortOrder: 3,
+  },
 ];
 
 // The four study personas exist on two surfaces with different naming rules.

@@ -14,7 +14,7 @@ import { publicProcedure, router } from '../procedures.js';
 // export (scripts/export_transcripts_firestore.py) includes a session in the
 // study dataset purely based on the presence of `studySource`, so never
 // writing it is what keeps these sessions out of the study pipeline.
-const PRACTICE_PRESET_NAME = 'quick-chat';
+const PRACTICE_PRESET_NAME = 'public-practice';
 
 const startInput = z.object({
   scenarioId: z.union([z.number().int().positive(), z.string().trim().min(1)]),

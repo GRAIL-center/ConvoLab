@@ -619,8 +619,8 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             <div className="mx-auto max-w-4xl">
               {isQuotaExhausted && (
                 <p className="mb-3 rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-2 text-sm text-[#991B1B] dark:border-[#7F1D1D] dark:bg-[rgba(127,29,29,0.25)] dark:text-[#FCA5A5]">
-                  Token quota exhausted. Start a new conversation with Quick chat or a larger quota
-                  to keep replying to {shortName}.
+                  This conversation has reached its length limit. Start a new conversation to keep
+                  practicing.
                 </p>
               )}
               <div
