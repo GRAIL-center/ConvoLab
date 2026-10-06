@@ -158,7 +158,7 @@ export const placeholderCopy = {
     },
     {
       q: 'Is my conversation private?',
-      a: 'Your conversation is stored on our servers so the app can work, so we can improve the coach, and so our research team can study what works. The AI providers that generate the partner and coach replies process it under agreements that do not let them keep it or train on it. We do not sell it or share it outside the research team. If you signed in, your conversations are tied to your account; if you were a guest, email us the date and the partner you talked to and we will remove it.',
+      a: "We store your conversation on our servers so the app can work, so we can improve the coach, and so our research team can study what works. The AI providers that write the partner's and coach's replies also process your messages, but our agreements with them do not allow them to keep conversations or to train their models on conversations. We do not sell conversations or share them outside the research team. If you signed in, your conversations are linked to your account. If you were a guest, email us the date and the partner you talked to, and we will remove that conversation.",
     },
     {
       q: 'Is the partner a real person?',
