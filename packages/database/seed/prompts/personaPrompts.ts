@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
  * (`seed/prompts/<name>.txt`) so a prompt revision is a readable text diff
  * rather than an edit inside a TypeScript template string.
  *
- * Sources: Right Male v3.pdf, Right Female v3.pdf, Left Male v3.pdf and
- * Left Female v3.pdf, supplied persona prompts. Preserve the source wording;
- * only PDF whitespace has been normalized.
+ * Sources: the four "Newest Version" text files supplied for the pilot-feedback
+ * revision. Preserve the source wording; only repository text-file formatting
+ * (ROLE: first, LF line endings, one trailing newline) has been normalized.
  *
  * The files are read relative to this module, so the same code works when it
  * runs from source (tsx, Vitest) and from the compiled `dist/seed/prompts/`
