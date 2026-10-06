@@ -113,10 +113,22 @@ export const placeholderCopy = {
       // Andrew's own wording, 6 Oct 2026; his two profiles are linked in place.
       bio: 'Andrew Le Blanc is a junior at Harvard College studying Computer Science. He enjoys building and researching technology at the intersection of artificial intelligence, software, and social impact. You can find his work at [github.com/andrewleblanc1](https://www.github.com/andrewleblanc1) and [linkedin.com/in/andrewleblanc1](https://www.linkedin.com/in/andrewleblanc1).',
     },
-    { initials: 'AN', name: 'Anuj Krish Nair', role: 'Developer' },
+    {
+      initials: 'AN',
+      name: 'Anuj Krish Nair',
+      role: 'Developer',
+      // Anuj's own wording, 6 Oct 2026.
+      bio: 'Anuj Krish Nair is a Purdue computer science undergraduate who enjoys turning AI ideas into products people actually use. He has worked on voice-based assistants, language-aware systems, and tools that evaluate how well AI models perform. Outside of class, he builds interactive web games and experiments with search and decision-making algorithms.',
+    },
     { initials: 'BA', name: 'Brinda Akuthota', role: 'Developer' },
     { initials: 'KK', name: 'Kiki Khosla', role: 'Developer' },
-    { initials: 'NA', name: 'Nebras Alam', role: 'Developer' },
+    {
+      initials: 'NA',
+      name: 'Nebras Alam',
+      role: 'Developer',
+      // Nebras's own wording, 6 Oct 2026.
+      bio: 'Nebras Alam is a Computer Engineering student at Purdue University interested in the intersection of artificial intelligence, political science, and civic technology. At ConvoLab, he contributes to backend development, prompt engineering, experimental design, and research on cross-partisan dialogue. His work focuses on how AI can support more productive political conversations and improve the quality of democratic discourse.',
+    },
     { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
     {
       initials: 'AR',
