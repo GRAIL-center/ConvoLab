@@ -38,7 +38,7 @@ export function MessageList({
 
   return (
     <div
-      className="flex-1 overflow-y-auto px-6 py-6 space-y-4"
+      className="flex-1 overflow-y-auto px-0 py-2 space-y-4 sm:px-6 sm:py-6"
       role="log"
       aria-label="Conversation messages"
     >

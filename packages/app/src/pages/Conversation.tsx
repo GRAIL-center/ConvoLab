@@ -17,6 +17,7 @@ import { MobileSheet } from '../components/conversation/MobileSheet';
 import { ConversationTour } from '../components/conversation/tour/ConversationTour';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
+import { useKeyboardViewportHeight } from '../hooks/useKeyboardViewportHeight';
 
 // Inline SVG Icons
 const ArrowLeftIcon = () => (
@@ -170,6 +171,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const [mobileView, setMobileView] = useState<'partner' | 'coach'>('partner');
   const [isMetricsSheetOpen, setIsMetricsSheetOpen] = useState(false);
   const [seenCoachCount, setSeenCoachCount] = useState(0);
+  const keyboardViewportHeight = useKeyboardViewportHeight();
 
   const {
     status,
@@ -204,6 +206,21 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // The keyboard opening shrinks the message pane from the bottom, which would
+  // hide the latest reply behind it. Keep the end of the thread in view while
+  // typing.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const keepEndInView = () => {
+      if (document.activeElement instanceof HTMLTextAreaElement) {
+        messagesEndRef.current?.scrollIntoView({ block: 'end' });
+      }
+    };
+    vv.addEventListener('resize', keepEndInView);
+    return () => vv.removeEventListener('resize', keepEndInView);
+  }, []);
 
   // The conversation clock is anchored server-side (see resolveStudyElapsedSeconds
   // in the API). We resume from the elapsed seconds the server reports and add our
@@ -404,9 +421,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const surveyUnlocked = !isStudySession || canFinishStudy || pastSoftCap;
 
   return (
-    <div className="flex h-dvh flex-col bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#dedbd4]">
-      <header className="flex items-center justify-between border-b border-[#ddd8cc] bg-[#fbfaf6]/95 px-6 py-4 dark:border-[#2b2925] dark:bg-[#151513]/95">
-        <div className="flex min-w-0 items-center gap-5">
+    <div
+      className="flex h-dvh flex-col bg-[#f6f5f0] text-[#24221d] dark:bg-[#11110f] dark:text-[#dedbd4]"
+      style={keyboardViewportHeight ? { height: keyboardViewportHeight } : undefined}
+    >
+      {/* Slim on phones so the keyboard leaves room for the conversation. */}
+      <header className="flex shrink-0 items-center justify-between border-b border-[#ddd8cc] bg-[#fbfaf6]/95 px-3 py-1.5 dark:border-[#2b2925] dark:bg-[#151513]/95 sm:px-6 sm:py-4">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-5">
           {!isStudySession && (
             <button
               onClick={() => navigate('/')}
@@ -417,18 +438,18 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               <ArrowLeftIcon />
             </button>
           )}
-          <div className="flex min-w-0 items-baseline gap-4">
+          <div className="flex min-w-0 items-baseline gap-3 sm:gap-4">
             <span className="font-semibold text-[#24221d] dark:text-[#f2efe7]">ConvoLab</span>
             <span className="hidden border-l border-[#d6d1c4] pl-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a857b] dark:border-[#34312c] dark:text-[#77736b] sm:inline">
               Practice
             </span>
             <span className="hidden h-5 border-l border-[#d6d1c4] dark:border-[#34312c] sm:block" />
             <div className="min-w-0">
-              <h1 className="truncate font-serif text-2xl text-[#24221d] dark:text-[#f2efe7]">
+              <h1 className="truncate font-serif text-lg text-[#24221d] dark:text-[#f2efe7] sm:text-2xl">
                 {shortName}
               </h1>
               {scenario?.name && (
-                <p className="truncate text-sm text-[#6f6a61] dark:text-[#9a958c]">
+                <p className="hidden truncate text-sm text-[#6f6a61] dark:text-[#9a958c] sm:block">
                   {scenario.name.replace(shortName, '').replace(/^(\s*[-·]\s*)/, '')}
                 </p>
               )}
