@@ -109,6 +109,7 @@ export const placeholderCopy = {
       initials: 'AL',
       name: 'Andrew Le Blanc',
       role: 'Developer',
+      photo: '/team/andrew-le-blanc.jpg',
       // Andrew's own wording, 6 Oct 2026; his two profiles are linked in place.
       bio: 'Andrew Le Blanc is a junior at Harvard College studying Computer Science. He enjoys building and researching technology at the intersection of artificial intelligence, software, and social impact. You can find his work at [github.com/andrewleblanc1](https://www.github.com/andrewleblanc1) and [linkedin.com/in/andrewleblanc1](https://www.linkedin.com/in/andrewleblanc1).',
     },
