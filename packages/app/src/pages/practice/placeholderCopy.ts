@@ -19,7 +19,7 @@ export type TeamMember = {
 
 export const placeholderCopy = {
   heroHeadline: 'Practice the conversation you keep avoiding.',
-  ctaLabel: 'Start practicing',
+  ctaLabel: 'Get started',
   heroSupport:
     'Talk it out with an AI partner in a low\u2011stakes environment, while a coach trains you to navigate the conversation better.',
   purdueLine: 'Built by researchers at Harvard and Purdue University.',
@@ -28,7 +28,7 @@ export const placeholderCopy = {
   howSteps: [
     {
       title: 'Pick an AI partner',
-      body: 'Choose a partner whose views differ from yours, from a relative at the holiday table to a coworker.',
+      body: 'Choose someone whose views differ from yours, from a relative at the holiday table to a coworker.',
     },
     {
       title: 'Have the conversation',
@@ -59,7 +59,7 @@ export const placeholderCopy = {
   ],
 
   archetypesLabel: 'Who you might meet',
-  archetypesHint: 'Every partner is an AI, not a real person.',
+  archetypesHint: 'Pick from the following AI partners.',
 
   benefitsTitle: 'Benefits',
   benefits: [
@@ -86,7 +86,7 @@ export const placeholderCopy = {
   lappDetails: {
     Listen: 'Hear what actually matters underneath their position.',
     Acknowledge: 'Try to understand where they are coming from, even if you disagree with their opinions.',
-    Pivot: 'Ask whether they are open to hearing how you see it, and wait for the answer.',
+    Pivot: 'Ask whether they are open to hearing your perspective and wait for the answer.',
     Perspective: 'Speak in the first person about what you believe and why.',
   } as Record<string, string>,
 

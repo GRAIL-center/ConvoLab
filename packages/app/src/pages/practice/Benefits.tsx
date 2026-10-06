@@ -10,14 +10,14 @@ export function Benefits() {
       aria-labelledby="benefits-title"
     >
       <div
-        className={`${container} relative overflow-hidden rounded-2xl bg-[#2f3b3a] px-7 py-12 text-white sm:px-14 sm:py-20 dark:bg-[#1d1c18] dark:text-[#f2efe7]`}
+        className={`${container} relative overflow-hidden rounded-2xl bg-[#f1e9d4] px-7 py-12 text-[#1a1916] sm:px-14 sm:py-20 dark:bg-[#1d1c18] dark:text-[#f2efe7]`}
       >
         <span
           className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#86c7c2]/25 blur-3xl"
           aria-hidden="true"
         />
         <span
-          className="pointer-events-none absolute -bottom-24 left-10 h-60 w-60 rounded-full border border-white/20 dark:border-white/10"
+          className="pointer-events-none absolute -bottom-24 left-10 h-60 w-60 rounded-full border border-black/10 dark:border-white/10"
           aria-hidden="true"
         />
 
@@ -32,17 +32,17 @@ export function Benefits() {
             {placeholderCopy.benefits.map((benefit, index) => (
               <li key={benefit.title}>
                 <Reveal delayMs={index * 100}>
-                  <span className={`${serif} text-[0.95rem] text-white dark:text-[#8fb5ae]`}>
+                  <span className={`${serif} text-[0.95rem] text-[#7a6431] dark:text-[#8fb5ae]`}>
                     {String(index + 1).padStart(2, '0')}
                   </span>
                   <div
-                    className="mt-3 h-px w-full bg-white/30 dark:bg-white/10"
+                    className="mt-3 h-px w-full bg-black/15 dark:bg-white/10"
                     aria-hidden="true"
                   />
                   <h3 className="mt-5 text-[1.05rem] font-semibold tracking-[-0.01em]">
                     {benefit.title}
                   </h3>
-                  <p className="mt-2 text-[0.92rem] leading-relaxed text-white dark:text-[#b3ada2]">
+                  <p className="mt-2 text-[0.92rem] leading-relaxed text-[#1a1916] dark:text-[#b3ada2]">
                     {benefit.body}
                   </p>
                 </Reveal>
