@@ -53,7 +53,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
     const toneStyle = tone ? TONE_LABEL_STYLE[tone] : null;
     return (
       <div className="mb-4 flex justify-end">
-        <div className="flex max-w-[75%] flex-col items-end">
+        <div className="flex max-w-[85%] flex-col items-end sm:max-w-[75%]">
           {toneStyle && (
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c877d] dark:text-[#8f8a82]">
               <span className={`h-2 w-2 rounded-full ${toneStyle.dot}`} />
@@ -62,7 +62,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
             </div>
           )}
           <div
-            className={`rounded-xl rounded-tr-sm px-5 py-3.5
+            className={`rounded-xl rounded-tr-sm px-4 py-3 sm:px-5 sm:py-3.5
                         bg-[rgba(230,230,230,1)] dark:bg-[rgba(60,60,60,0.8)]
                         text-[#1A1A1A] dark:text-[#EBEBEB]
                         border ${borderClass}`}
@@ -77,10 +77,10 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
   // Partner message - left-aligned, with avatar, sage border (EXACT FIGMA)
   if (isPartner) {
     return (
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-2 mb-4 sm:gap-3">
         {/* Partner Avatar */}
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1
                         bg-[rgba(200,200,200,1)] dark:bg-[rgba(60,60,60,1)]"
         >
           <svg
@@ -99,7 +99,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
         </div>
 
         {/* Message Content */}
-        <div className="flex-1 max-w-[75%]">
+        <div className="min-w-0 flex-1 max-w-[88%] sm:max-w-[75%]">
           <div
             className="text-xs font-medium mb-1
                           text-[#4A4A4A] dark:text-[#A0A0A0]"
@@ -107,7 +107,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
             {partnerName || 'Partner'}
           </div>
           <div
-            className="rounded-xl rounded-tl-sm px-5 py-3.5
+            className="rounded-xl rounded-tl-sm px-4 py-3 sm:px-5 sm:py-3.5
                           bg-[rgba(255,255,255,0.85)] dark:bg-[rgba(40,40,40,0.9)]
                           border-l-4 border-[rgba(180,210,205,0.8)] dark:border-[rgba(212,232,229,0.4)]
                           text-[#1A1A1A] dark:text-[#EBEBEB]"
@@ -141,10 +141,10 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
   // Coach message - left-aligned, teal background + bold left border (EXACT FIGMA)
   if (isCoach) {
     return (
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-2 mb-4 sm:gap-3">
         {/* Coach Avatar - Lightbulb */}
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1
                         bg-[rgba(134,199,194,0.5)] dark:bg-[rgba(134,199,194,0.25)]"
         >
           <svg
@@ -163,7 +163,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
         </div>
 
         {/* Message Content */}
-        <div className="flex-1 max-w-[75%]">
+        <div className="min-w-0 flex-1 max-w-[88%] sm:max-w-[75%]">
           <div
             className="text-xs font-semibold mb-1
                           text-[rgba(50,130,120,1)] dark:text-[rgba(134,199,194,0.8)]"
@@ -171,7 +171,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
             Coach
           </div>
           <div
-            className="rounded-xl rounded-tl-sm px-5 py-3.5
+            className="rounded-xl rounded-tl-sm px-4 py-3 sm:px-5 sm:py-3.5
                           bg-[rgba(134,199,194,0.3)] dark:bg-[rgba(134,199,194,0.1)]
                           border-l-4 border-[rgba(100,180,175,0.8)] dark:border-[rgba(134,199,194,0.5)]
                           text-[#1A1A1A] dark:text-[#D4D4D4]"
