@@ -27,6 +27,11 @@ export interface ExchangeInput {
   userMessage: string;
   /** The partner turn the participant was replying to, when it is known. */
   partnerTurnAnswered?: string;
+  /**
+   * The conversation before that, labelled by speaker, so the coach and the
+   * scorer can tell who raised what (turnsBeforeExchange).
+   */
+  earlier?: readonly AsideTurn[];
 }
 
 /**
@@ -39,7 +44,11 @@ export interface ExchangeInput {
  */
 function exchangeLines(input: ExchangeInput, verb: 'coach' | 'score'): string[] {
   const answered = input.partnerTurnAnswered?.trim();
+  const earlier = input.earlier ? renderAsideTranscript(input.earlier) : '';
   return [
+    ...(earlier
+      ? ['EARLIER IN THE CONVERSATION (context only):', earlier, '', 'THIS EXCHANGE:']
+      : []),
     `Turn: ${input.turnNumber}`,
     ...(answered ? [`Partner said this first, and the user is replying to it: ${answered}`] : []),
     `User message (${verb} this one): ${input.userMessage}`,

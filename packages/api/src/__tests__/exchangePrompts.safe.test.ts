@@ -316,3 +316,44 @@ describe('buildAsideTranscript', () => {
     expect(transcript).toMatch(/Participant \(turn 1\)/);
   });
 });
+
+describe('earlier conversation for the coach and the scorer', () => {
+  const m = (id: string, role: string, content: string, messageType = 'main') => ({
+    id,
+    role,
+    content,
+    messageType,
+  });
+  const history = [
+    m('1', 'user', 'Has anything in the news gotten under your skin?'),
+    m('2', 'partner', 'The DHS funding fight.'),
+    m('3', 'coach', 'Nice open question.'),
+    m('4', 'user', "What about ICE's behavior?"),
+    m('5', 'partner', 'I have seen stories about mistakes.'),
+    m('6', 'user', 'What do you think of the Renee Good shooting?'),
+  ];
+
+  it('is everything before the exchange, minus the partner turn it answers', async () => {
+    const { turnsBeforeExchange } = await import('../lib/postExchangeGate.js');
+    expect(turnsBeforeExchange(history, '6').map((x) => x.id)).toEqual(['1', '2', '3', '4']);
+    expect(turnsBeforeExchange(history, '1')).toEqual([]);
+    expect(turnsBeforeExchange(history, 'missing')).toEqual([]);
+  });
+
+  it('shows who raised what, ahead of the exchange being judged', async () => {
+    const { turnsBeforeExchange } = await import('../lib/postExchangeGate.js');
+    const transcript = buildCoachTranscript({
+      turnNumber: 3,
+      userMessage: history[5].content,
+      partnerTurnAnswered: history[4].content,
+      earlier: turnsBeforeExchange(history, '6'),
+    });
+    expect(transcript).toContain("Participant (turn 2): What about ICE's behavior?");
+    expect(transcript).toContain('You, the coach, told the participant: Nice open question.');
+    expect(transcript.indexOf('EARLIER IN THE CONVERSATION')).toBeLessThan(
+      transcript.indexOf('replying to it')
+    );
+    // The answered turn appears once, on its own labelled line.
+    expect(transcript.match(/stories about mistakes/g)).toHaveLength(1);
+  });
+});

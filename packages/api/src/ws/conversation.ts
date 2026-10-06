@@ -42,7 +42,11 @@ import {
 } from '../lib/exchangePrompts.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
-import { precedingPartnerTurn, shouldRunPostExchangeJobs } from '../lib/postExchangeGate.js';
+import {
+  precedingPartnerTurn,
+  shouldRunPostExchangeJobs,
+  turnsBeforeExchange,
+} from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
@@ -592,12 +596,13 @@ export class ConversationManager {
           userMessageId: userMsg.id,
           userMessage: content,
           turnNumber,
-          // Neither the coach nor the scorer is given conversation history:
-          // they see the participant's message and the partner turn it
-          // answered. Without that turn they credit the participant with the
-          // partner's words (3 Oct 2026). On turn 1 of the partner-opens
-          // variant this is the fixed opener.
+          // The partner turn being answered is named on its own line: without
+          // it they credit the participant with the partner's words (3 Oct
+          // 2026). On turn 1 of the partner-opens variant this is the fixed
+          // opener. The earlier conversation comes too, labelled by speaker,
+          // so they can tell who raised what (6 Oct 2026).
           partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
+          earlier: turnsBeforeExchange(this.session.messages, userMsg.id),
         });
       }
 
@@ -655,6 +660,8 @@ export class ConversationManager {
     turnNumber: number;
     /** The partner turn the participant was replying to, for the coach and the scorer. */
     partnerTurnAnswered?: string;
+    /** The conversation before that turn. */
+    earlier?: readonly Message[];
   }): Promise<void> {
     const coachJob = this.isCoachEnabled()
       ? this.generateCoachInsight(args).catch((error: unknown) => {
@@ -672,7 +679,8 @@ export class ConversationManager {
       args.userMessageId,
       args.userMessage,
       args.turnNumber,
-      args.partnerTurnAnswered
+      args.partnerTurnAnswered,
+      args.earlier
     ).catch((error: unknown) => {
       this.logger.warn(
         {
@@ -1148,7 +1156,8 @@ export class ConversationManager {
     userMessageId: string | number,
     userMessage: string,
     turnNumber: number,
-    partnerTurnAnswered?: string
+    partnerTurnAnswered?: string,
+    earlier?: readonly Message[]
   ): Promise<void> {
     const startMs = Date.now();
     const model = this.sessionModels().scorer;
@@ -1161,12 +1170,12 @@ export class ConversationManager {
       try {
         for await (const chunk of streamCompletion(model, {
           systemPrompt:
-            'You are a JSON-only LAPP dialogue scorer. Score only the user message. The partner line is context: it is what the user is replying to. Never score the partner. Return exactly one JSON object and no prose.',
+            'You are a JSON-only LAPP dialogue scorer. Score only the user message. Everything else is context: the earlier conversation, and the partner line the user is replying to. Never score the partner. Return exactly one JSON object and no prose.',
           messages: [
             {
               role: 'user',
               content: buildLappTranscript(
-                { turnNumber, userMessage, partnerTurnAnswered },
+                { turnNumber, userMessage, partnerTurnAnswered, earlier },
                 LAPP_RUBRIC
               ),
             },
@@ -1238,6 +1247,8 @@ export class ConversationManager {
     turnNumber: number;
     /** The partner turn the participant was replying to, when there is one. */
     partnerTurnAnswered?: string;
+    /** The conversation before that turn. */
+    earlier?: readonly Message[];
   }): Promise<void> {
     const startMs = Date.now();
     const scenario = this.session.scenario;
@@ -1259,6 +1270,8 @@ export class ConversationManager {
           'You are the coach only. You are not the partner character.',
           'Give one short, complete coaching insight to the user about the message labelled "User message" below.',
           'The partner lines are context only. Never credit the user with something the partner said, and never describe the partner reply as the user listening or acknowledging.',
+          'Base any suggestion only on what the partner has actually said so far. Do not attribute to the partner a concern or view they have not voiced: check the earlier conversation for who raised a topic first.',
+          'Moving to a new topic or asking a direct question is fine on its own. Flag it as a risk only when something specific in the wording is likely to put the partner on the defensive.',
           'Do not role-play the partner. Do not answer as the partner. Do not continue the partner conversation.',
           'If the user asked a factual aside, coach how that affected dialogue instead of answering as the partner.',
           'Use one or two complete sentences. Always finish the final sentence.',
