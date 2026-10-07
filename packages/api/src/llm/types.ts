@@ -34,7 +34,11 @@ export interface StreamParams {
 }
 
 export interface StreamChunk {
-  type: 'delta' | 'done' | 'error';
+  /**
+   * 'reset': discard every delta so far. Sent when the partner turns out to be
+   * searching, because the text it wrote before the search is not its reply.
+   */
+  type: 'delta' | 'done' | 'error' | 'reset';
   content?: string;
   usage?: TokenUsage;
   error?: StreamError;
