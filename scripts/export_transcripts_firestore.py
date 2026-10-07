@@ -209,6 +209,7 @@ STUDY_FIELDS = {
     # first, when the coach starts, and whether the first participant turn is
     # eligible for Listen/Acknowledge scoring, so it has to reach analysis.
     "studyPartnerOpens": "partner_opens",
+    "studyPartnerUseWebSearch": "partner_web_search",
     "studyEnteredAt": "entered_at",
     # entered_at is stamped at Qualtrics entry; conversation_started_at is stamped
     # when the participant actually opens the conversation socket. The gap between
@@ -240,6 +241,7 @@ STUDY_FIELD_COERCIONS = {
     # for them. Exporting null instead would make the variant column
     # three-valued and leave every analysis to decide what null meant.
     "studyPartnerOpens": bool,
+    "studyPartnerUseWebSearch": bool,
 }
 
 
