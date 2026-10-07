@@ -101,8 +101,9 @@ export const placeholderCopy = {
       initials: 'HS',
       name: 'Hanna Sistek',
       role: 'Principal investigator',
-      // Hanna's own wording, 7 Oct 2026 ("to" added before "improve").
-      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at the Edmond & Lily Safra Center for Ethics at Harvard University. After completing her dissertation on the negative impacts of political polarization, she set out to create practical solutions. Inspired by years of studying non-violent communication and role-playing hard conversations with her therapists, she created ConvoLab to help people build stronger communication skills. She hopes this will enable people to improve their personal relationships and build stronger families and communities.',
+      photo: '/team/hanna-sistek.jpg',
+      // Hanna's own wording, second version, 7 Oct 2026.
+      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at Harvard University\u2019s Edmond & Lily Safra Center for Ethics. After studying the harms of polarization for her dissertation, she created ConvoLab to help people navigate difficult conversations. Drawing on years of studying nonviolent communication and practicing hard conversations with her therapists, she aims to help people build communication skills that strengthen their relationships, families, and communities.',
     },
     {
       initials: 'DS',
