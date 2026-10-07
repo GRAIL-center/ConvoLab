@@ -842,6 +842,11 @@ export class ConversationManager {
                 type: deltaType,
                 content: chunk.content,
               });
+            } else if (chunk.type === 'reset') {
+              // The partner started a search: what it wrote so far is not its
+              // reply. Clear the bubble back to typing dots; the reply follows.
+              fullContent = '';
+              this.sendRetrySignal(role);
             } else if (chunk.type === 'done' && chunk.usage) {
               usage = chunk.usage;
               search = chunk.search;

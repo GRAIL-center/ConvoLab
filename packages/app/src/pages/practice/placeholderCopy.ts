@@ -97,7 +97,14 @@ export const placeholderCopy = {
     'Conversations you have here help us understand what types of communication actually work, and for whom.',
   teamTitle: 'The team',
   team: [
-    { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
+    {
+      initials: 'HS',
+      name: 'Hanna Sistek',
+      role: 'Principal investigator',
+      photo: '/team/hanna-sistek.jpg',
+      // Hanna's own wording, second version, 7 Oct 2026.
+      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at Harvard University\u2019s Edmond & Lily Safra Center for Ethics. After studying the harms of polarization for her dissertation, she created ConvoLab to help people navigate difficult conversations. Drawing on years of studying nonviolent communication and practicing hard conversations with her therapists, she aims to help people build communication skills that strengthen their relationships, families, and communities.',
+    },
     {
       initials: 'DS',
       name: 'Daniel Schiff',
@@ -124,6 +131,7 @@ export const placeholderCopy = {
       initials: 'BA',
       name: 'Brinda Akuthota',
       role: 'Developer',
+      photo: '/team/brinda-akuthota.jpg',
       // Brinda's own wording, 6 Oct 2026.
       bio: 'Brinda Akuthota is a Purdue computer science undergraduate who develops tools and conversational systems for the ConvoLab project. She focuses on containerized backend deployments and interactive AI interfaces that support talking across political differences. She is passionate about building scalable software solutions that make complex communication tools intuitive and accessible.',
     },

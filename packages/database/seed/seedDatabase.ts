@@ -191,11 +191,16 @@ const QUOTA_PRESETS = [
   // web-search tool (~6,000 tokens of its own instructions) is offered on every
   // turn (#179). 25,000 (Quick chat, the previous guest preset) ran out after
   // two exchanges; 200,000 is ~12, more than a 12-minute conversation uses.
+  // Raised to 600,000 on 6 Oct 2026: a turn where the partner searches costs
+  // far more than an ordinary one, because the search results are input. A
+  // guest ran out after four turns (33k, 111k, 34k, 70k). With the basic search
+  // tool capped at two searches a search turn is ~45k, so 600,000 covers a full
+  // conversation with several searches.
   {
     name: 'public-practice',
     label: 'Public practice',
     description: 'Guest conversations started from the public landing page',
-    quota: { tokens: 200000 },
+    quota: { tokens: 600000 },
     sortOrder: 3,
   },
 ];

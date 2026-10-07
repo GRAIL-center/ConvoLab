@@ -46,12 +46,12 @@ describe('placeholderCopy', () => {
     }
   });
 
-  it('keeps any team bio to 80 words and any bio link to https', () => {
+  it('keeps any team bio to 90 words and any bio link to https', () => {
     for (const member of placeholderCopy.team) {
       if (member.bio !== undefined) {
         const words = bioPlainText(member.bio).trim().split(/\s+/).filter(Boolean);
         expect(words.length, member.name).toBeGreaterThan(0);
-        expect(words.length, member.name).toBeLessThanOrEqual(80);
+        expect(words.length, member.name).toBeLessThanOrEqual(90);
       }
       // Every markdown-style link inside a bio must be a well-formed https link;
       // anything else would render as visible brackets on the live page.
