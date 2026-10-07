@@ -42,7 +42,7 @@ export const placeholderCopy = {
 
   whyTitle: 'Why practice',
   whyBody:
-    'Hard conversations across political lines are where relationships CAN fray. ConvoLab gives you a low-stakes place to rehearse them, so you can feel more confident at the next one.',
+    'Hard conversations across political lines are where relationships can fray. ConvoLab gives you a low-stakes place to rehearse them, so you can feel more confident at the next one.',
   whyPanels: [
     {
       title: 'A partner who pushes back',
