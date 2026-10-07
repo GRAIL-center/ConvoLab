@@ -97,7 +97,13 @@ export const placeholderCopy = {
     'Conversations you have here help us understand what types of communication actually work, and for whom.',
   teamTitle: 'The team',
   team: [
-    { initials: 'HS', name: 'Hanna Sistek', role: 'Principal investigator' },
+    {
+      initials: 'HS',
+      name: 'Hanna Sistek',
+      role: 'Principal investigator',
+      // Hanna's own wording, 7 Oct 2026 ("to" added before "improve").
+      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at the Edmond & Lily Safra Center for Ethics at Harvard University. After completing her dissertation on the negative impacts of political polarization, she set out to create practical solutions. Inspired by years of studying non-violent communication and role-playing hard conversations with her therapists, she created ConvoLab to help people build stronger communication skills. She hopes this will enable people to improve their personal relationships and build stronger families and communities.',
+    },
     {
       initials: 'DS',
       name: 'Daniel Schiff',
