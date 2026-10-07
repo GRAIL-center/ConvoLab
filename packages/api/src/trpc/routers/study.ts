@@ -419,6 +419,12 @@ export const studyRouter = router({
       studyPartnerModel: models.partner,
       studyCoachModel: models.coach,
       studyScorerModel: models.scorer,
+      // Whether the partner may search the web, snapshotted from the pilot
+      // scenario like the models above. Study sessions carry no scenarioId, so
+      // without this the runtime saw no scenario and search was never offered
+      // to a study partner (found 7 Oct 2026; every study turn logged
+      // offered: false while every public-app turn logged true).
+      studyPartnerUseWebSearch: scenario.partnerUseWebSearch === true,
       studyEnteredAt: new Date(),
       studyEndType: null,
       participantTurnCount: 0,

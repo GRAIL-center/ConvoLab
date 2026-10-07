@@ -29,3 +29,20 @@ describe('webSearchFor', () => {
     expect(webSearchFor('coach', undefined)).toBe(false);
   });
 });
+
+describe('studySearchSettings', () => {
+  it('offers a study partner search when the session snapshotted it', async () => {
+    const { studySearchSettings } = await import('./conversation.js');
+    const settings = studySearchSettings({ studyPartnerUseWebSearch: true });
+    expect(webSearchFor('partner', settings)).toBe(true);
+    expect(webSearchFor('coach', settings)).toBe(false);
+  });
+
+  it('keeps search off for a study session created before the snapshot existed', async () => {
+    const { studySearchSettings } = await import('./conversation.js');
+    expect(webSearchFor('partner', studySearchSettings({}))).toBe(false);
+    expect(webSearchFor('partner', studySearchSettings({ studyPartnerUseWebSearch: null }))).toBe(
+      false
+    );
+  });
+});

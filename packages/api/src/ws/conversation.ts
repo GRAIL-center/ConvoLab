@@ -269,6 +269,22 @@ export function webSearchFor(
   );
 }
 
+/**
+ * Search settings for a study session, which has no scenario attached: the
+ * partner flag comes from the snapshot taken at creation, and the coach never
+ * searches. A session created before the snapshot existed gets no search,
+ * which is what it had when it was created.
+ */
+export function studySearchSettings(session: { studyPartnerUseWebSearch?: boolean | null }): {
+  partnerUseWebSearch: boolean;
+  coachUseWebSearch: boolean;
+} {
+  return {
+    partnerUseWebSearch: session.studyPartnerUseWebSearch === true,
+    coachUseWebSearch: false,
+  };
+}
+
 // Added missing fields to the interface to resolve TS2339 and TS2551.
 // `id` is widened because Firestore returns string document ids while the
 // Prisma-derived ConversationSession still types it as number, so the base
@@ -294,6 +310,7 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
   studyCoachEnabled?: boolean | null;
   /** True when the partner opened with a fixed statement before the participant wrote. */
   studyPartnerOpens?: boolean | null;
+  studyPartnerUseWebSearch?: boolean | null;
   studyConversationStartedAt?: Date | string | null;
   /**
    * Models snapshotted onto a study session at creation (study.enter). When
@@ -764,7 +781,10 @@ export class ConversationManager {
     }
 
     const context = this.buildContext(role);
-    const useWebSearch = webSearchFor(role, this.session.scenario);
+    const useWebSearch = webSearchFor(
+      role,
+      this.session.scenario ?? studySearchSettings(this.session)
+    );
     return await this.tryStreamWithFallback(role, modelString, systemPrompt, context, useWebSearch);
   }
 
