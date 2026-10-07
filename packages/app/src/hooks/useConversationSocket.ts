@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { lastStreamingIndex, removeAt, replaceAt } from "./streamingMessages";
 
 export type EntityId = string | number;
 
@@ -537,9 +538,10 @@ export function useConversationSocket(
 						setIsStreaming(true);
 						setStreamingRole("partner");
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "partner" && last.isStreaming) {
-								return [...prev.slice(0, -1), { ...last, content: "" }];
+							const i = lastStreamingIndex(prev, "partner");
+							if (i !== -1) {
+								const last = prev[i];
+								return replaceAt(prev, i, { ...last, content: "" });
 							}
 							// No partner bubble yet — the request failed before producing any
 							// text, which is what a rate-limit 429 looks like. Open an empty
@@ -562,9 +564,9 @@ export function useConversationSocket(
 					case "coach:retry":
 						coachStreamingContentRef.current = "";
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "coach" && last.isStreaming) {
-								return prev.slice(0, -1);
+							const i = lastStreamingIndex(prev, "coach");
+							if (i !== -1) {
+								return removeAt(prev, i);
 							}
 							return prev;
 						});
@@ -577,12 +579,10 @@ export function useConversationSocket(
 						partnerStreamingContentRef.current += msg.content;
 						const partnerAccumulated = partnerStreamingContentRef.current;
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "partner" && last.isStreaming) {
-								return [
-									...prev.slice(0, -1),
-									{ ...last, content: partnerAccumulated },
-								];
+							const i = lastStreamingIndex(prev, "partner");
+							if (i !== -1) {
+								const last = prev[i];
+								return replaceAt(prev, i, { ...last, content: partnerAccumulated });
 							}
 							return [
 								...prev,
@@ -607,20 +607,18 @@ export function useConversationSocket(
 					case "partner:done":
 						awaitingPartnerRef.current = false;
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "partner" && last.isStreaming) {
+							const i = lastStreamingIndex(prev, "partner");
+							if (i !== -1) {
+								const last = prev[i];
 								// Prefer the accumulated streaming content; fall back to the server's
 								// confirmed content (e.g. after a partner:retry that cleared the bubble).
 								const finalContent = last.content || msg.content;
-								return [
-									...prev.slice(0, -1),
-									{
+								return replaceAt(prev, i, {
 										...last,
 										content: finalContent,
 										id: msg.messageId,
 										isStreaming: false,
-									},
-								];
+									});
 							}
 							// No streaming message (e.g. Gemini search chunks had null text) — create from content
 							if (msg.content) {
@@ -647,12 +645,10 @@ export function useConversationSocket(
 						coachStreamingContentRef.current += msg.content;
 						const coachAccumulated = coachStreamingContentRef.current;
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "coach" && last.isStreaming) {
-								return [
-									...prev.slice(0, -1),
-									{ ...last, content: coachAccumulated },
-								];
+							const i = lastStreamingIndex(prev, "coach");
+							if (i !== -1) {
+								const last = prev[i];
+								return replaceAt(prev, i, { ...last, content: coachAccumulated });
 							}
 							return [
 								...prev,
@@ -670,19 +666,17 @@ export function useConversationSocket(
 
 					case "coach:done":
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.role === "coach" && last.isStreaming) {
+							const i = lastStreamingIndex(prev, "coach");
+							if (i !== -1) {
+								const last = prev[i];
 								// Same fallback as partner:done — use server content if bubble was cleared.
 								const finalContent = last.content || msg.content;
-								return [
-									...prev.slice(0, -1),
-									{
+								return replaceAt(prev, i, {
 										...last,
 										content: finalContent,
 										id: msg.messageId,
 										isStreaming: false,
-									},
-								];
+									});
 							}
 							// No streaming message — create from content
 							if (msg.content) {
@@ -846,11 +840,10 @@ export function useConversationSocket(
 						// Remove any dangling streaming bubble — e.g. after partner:retry if the
 						// fallback model also fails, leaving an empty isStreaming:true message.
 						setMessages((prev) => {
-							const last = prev[prev.length - 1];
-							if (last?.isStreaming) {
-								return prev.slice(0, -1);
-							}
-							return prev;
+							// The partner's bubble specifically: the coach may still be
+							// streaming its own note for the same message.
+							const i = lastStreamingIndex(prev, "partner");
+							return i !== -1 ? removeAt(prev, i) : prev;
 						});
 						break;
 
@@ -875,8 +868,8 @@ export function useConversationSocket(
 							setIsStreaming(false);
 							setStreamingRole(null);
 							setMessages((prev) => {
-								const last = prev[prev.length - 1];
-								return last?.isStreaming && !last.content ? prev.slice(0, -1) : prev;
+								const i = lastStreamingIndex(prev, "partner");
+								return i !== -1 && !prev[i].content ? removeAt(prev, i) : prev;
 							});
 						}
 						break;

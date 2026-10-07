@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EntityId, Message, ScenarioInfo } from './useConversationSocket';
+import { lastStreamingIndex, removeAt, replaceAt } from './streamingMessages';
 
 // Reuse types from useConversationSocket
 export type { Message, ScenarioInfo };
@@ -45,7 +46,9 @@ const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
  * Read-only WebSocket hook for observing a conversation session.
  * Similar to useConversationSocket but without message sending capability.
  */
-export function useObserverSocket(sessionId: string | number | null | undefined): UseObserverSocketResult {
+export function useObserverSocket(
+  sessionId: string | number | null | undefined
+): UseObserverSocketResult {
   const [status, setStatus] = useState<ObserverStatus>('connecting');
   const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -55,7 +58,9 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const streamingContentRef = useRef<string>('');
+  // One per speaker: the coach now streams while the partner is still replying.
+  const partnerContentRef = useRef<string>('');
+  const coachContentRef = useRef<string>('');
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -146,11 +151,11 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
             break;
 
           case 'coach:retry':
-            streamingContentRef.current = '';
+            coachContentRef.current = '';
             setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming) {
-                return prev.slice(0, -1);
+              const i = lastStreamingIndex(prev, 'coach');
+              if (i !== -1) {
+                return removeAt(prev, i);
               }
               return prev;
             });
@@ -159,18 +164,19 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
           case 'partner:delta':
             setIsStreaming(true);
             setStreamingRole('partner');
-            streamingContentRef.current += msg.content;
+            partnerContentRef.current += msg.content;
             setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+              const i = lastStreamingIndex(prev, 'partner');
+              if (i !== -1) {
+                const last = prev[i];
+                return replaceAt(prev, i, { ...last, content: partnerContentRef.current });
               }
               return [
                 ...prev,
                 {
                   id: -1,
                   role: 'partner',
-                  content: streamingContentRef.current,
+                  content: partnerContentRef.current,
                   timestamp: new Date().toISOString(),
                   isStreaming: true,
                 },
@@ -180,13 +186,14 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
 
           case 'partner:done':
             setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'partner' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+              const i = lastStreamingIndex(prev, 'partner');
+              if (i !== -1) {
+                const last = prev[i];
+                return replaceAt(prev, i, { ...last, id: msg.messageId, isStreaming: false });
               }
               return prev;
             });
-            streamingContentRef.current = '';
+            partnerContentRef.current = '';
             setIsStreaming(false);
             setStreamingRole(null);
             break;
@@ -194,18 +201,19 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
           case 'coach:delta':
             setIsStreaming(true);
             setStreamingRole('coach');
-            streamingContentRef.current += msg.content;
+            coachContentRef.current += msg.content;
             setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+              const i = lastStreamingIndex(prev, 'coach');
+              if (i !== -1) {
+                const last = prev[i];
+                return replaceAt(prev, i, { ...last, content: coachContentRef.current });
               }
               return [
                 ...prev,
                 {
                   id: -1,
                   role: 'coach',
-                  content: streamingContentRef.current,
+                  content: coachContentRef.current,
                   timestamp: new Date().toISOString(),
                   isStreaming: true,
                 },
@@ -215,13 +223,14 @@ export function useObserverSocket(sessionId: string | number | null | undefined)
 
           case 'coach:done':
             setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === 'coach' && last.isStreaming) {
-                return [...prev.slice(0, -1), { ...last, id: msg.messageId, isStreaming: false }];
+              const i = lastStreamingIndex(prev, 'coach');
+              if (i !== -1) {
+                const last = prev[i];
+                return replaceAt(prev, i, { ...last, id: msg.messageId, isStreaming: false });
               }
               return prev;
             });
-            streamingContentRef.current = '';
+            coachContentRef.current = '';
             setIsStreaming(false);
             setStreamingRole(null);
             break;

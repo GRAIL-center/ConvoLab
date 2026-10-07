@@ -78,3 +78,33 @@ export function precedingPartnerTurn(
   }
   return undefined;
 }
+
+/**
+ * The conversation before the exchange being judged: every message ahead of
+ * the participant's message, minus the partner turn it answered, which the
+ * exchange lines already show as "the user is replying to it".
+ *
+ * Added 6 Oct 2026. Seeing one exchange, the coach could not tell who had
+ * raised what: the participant asked about ICE's conduct, the partner then
+ * mentioned mistakes, and the coach suggested probing "their specific concern"
+ * as if the partner had led with it.
+ */
+export function turnsBeforeExchange<T extends GateMessage>(
+  messages: readonly T[],
+  userMessageId: string | number
+): T[] {
+  const index = messages.findIndex(
+    (message) =>
+      message.id !== undefined &&
+      message.id !== null &&
+      String(message.id) === String(userMessageId)
+  );
+  if (index < 0) return [];
+  const before = messages.slice(0, index);
+  for (let i = before.length - 1; i >= 0; i--) {
+    if ((before[i].messageType ?? 'main') !== 'main') continue;
+    if (before[i].role === 'partner') return [...before.slice(0, i), ...before.slice(i + 1)];
+    break;
+  }
+  return before;
+}

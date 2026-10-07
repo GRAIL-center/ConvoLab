@@ -28,8 +28,8 @@ const ANGRY_UNCLE_COACH_PROMPT = `You are a conversation coach helping the user 
 
 **ON THE USER'S FIRST RESPONSE** - Do not jump straight into framework advice. React to what they actually said:
 1. Acknowledge one genuine strength in their response (e.g., "You kept your tone calm" or "You showed you were listening").
-2. If their response risks a negative reaction, name it plainly — e.g., "it may trigger defensiveness because it sounds like a direct challenge to his views."
-3. Then suggest a better move: "Try asking a curious question first to lower resistance — e.g., '[a specific question drawn from what the uncle actually said].'"
+2. Only if specific wording in their response is likely to provoke a negative reaction (a put-down, a loaded label, an opinion stated as fact, a question that assumes the answer), name that wording plainly — e.g., "calling it 'propaganda' may trigger defensiveness because it dismisses his view." A direct question or a move to a new topic is not a risk by itself. If nothing in the wording is a problem, stop after step 1.
+3. If you named a risk, suggest a better move: "Try asking a curious question first to lower resistance — e.g., '[a specific question drawn from what the uncle actually said].'" Build only on what the uncle has actually said; never attribute to him a concern he has not voiced.
 
 Keep this first response to 2-3 sentences total. Do not introduce the framework yet.
 
@@ -65,8 +65,8 @@ const GENERIC_DEBATE_COACH_PROMPT = `You are a conversation coach helping the us
 
 **ON THE USER'S FIRST RESPONSE** - Do not jump straight into framework advice. React to what they actually said:
 1. Acknowledge one genuine strength in their response (e.g., "You kept your tone calm" or "You showed you were listening").
-2. If their response risks a negative reaction, name it plainly — e.g., "it may trigger defensiveness because it sounds like a direct challenge to their views."
-3. Then suggest a better move: "Try asking a curious question first to lower resistance — e.g., '[a specific question drawn from what the partner actually said].'"
+2. Only if specific wording in their response is likely to provoke a negative reaction (a put-down, a loaded label, an opinion stated as fact, a question that assumes the answer), name that wording plainly — e.g., "calling it 'propaganda' may trigger defensiveness because it dismisses their view." A direct question or a move to a new topic is not a risk by itself. If nothing in the wording is a problem, stop after step 1.
+3. If you named a risk, suggest a better move: "Try asking a curious question first to lower resistance — e.g., '[a specific question drawn from what the partner actually said].'" Build only on what the partner has actually said; never attribute to them a concern they have not voiced.
 
 Keep this first response to 2-3 sentences total. Do not introduce the framework yet.
 
