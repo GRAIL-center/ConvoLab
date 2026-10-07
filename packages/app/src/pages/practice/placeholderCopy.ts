@@ -99,15 +99,16 @@ export const placeholderCopy = {
   team: [
     {
       initials: 'HS',
-      name: 'Hanna Sistek',
+      name: 'Hanna Sistek, Ph.D.',
       role: 'Principal investigator',
       photo: '/team/hanna-sistek.jpg',
-      // Hanna's own wording, second version, 7 Oct 2026.
-      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at Harvard University\u2019s Edmond & Lily Safra Center for Ethics. After studying the harms of polarization for her dissertation, she created ConvoLab to help people navigate difficult conversations. Drawing on years of studying nonviolent communication and practicing hard conversations with her therapists, she aims to help people build communication skills that strengthen their relationships, families, and communities.',
+      // Hanna's own wording, third version, 7 Oct 2026.
+      bio: 'Hanna Sistek is a political scientist and a Civil Discourse Fellow at Harvard University\u2019s Edmond & Lily Safra Center for Ethics. Her work examines how emerging technologies and polarization shape political communication and the quality of democratic governance. She created ConvoLab to help people navigate difficult conversations. Drawing on years of studying nonviolent communication and practicing hard conversations with her therapists, she aims to help people build communication skills that strengthen their relationships, families, and communities.',
+      link: { label: 'More about Hanna', url: 'https://hannasistek.github.io/index.html' },
     },
     {
       initials: 'DS',
-      name: 'Daniel Schiff',
+      name: 'Daniel Schiff, Ph.D.',
       role: 'Faculty mentor and co-PI',
       // Facts from danielschiff.com/about; approved by Daniel, 5 Oct 2026.
       bio: "Daniel Schiff is an Associate Professor of Technology Policy in Purdue University's Department of Political Science and founding Co-Director of GRAIL, the Governance and Responsible AI Lab. His research examines how AI is governed, from public policy to industry practice, and its effects on education, work and misinformation. Before academia, he was JP Morgan Chase's founding Responsible AI Lead.",
