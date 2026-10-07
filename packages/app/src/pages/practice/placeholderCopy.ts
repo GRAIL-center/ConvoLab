@@ -131,6 +131,7 @@ export const placeholderCopy = {
       initials: 'BA',
       name: 'Brinda Akuthota',
       role: 'Developer',
+      photo: '/team/brinda-akuthota.jpg',
       // Brinda's own wording, 6 Oct 2026.
       bio: 'Brinda Akuthota is a Purdue computer science undergraduate who develops tools and conversational systems for the ConvoLab project. She focuses on containerized backend deployments and interactive AI interfaces that support talking across political differences. She is passionate about building scalable software solutions that make complex communication tools intuitive and accessible.',
     },
