@@ -110,6 +110,7 @@ export const placeholderCopy = {
       initials: 'DS',
       name: 'Daniel Schiff, Ph.D.',
       role: 'Faculty mentor and co-PI',
+      photo: '/team/daniel-schiff.jpg',
       // Facts from danielschiff.com/about; approved by Daniel, 5 Oct 2026.
       bio: "Daniel Schiff is an Associate Professor of Technology Policy in Purdue University's Department of Political Science and founding Co-Director of GRAIL, the Governance and Responsible AI Lab. His research examines how AI is governed, from public policy to industry practice, and its effects on education, work and misinformation. Before academia, he was JP Morgan Chase's founding Responsible AI Lead.",
     },
