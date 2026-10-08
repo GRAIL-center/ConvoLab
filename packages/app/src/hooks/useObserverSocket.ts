@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { wsUrl } from '../lib/apiUrl';
 import type { EntityId, Message, ScenarioInfo } from './useConversationSocket';
 import { lastStreamingIndex, removeAt, replaceAt } from './streamingMessages';
 
@@ -76,10 +77,7 @@ export function useObserverSocket(
     function connect() {
       if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(
-        `${protocol}//${window.location.host}/ws/observe/${encodeURIComponent(String(sessionId))}`
-      );
+      const ws = new WebSocket(wsUrl(`/ws/observe/${encodeURIComponent(String(sessionId))}`));
       wsRef.current = ws;
 
       ws.onopen = () => {

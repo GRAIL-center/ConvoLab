@@ -92,7 +92,6 @@ services:
       - "5173:5173"
     environment:
       API_HOST: api:3000
-      VITE_API_URL: http://localhost:3000
       VITE_SITE_BANNER: ${VITE_SITE_BANNER:-}
       # Recaptcha.tsx reads this at Vite transform time. Without it the widget
       # is skipped; /practice still works locally (server skips verification in

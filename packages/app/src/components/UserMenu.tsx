@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
+import { apiUrl } from '../lib/apiUrl';
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,9 +16,9 @@ export function UserMenu() {
   const hasUsage = (user?.sessionCount ?? 0) > 0;
 
   const handleLogout = async (unclaim = false) => {
-    const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
+    const url = apiUrl(unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout');
     try {
-      const response = await fetch(url, { method: 'POST' });
+      const response = await fetch(url, { method: 'POST', credentials: 'include' });
       if (!response.ok) throw new Error(`Logout failed with status ${response.status}`);
       setIsOpen(false);
       setShowLogoutConfirm(false);
@@ -111,7 +112,7 @@ export function UserMenu() {
                         </p>
                       </div>
                       <a
-                        href="/api/auth/google"
+                        href={apiUrl('/api/auth/google')}
                         className="mt-3 block rounded-lg bg-[rgba(130,167,161,0.25)] dark:bg-[rgba(212,232,229,0.15)]
                                    px-4 py-2 text-center text-sm font-medium
                                    text-[rgba(50,100,90,1)] dark:text-[#EBEBEB]
@@ -194,7 +195,7 @@ export function UserMenu() {
                 <div>
                   <p className="mb-3 text-sm text-gray-600 dark:text-[#A0A0A0]">Not signed in</p>
                   <a
-                    href="/api/auth/google"
+                    href={apiUrl('/api/auth/google')}
                     className="block rounded-lg bg-[rgba(130,167,161,0.25)] dark:bg-[rgba(212,232,229,0.15)]
                                px-4 py-2 text-center text-sm font-medium
                                text-[rgba(50,100,90,1)] dark:text-[#EBEBEB]
@@ -236,7 +237,7 @@ export function UserMenu() {
                 </p>
                 <div className="mt-4 flex flex-col gap-2">
                   <a
-                    href="/api/auth/google"
+                    href={apiUrl('/api/auth/google')}
                     className="rounded-lg bg-[rgba(130,167,161,0.25)] dark:bg-[rgba(212,232,229,0.15)]
                                px-4 py-2 text-center text-sm font-medium
                                text-[rgba(50,100,90,1)] dark:text-[#EBEBEB]

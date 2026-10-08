@@ -5,6 +5,7 @@ import { ScenarioList } from '../components/ScenarioList';
 import { SetupGuide } from '../components/SetupGuide';
 import { LappFramework } from '../components/LappFramework';
 import { YourSessions } from '../components/YourSessions';
+import { apiUrl } from '../lib/apiUrl';
 
 function GoogleLogo() {
   return (
@@ -122,7 +123,7 @@ function LandingPage() {
           text-base = button font size (try text-lg to go bigger)
         */}
         <a
-          href="/api/auth/google"
+          href={apiUrl('/api/auth/google')}
           className="flex items-center justify-center w-full py-3 rounded-xl
                      text-base font-medium
                      bg-[rgba(134,199,194,0.35)] dark:bg-[rgba(134,199,194,0.2)]
@@ -147,7 +148,7 @@ function LandingPage() {
           text-base = button font size (try text-lg to go bigger)
         */}
         <a
-          href="/api/auth/google"
+          href={apiUrl('/api/auth/google')}
           className="flex items-center justify-center gap-3 w-full py-3 rounded-xl
                      text-base font-medium
                      bg-white dark:bg-[rgba(50,50,50,0.8)]
@@ -168,7 +169,7 @@ function LandingPage() {
         <p className="mt-5 text-center text-sm text-gray-500 dark:text-[#707070]">
           Don't have an account?{' '}
           <a
-            href="/api/auth/google"
+            href={apiUrl('/api/auth/google')}
             className="font-semibold underline text-gray-700 dark:text-[#EBEBEB]
                         hover:text-gray-900 dark:hover:text-white transition-colors"
           >

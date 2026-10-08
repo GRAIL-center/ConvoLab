@@ -8,6 +8,7 @@ import {
   useElaboration,
 } from '../components/CustomScenarioForm';
 import { SignOutConfirmDialog } from '../components/SignOutConfirmDialog';
+import { apiUrl } from '../lib/apiUrl';
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
@@ -116,9 +117,9 @@ export function Invite() {
   };
 
   const handleSignOut = async (unclaim = false) => {
-    const url = unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout';
+    const url = apiUrl(unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout');
     try {
-      await fetch(url, { method: 'POST' });
+      await fetch(url, { method: 'POST', credentials: 'include' });
       setShowSignOutConfirm(false);
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['invitation', 'validate'] });
@@ -343,7 +344,7 @@ export function Invite() {
         <div className="mt-6 border-t pt-4 space-y-2">
           <p className="text-center text-sm text-gray-500">
             Want to save your progress?{' '}
-            <a href="/api/auth/google" className="text-blue-600 hover:underline">
+            <a href={apiUrl('/api/auth/google')} className="text-blue-600 hover:underline">
               Sign in with Google
             </a>
           </p>

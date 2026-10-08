@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { apiUrl } from '../../lib/apiUrl';
 import { muted, scrollToSection, textLink } from './ui';
 
 // Each label is the exact heading it scrolls to, listed in page order, so the
@@ -39,7 +40,10 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
       Your sessions
     </a>
   ) : (
-    <a href="/api/auth/google?next=%2Fhome" className={`text-sm font-medium ${muted} ${textLink}`}>
+    <a
+      href={apiUrl('/api/auth/google?next=%2Fhome')}
+      className={`text-sm font-medium ${muted} ${textLink}`}
+    >
       Sign in
     </a>
   );
