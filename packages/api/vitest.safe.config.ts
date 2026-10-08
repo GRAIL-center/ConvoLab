@@ -9,6 +9,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // Same minimal guard-only setup as vitest.atomic.config.ts: safe tests
+    // manage their own FakeFirestore and never call createPrismaClient()
+    // directly, so the full setup.ts (which does) doesn't fit here either.
+    setupFiles: ['./src/__tests__/atomicGuardSetup.ts'],
     include: ['src/**/*.safe.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
   },
