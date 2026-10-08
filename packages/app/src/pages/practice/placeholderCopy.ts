@@ -163,8 +163,10 @@ export const placeholderCopy = {
       initials: 'MJ',
       name: 'Mikael Johansson',
       role: 'Technologist (consulting)',
+      photo: '/team/mikael-johansson.jpg',
       // Mikael's own wording, 4 Oct 2026; his two companies are linked in place.
       bio: 'Experienced startup and scale-up CTO, founder of [renable.com](https://renable.com) and [verke.co](https://verke.co). Keenly interested in everything from psychology and leadership, to artificial intelligence and distributed systems.',
+      link: { label: 'Mikael on LinkedIn', url: 'https://se.linkedin.com/in/mikljohansson' },
     },
   ] as TeamMember[],
   contactTitle: 'Contact',
