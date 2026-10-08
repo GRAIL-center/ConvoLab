@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { wsUrl } from "../lib/apiUrl";
 import { lastStreamingIndex, removeAt, replaceAt } from "./streamingMessages";
 
 export type EntityId = string | number;
@@ -356,9 +357,8 @@ export function useConversationSocket(
 				return;
 
 			fatalErrorRef.current = null;
-			const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 			const ws = new WebSocket(
-				`${protocol}//${window.location.host}/ws/conversation/${encodeURIComponent(sessionId)}`,
+				wsUrl(`/ws/conversation/${encodeURIComponent(sessionId)}`),
 			);
 			wsRef.current = ws;
 

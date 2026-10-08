@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
+import { publicUrl } from '../../lib/apiUrl';
 
 export function InvitationList() {
   const [scenarioId, setScenarioId] = useState<number | ''>('');
@@ -85,7 +86,7 @@ export function InvitationList() {
   };
 
   const copyLink = async (token: string) => {
-    const url = `${window.location.origin}/invite/${token}`;
+    const url = publicUrl(`/invite/${token}`);
     try {
       await navigator.clipboard.writeText(url);
       setCopiedToken(token);
@@ -211,7 +212,7 @@ export function InvitationList() {
                 className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50"
               >
                 <div className="flex-shrink-0 rounded border border-gray-200 p-1">
-                  <QRCodeSVG value={`${window.location.origin}/invite/${inv.token}`} size={40} />
+                  <QRCodeSVG value={publicUrl(`/invite/${inv.token}`)} size={40} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">

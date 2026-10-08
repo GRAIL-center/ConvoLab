@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 import Recaptcha from '../components/Recaptcha';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { apiUrl } from '../lib/apiUrl';
 import { PersonaPicker, type PracticeScenario } from './practice/PersonaPicker';
 import { PracticeMarketing } from './practice/PracticeMarketing';
 
@@ -156,7 +157,9 @@ export function PracticeLanding() {
   const handleSignIn = () => {
     if (!selectedScenario || !canStartLive) return;
     sessionStorage.setItem(PENDING_SCENARIO_KEY, String(selectedScenario.id));
-    window.location.href = `/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`;
+    window.location.href = apiUrl(
+      `/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`
+    );
   };
 
   const handleStartSignedIn = () => {
@@ -225,7 +228,7 @@ export function PracticeLanding() {
             <div className="mx-auto mt-8 flex w-full max-w-sm flex-col items-center gap-3">
               {recaptchaSiteKey ? <Recaptcha onChange={setRecaptchaToken} /> : null}
               <a
-                href={`/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`}
+                href={apiUrl(`/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`)}
                 onClick={(e) => {
                   e.preventDefault();
                   handleSignIn();

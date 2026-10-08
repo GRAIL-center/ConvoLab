@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 import { MessageBubble } from '../../components/conversation/MessageBubble';
+import { publicUrl } from '../../lib/apiUrl';
 
 export function InvitationDetail() {
   const { invitationId } = useParams<{ invitationId: string }>();
@@ -67,7 +68,7 @@ export function InvitationDetail() {
     );
   }
 
-  const inviteUrl = `${window.location.origin}/invite/${invitation.token}`;
+  const inviteUrl = publicUrl(`/invite/${invitation.token}`);
   const isClaimed = !!invitation.claimedAt;
   const hasActiveSession = !!invitation.activeSessionId;
   const totalMessages = invitation.sessions.reduce((sum, s) => sum + s.messages.length, 0);

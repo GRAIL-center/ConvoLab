@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import Markdown from 'react-markdown';
+import { apiUrl } from '../lib/apiUrl';
 
 // Prose styling for markdown - extended for full documentation rendering
 const markdownClasses = `
@@ -60,7 +61,7 @@ interface SetupStatus {
 
 async function fetchSetupStatus(): Promise<SetupStatus | null> {
   try {
-    const res = await fetch('/api/setup/status');
+    const res = await fetch(apiUrl('/api/setup/status'));
     if (!res.ok) return null;
     return res.json();
   } catch {

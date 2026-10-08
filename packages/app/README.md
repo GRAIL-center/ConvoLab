@@ -66,17 +66,43 @@ Hot module replacement (HMR) is enabled - changes appear instantly!
 
 ## Environment Variables
 
-The app uses environment variables prefixed with `VITE_`:
+Only variables prefixed with `VITE_` reach the browser. Vite bakes them into the
+bundle at build time, so never put a secret in one, and rebuild (or restart the
+dev server) after changing one.
+
+### `VITE_API_URL` and `VITE_PUBLIC_URL`
+
+| Variable | What it sets | Example |
+|----------|--------------|---------|
+| `VITE_API_URL` | Origin for API, sign-in and WebSocket calls | `https://convolab.us` |
+| `VITE_PUBLIC_URL` | Origin for links people share (invites, QR codes) | `https://convolab.us` |
+
+**Leave both unset on the web**, including local dev and Docker. Paths then stay
+relative to the page and go through the Vite proxy in dev, or the same Cloud Run
+service in production. Setting `VITE_API_URL=http://localhost:3000` locally
+bypasses the proxy and breaks sign-in.
+
+**Set both for the Capacitor build**, whose page origin is `capacitor://localhost`:
 
 ```bash
-# .env
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=https://convolab.us VITE_PUBLIC_URL=https://convolab.us \
+  pnpm -F @workspace/app build
 ```
 
-Access in code:
+Don't read `import.meta.env.VITE_API_URL` directly. Build every URL with the
+helpers in `src/lib/apiUrl.ts`:
+
 ```typescript
-const apiUrl = import.meta.env.VITE_API_URL;
+import { apiUrl, publicUrl, wsUrl } from '../lib/apiUrl';
+
+fetch(apiUrl('/api/setup/status'));
+new WebSocket(wsUrl(`/ws/conversation/${id}`));
+const inviteLink = publicUrl(`/invite/${token}`);
 ```
+
+Pointing `VITE_API_URL` at a different origin also needs API-side support: the
+CORS allowlist (`FRONTEND_URL`), the `sameSite: 'lax'` session cookie and the
+post-login redirect all assume a single origin.
 
 ## Development
 

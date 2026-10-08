@@ -1,3 +1,5 @@
+import { apiUrl } from '../lib/apiUrl';
+
 interface SignOutConfirmDialogProps {
   hasUsage: boolean;
   onSignOut: (unclaim?: boolean) => void;
@@ -19,7 +21,7 @@ export function SignOutConfirmDialog({ hasUsage, onSignOut, onCancel }: SignOutC
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <a
-                href="/api/auth/google"
+                href={apiUrl('/api/auth/google')}
                 className="rounded bg-blue-600 px-4 py-2 text-center text-sm text-white hover:bg-blue-700"
               >
                 Sign in with Google

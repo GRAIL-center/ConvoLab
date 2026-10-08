@@ -7,6 +7,7 @@ import { FeedbackButton } from './components/FeedbackButton';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import { AdminLayout } from './layouts/AdminLayout';
+import { apiUrl } from './lib/apiUrl';
 import { Feedback } from './pages/admin/Feedback';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
@@ -35,7 +36,7 @@ function makeTRPCClient() {
   return createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
-        url: '/trpc',
+        url: apiUrl('/trpc'),
         fetch(url, options) {
           return fetch(url, {
             ...options,

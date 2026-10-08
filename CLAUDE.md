@@ -96,6 +96,8 @@ Docker local development talks to the Firestore emulator and auto-seeds an empty
 ### Ports & Routing
 Everything through frontend origin. Vite proxies `/api/*` and `/ws/*` to API.
 
+Build every API, sign-in and WebSocket URL with `apiUrl()` / `wsUrl()`, and every shareable link with `publicUrl()`, from `packages/app/src/lib/apiUrl.ts`; never hardcode `/api/...` or read `window.location.host`. On the web `VITE_API_URL` / `VITE_PUBLIC_URL` stay unset and paths stay relative. The Capacitor build (in progress on `Mobile-implementation`) sets them because its page origin is `capacitor://localhost`.
+
 | Service | Dev Port | URL |
 |---------|----------|-----|
 | Frontend | 5173 | `http://localhost:5173` |
