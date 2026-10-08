@@ -125,6 +125,7 @@ export const placeholderCopy = {
       initials: 'AN',
       name: 'Anuj Krish Nair',
       role: 'Developer',
+      photo: '/team/anuj-krish-nair.jpg',
       // Anuj's own wording, 6 Oct 2026.
       bio: 'Anuj Krish Nair is a Purdue computer science undergraduate who enjoys turning AI ideas into products people actually use. He has worked on voice-based assistants, language-aware systems, and tools that evaluate how well AI models perform. Outside of class, he builds interactive web games and experiments with search and decision-making algorithms.',
     },
