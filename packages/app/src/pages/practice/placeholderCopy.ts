@@ -149,7 +149,7 @@ export const placeholderCopy = {
       initials: 'NA',
       name: 'Nebras Alam',
       role: 'Developer',
-      photo: '/team/nebras-alam.jpg',
+      photo: '/team/nebras-alam-2.jpg',
       // Nebras's own wording, 6 Oct 2026.
       bio: 'Nebras Alam is a Computer Engineering student at Purdue University interested in the intersection of artificial intelligence, political science, and civic technology. At ConvoLab, he contributes to backend development, prompt engineering, experimental design, and research on cross-partisan dialogue. His work focuses on how AI can support more productive political conversations and improve the quality of democratic discourse.',
     },
