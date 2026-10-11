@@ -16,7 +16,6 @@ import {
   muted,
   panel,
   primaryButton,
-  secondaryButton,
   section,
   sectionTitle,
   sectionTitleOneLine,
@@ -143,7 +142,7 @@ export function PracticeMarketing({
         <section className="px-6 pb-24 pt-8 text-center sm:px-10">
           <Reveal className="mx-auto max-w-xl">
             <h2 className={sectionTitle}>Ready when you are.</h2>
-            <button type="button" onClick={onChoosePartner} className={`${secondaryButton} mt-8`}>
+            <button type="button" onClick={onChoosePartner} className={`${primaryButton} mt-8`}>
               {placeholderCopy.ctaLabel}
             </button>
           </Reveal>
