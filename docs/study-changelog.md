@@ -20,7 +20,72 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
-## 2026-10-03: study persona prompts standardized after pilot feedback (not yet live)
+## 2026-10-07: study partners can use web search (live 2026-10-07 ~04:10 UTC, revision `convolab-api-00126-fcv`)
+
+- **Why.** Study sessions carry a persona snapshot and no scenario, and the
+  search setting lived on the scenario, so study partners had never been
+  offered search (every study turn logged `offered: false` since search was
+  added) while every public-app turn had it. Found during the 7 Oct
+  end-to-end test; Hanna decided 7 Oct to enable it rather than register the
+  study partner as search-less.
+- **What changed.** PR #196: `study.enter` snapshots
+  `studyPartnerUseWebSearch` from the pilot scenario onto the session, and the
+  runtime reads that snapshot when no scenario is attached. The coach still
+  has no search. Exported per session as `partner_web_search`.
+- **Arms.** Both, since the partner is shared. The search behaviour itself
+  (cap, two-step reply, date line) is the 2026-10-07 #191 entry below; for
+  study sessions it became effective only with this change.
+- **Sessions affected.** New study sessions from revision
+  `convolab-api-00126-fcv`. Study sessions created before 2026-10-07 04:10 UTC
+  ran without search; all are tester sessions (the pilot has not launched).
+
+---
+
+## 2026-10-07: coach and live scorer start on send and see the conversation so far; coach first-response steps rewritten (live 2026-10-07 03:47 UTC, revision `convolab-api-00125-brj`)
+
+- **What changed.** PR #192. The coach and the live LAPP scorer now start as
+  soon as the participant sends a message, so the coach's note can appear
+  while the partner is still replying. Both see the participant's message,
+  the partner turn it was replying to, and the conversation before it, each
+  line labelled by speaker; neither sees the partner's reply to the message
+  being coached (previously the coach waited for that reply and saw only the
+  single exchange, unlabelled history excluded).
+- **Coach prompt.** Steps 2 and 3 of the first-response formula in the study
+  coach prompts (seed data, applied by the startup reconcile on this deploy):
+  warn about defensiveness only when specific wording warrants it; a direct
+  question or topic change is not a risk by itself; build only on concerns
+  the partner has actually voiced. Wording approved by Hanna 7 Oct.
+- **Arms.** Coaching arm for the coach note and prompt; the live LAPP scorer
+  context change applies wherever the scorer runs.
+- **Sessions affected.** New sessions from revision `convolab-api-00125-brj`;
+  sessions in flight keep the coach prompt stamped at creation. All earlier
+  sessions are tester sessions.
+- **PAP.** Registered in PAP v7.26, Section 3.3.
+
+---
+
+## 2026-10-07: partner search behaviour: date line, voice block, two-step reply, two searches per reply (live 2026-10-07 03:47 UTC, revision `convolab-api-00125-brj`)
+
+- **What changed.** PR #191. The partner runtime prompt (identical for every
+  persona, both arms) gains a current-date check line and a HOW YOU TALK
+  block. On turns where the partner searches, the participant-facing reply is
+  written in a second step from the facts found, without the search tool, so
+  it reads as conversation rather than a news report. The search tool is the
+  basic `web_search_20250305`, capped at two searches per reply (the dynamic
+  tool took 15 to 45 s and up to 143k tokens on news questions; uncapped, the
+  date check made the partner search four to nine times per reply).
+- **Arms.** Both; the partner is shared.
+- **Study caveat.** At this revision study partners still had no search (see
+  the #196 entry above), so for study sessions the search parts took effect
+  at 04:10 UTC with `convolab-api-00126-fcv`; the prompt additions (date
+  line, HOW YOU TALK) applied to study partners from this revision.
+- **Sessions affected.** New sessions from revision `convolab-api-00125-brj`.
+  All earlier sessions are tester sessions.
+- **PAP.** Registered in PAP v7.26, Section 3.3.
+
+---
+
+## 2026-10-03: study persona prompts standardized after pilot feedback (merged 2026-10-06 18:57 UTC as PR #157; live 2026-10-06 19:28 UTC, revision `convolab-api-00119-w86`)
 
 - **What changed.** Replaced all four pilot persona prompts with the approved
   pilot-feedback versions. Every persona is now age 39 and a parent of two
@@ -35,11 +100,26 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
   deploy-time reference-data reconcile updates changed stored scenarios after
   merge and deploy; no separate manual re-seed is required.
 - **Sessions affected.** New sessions after the first deployment containing
-  this change. Existing study sessions keep the prompt captured at creation.
+  this change (revision `convolab-api-00119-w86`, 2026-10-06 19:28 UTC).
+  Existing study sessions keep the prompt captured at creation. All study
+  sessions on the new prompts so far are tester sessions.
+- **Review.** Self-merged without review; went live with an unrelated deploy
+  30 minutes later. Reviewed post hoc against the repository diff and kept by
+  Hanna on 2026-10-11. The repo-level change is formatting (unwrapped lines,
+  un-numbered belief list, de-hyphenated compounds) plus four instruction
+  blocks added identically to all four personas: factual humility (never
+  invent statistics, studies, or laws; qualify uncertain claims; a factual
+  belief may update on credible information without ideological movement),
+  varied acknowledgments (no templated "That's fair" openers), concession
+  scoping, and anti-drift reinforcement. No belief, stance, or biographical
+  fact was added, removed, or reworded (the age-39 biography predates this
+  PR in the repo); male and female variants differ only by name and pronouns.
+  The seed-time gender self-reference block is applied outside these files
+  and is unchanged.
 
 ---
 
-## 2026-10-01: partner openers shortened to spoken length (code only, not yet live)
+## 2026-10-01: partner openers shortened to spoken length (live 2026-10-01 11:36 UTC, revision `convolab-api-00081-fn7`)
 
 - **Why.** The one-sentence openers of 30 Sep (see the entry below) still read
   as written prose at 21 to 32 words each. The partner's later turns follow a
@@ -61,7 +141,7 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
-## 2026-09-30: partner openers shortened to one sentence; LAPP steps numbered on the landing page (code only, not yet live)
+## 2026-09-30: partner openers shortened to one sentence; LAPP steps numbered on the landing page (live 2026-10-01 02:37 UTC, revision `convolab-api-00080-448`; superseded by the 2026-10-01 spoken-length openers before any non-tester session)
 
 - **Why.** In the user-testing round of 29 Sep the partner openers (two to
   three sentences each) read long next to the new short-reply policy, where
