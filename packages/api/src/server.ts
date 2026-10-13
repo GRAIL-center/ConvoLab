@@ -7,19 +7,35 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV ?? 'development',
     tracesSampleRate: 0.2, // capture 20% of transactions for performance monitoring
+    // Credentials ride in these headers (the native app's bearer token, and
+    // the websocket subprotocol list that carries it); never ship them to
+    // Sentry. The default request-data integration attaches all headers.
+    beforeSend(event) {
+      const headers = event.request?.headers;
+      if (headers) {
+        for (const name of Object.keys(headers)) {
+          const lower = name.toLowerCase();
+          if (lower === 'authorization' || lower === 'sec-websocket-protocol') {
+            headers[name] = '[redacted]';
+          }
+        }
+      }
+      return event;
+    },
   });
 }
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
-import { canonicalRedirectTarget } from './lib/canonicalHost.js';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { isDatabaseEmpty, reconcileReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
+import { selectWsProtocol } from './auth/resolveUser.js';
 import { db as prisma } from './db/firestoreHelpers.js';
+import { canonicalRedirectTarget } from './lib/canonicalHost.js';
 
 import {
   getAIProviderSummary,
@@ -77,7 +93,12 @@ await fastify.register(cors, {
   credentials: true,
 });
 
-await fastify.register(websocket);
+await fastify.register(websocket, {
+  // Native app sockets offer ['convolab.v1', 'bearer.<token>'] (plan 18,
+  // step 3). See selectWsProtocol for why; the website never offers
+  // protocols and is untouched by this option.
+  options: { handleProtocols: selectWsProtocol },
+});
 
 // WebSocket routes for real-time streaming
 await registerWebSocketHandler(fastify);
