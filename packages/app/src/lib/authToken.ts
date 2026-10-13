@@ -101,11 +101,21 @@ export async function startNativeSignIn(): Promise<void> {
   pendingCodeVerifier = verifier;
   const codeChallenge = await sha256Base64url(verifier);
 
-  const response = await fetch(apiUrl('/api/auth/native/start'), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...nativeAuthHeaders() },
-    body: JSON.stringify({ codeChallenge }),
-  });
+  const start = () =>
+    fetch(apiUrl('/api/auth/native/start'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...nativeAuthHeaders() },
+      body: JSON.stringify({ codeChallenge }),
+    });
+
+  let response = await start();
+  if ((response.status === 401 || response.status === 400) && getAuthToken()) {
+    // The stored token is stale (expired, or the key rotated) or not a guest
+    // token. Signing in replaces it anyway, so drop it and retry once without
+    // it; otherwise a dead token would block sign-in forever.
+    clearAuthToken();
+    response = await start();
+  }
   if (!response.ok) {
     pendingCodeVerifier = null;
     throw new Error(`Native sign-in start failed (${response.status})`);

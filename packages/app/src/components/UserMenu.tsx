@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 import { apiUrl } from '../lib/apiUrl';
+import { clearAuthToken, nativeAuthHeaders } from '../lib/authToken';
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,8 +19,15 @@ export function UserMenu() {
   const handleLogout = async (unclaim = false) => {
     const url = apiUrl(unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout');
     try {
-      const response = await fetch(url, { method: 'POST', credentials: 'include' });
+      // The native app authenticates by bearer, so logout must carry it (the
+      // guest unclaim depends on it), and the stored token must go too.
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: nativeAuthHeaders(),
+      });
       if (!response.ok) throw new Error(`Logout failed with status ${response.status}`);
+      clearAuthToken();
       setIsOpen(false);
       setShowLogoutConfirm(false);
       refetch();

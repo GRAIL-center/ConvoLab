@@ -9,7 +9,7 @@ import {
 } from '../components/CustomScenarioForm';
 import { SignOutConfirmDialog } from '../components/SignOutConfirmDialog';
 import { apiUrl } from '../lib/apiUrl';
-import { setAuthToken } from '../lib/authToken';
+import { clearAuthToken, nativeAuthHeaders, setAuthToken } from '../lib/authToken';
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
@@ -123,7 +123,9 @@ export function Invite() {
   const handleSignOut = async (unclaim = false) => {
     const url = apiUrl(unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout');
     try {
-      await fetch(url, { method: 'POST', credentials: 'include' });
+      // Carry the native bearer (guest unclaim needs it) and drop the token.
+      await fetch(url, { method: 'POST', credentials: 'include', headers: nativeAuthHeaders() });
+      clearAuthToken();
       setShowSignOutConfirm(false);
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['invitation', 'validate'] });

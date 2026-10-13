@@ -103,3 +103,27 @@ describe('in the native app (VITE_NATIVE=1)', () => {
     expect(getAuthToken()).toBeNull();
   });
 });
+
+describe('stale token recovery', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_NATIVE', '1');
+  });
+
+  it('a 401 from /start clears the stored token and retries once without it', async () => {
+    setAuthToken('stale-token');
+    const bearers: Array<string | undefined> = [];
+    vi.stubGlobal('window', { open: vi.fn() });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, options: { headers: Record<string, string> }) => {
+        bearers.push(options.headers.Authorization);
+        return bearers.length === 1
+          ? { ok: false, status: 401, json: async () => ({}) }
+          : { ok: true, status: 200, json: async () => ({ ticketId: 't' }) };
+      })
+    );
+    await startNativeSignIn();
+    expect(bearers).toEqual(['Bearer stale-token', undefined]);
+    expect(getAuthToken()).toBeNull();
+  });
+});

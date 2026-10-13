@@ -45,7 +45,9 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
     // PKCE flow opens the phone's real browser instead (plan 18, step 6).
     <button
       type="button"
-      onClick={() => void startNativeSignIn()}
+      onClick={() => {
+        startNativeSignIn().catch((error) => console.error('Native sign-in failed:', error));
+      }}
       className={`text-sm font-medium ${muted} ${textLink}`}
     >
       Sign in
