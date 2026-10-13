@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { createSession } from '../../data/sessions.js';
+import { issueAuthToken } from '../../lib/authToken.js';
 import { parseQuota } from '../../lib/quota.js';
 import { verifyRecaptcha } from '../../lib/recaptcha.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
@@ -48,10 +49,17 @@ export const practiceRouter = router({
     const quota = parseQuota(preset.quota);
 
     let userId = ctx.userId ?? undefined;
+    // Plan 18, step 4: the native app cannot hold the cookie, so when it
+    // creates a guest it also gets a bearer token back. The website never
+    // sends the X-ConvoLab-Client header, so its responses do not change.
+    let authToken: string | undefined;
     if (!userId) {
       const anonymousUser = await ctx.prisma.user.create({ data: { role: Role.GUEST } });
       userId = anonymousUser.id;
       ctx.req.session.set('userId', userId);
+      if (ctx.req.headers['x-convolab-client'] === 'native') {
+        authToken = issueAuthToken(anonymousUser.id, 'guest');
+      }
     }
 
     const invitation = await ctx.prisma.invitation.create({
@@ -87,6 +95,6 @@ export const practiceRouter = router({
       { userId, sessionId }
     );
 
-    return { sessionId };
+    return { sessionId, authToken };
   }),
 });
