@@ -2,6 +2,7 @@ import type { OAuth2Namespace } from '@fastify/oauth2';
 import { db as prisma } from '../db/firestoreHelpers.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { handleGoogleAuth } from '../auth/handlers.js';
+import { resolveUserId } from '../auth/resolveUser.js';
 import { deleteUserCascade } from '../data/users.js';
 import type { GoogleUserInfo } from '../auth/types.js';
 
@@ -80,7 +81,8 @@ async function authRoutes(fastify: FastifyInstance) {
       request: FastifyRequest<{ Querystring: { unclaim?: string } }>,
       _reply: FastifyReply
     ) => {
-      const userId = request.session.get('userId');
+      // Bearer first so the guest "unclaim" works for app users too (plan 18).
+      const userId = resolveUserId(request);
       const shouldUnclaim = request.query.unclaim === 'true';
 
       if (userId && shouldUnclaim) {

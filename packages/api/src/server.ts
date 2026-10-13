@@ -19,6 +19,7 @@ import websocket from '@fastify/websocket';
 import { type FastifyTRPCPluginOptions, fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { isDatabaseEmpty, reconcileReferenceData, seedTestData } from '@workspace/database';
 import Fastify from 'fastify';
+import { WS_PROTOCOL } from './auth/resolveUser.js';
 import { db as prisma } from './db/firestoreHelpers.js';
 
 import {
@@ -77,7 +78,16 @@ await fastify.register(cors, {
   credentials: true,
 });
 
-await fastify.register(websocket);
+await fastify.register(websocket, {
+  options: {
+    // The native app offers ['convolab.v1', 'bearer.<token>'] (plan 18, step
+    // 3); a handshake with offered protocols only completes when the server
+    // echoes one of them, so select convolab.v1. A browser that offers no
+    // protocols never reaches this callback, so the website is unchanged.
+    handleProtocols: (protocols: Set<string>) =>
+      protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false,
+  },
+});
 
 // WebSocket routes for real-time streaming
 await registerWebSocketHandler(fastify);
