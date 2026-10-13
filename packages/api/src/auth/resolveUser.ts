@@ -12,6 +12,16 @@ import { verifyAuthToken } from '../lib/authToken.js';
 
 /** The subprotocol every native socket offers first (the server echoes it). */
 export const WS_PROTOCOL = 'convolab.v1';
+
+/**
+ * The handleProtocols callback for @fastify/websocket (server.ts): a handshake
+ * with offered protocols only completes when the server echoes one, so select
+ * convolab.v1. A browser that offers no protocols never reaches this callback.
+ * Lives here so the handshake test exercises the same function the server uses.
+ */
+export function selectWsProtocol(protocols: Set<string>): string | false {
+  return protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false;
+}
 /** Prefix of the subprotocol entry that carries the token (base64url + "." only). */
 export const WS_BEARER_PREFIX = 'bearer.';
 

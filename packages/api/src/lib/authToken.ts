@@ -68,18 +68,19 @@ export function issueAuthToken(userId: string, kind: AuthTokenKind, now = Date.n
   return `${payloadB64}.${sign(payloadB64).toString('base64url')}`;
 }
 
+// Canonical shape: base64url payload, dot, 43-char base64url HMAC-SHA256.
+// Enforced before decoding because Buffer.from(_, 'base64url') never throws
+// and tolerates many spellings of the same bytes; without this check,
+// infinitely many strings would verify for one token, which would break
+// anything that ever keys on the token string (a deny list, a rate limit).
+const TOKEN_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/;
+
 /** Returns the user id for a valid, unexpired token, otherwise null. */
 export function verifyAuthToken(token: string, now = Date.now()): string | null {
+  if (!TOKEN_SHAPE.test(token)) return null;
   const dot = token.indexOf('.');
-  if (dot <= 0 || dot !== token.lastIndexOf('.')) return null;
   const payloadB64 = token.slice(0, dot);
-
-  let signature: Buffer;
-  try {
-    signature = Buffer.from(token.slice(dot + 1), 'base64url');
-  } catch {
-    return null;
-  }
+  const signature = Buffer.from(token.slice(dot + 1), 'base64url');
   const expected = sign(payloadB64);
   // Constant-time comparison; length check first because timingSafeEqual throws
   // on unequal lengths (the length of the correct signature is public anyway).

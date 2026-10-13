@@ -3,7 +3,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { WS_PROTOCOL } from '../auth/resolveUser.js';
+import { selectWsProtocol, WS_PROTOCOL } from '../auth/resolveUser.js';
 
 /**
  * The real @fastify/websocket handshake with the handleProtocols option
@@ -17,14 +17,9 @@ let port: number;
 
 beforeEach(async () => {
   app = Fastify({ logger: false });
-  await app.register(websocket, {
-    options: {
-      // Mirror of server.ts; keep in sync.
-      handleProtocols: (protocols: Set<string>) =>
-        protocols.has(WS_PROTOCOL) ? WS_PROTOCOL : false,
-    },
-  });
-  app.get('/ws/echo', { websocket: true }, (socket) => {
+  // The same selector server.ts registers, so a regression there fails here.
+  await app.register(websocket, { options: { handleProtocols: selectWsProtocol } });
+  app.get('/ws/echo', { websocket: true }, (socket: WebSocket) => {
     socket.send('hello');
   });
   await app.listen({ port: 0, host: '127.0.0.1' });
