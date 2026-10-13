@@ -1,10 +1,17 @@
-import { Firestore, DocumentData, WithFieldValue } from '@google-cloud/firestore';
+import { type DocumentData, Firestore, type WithFieldValue } from '@google-cloud/firestore';
 
 // Initialize a Firestore client using the same project ID as in context.
+// Memoized: each Firestore instance holds its own gRPC channels, and callers
+// on the request path (the native auth routes) would otherwise open new
+// connections on every request and never close them.
+let memoizedClient: { projectId: string | undefined; client: Firestore } | undefined;
+
 export function getFirestore() {
-  return new Firestore({
-    projectId: process.env.FIRESTORE_PROJECT_ID,
-  });
+  const projectId = process.env.FIRESTORE_PROJECT_ID;
+  if (!memoizedClient || memoizedClient.projectId !== projectId) {
+    memoizedClient = { projectId, client: new Firestore({ projectId }) };
+  }
+  return memoizedClient.client;
 }
 
 /**
@@ -21,11 +28,7 @@ export function collection(name: string) {
  * @param data Document data.
  * @param docId Optional document ID. If omitted, Firestore generates one.
  */
-export async function createDoc<T>(
-  coll: string,
-  data: T,
-  docId?: string,
-): Promise<string> {
+export async function createDoc<T>(coll: string, data: T, docId?: string): Promise<string> {
   const ref = docId ? collection(coll).doc(docId) : collection(coll).doc();
   await ref.set(data as WithFieldValue<DocumentData>);
   return ref.id;
@@ -56,10 +59,7 @@ export async function queryCollection(
     direction?: 'asc' | 'desc';
   } = {}
 ) {
-  let q = collection(coll).orderBy(
-    options.orderBy ?? 'createdAt',
-    options.direction ?? 'desc'
-  );
+  let q = collection(coll).orderBy(options.orderBy ?? 'createdAt', options.direction ?? 'desc');
   if (options.cursor) {
     const cursorDoc = await collection(coll).doc(options.cursor).get();
     if (cursorDoc.exists) {

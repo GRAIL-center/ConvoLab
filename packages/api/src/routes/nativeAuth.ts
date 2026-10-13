@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import { mergeUsers } from '../auth/handlers.js';
 import { createAuthTicket, redeemAuthCode } from '../auth/nativeAuthStore.js';
-import { issueAuthToken, verifyAuthToken } from '../lib/authToken.js';
+import { db as prisma } from '../db/firestoreHelpers.js';
+import { issueAuthToken, verifyAuthTokenDetailed } from '../lib/authToken.js';
 import { getFirestore } from '../lib/firestore.js';
 
 /**
@@ -38,14 +40,19 @@ async function nativeAuthRoutes(fastify: FastifyInstance) {
       // account I am about to sign in to". Only the bearer header counts (the
       // app has no cookie), and a present-but-invalid token is an error, not
       // silently ignored: dropping it would silently lose the guest merge.
+      // Only guest-kind tokens qualify; an account has nothing to merge.
+      // The merge itself happens at code redemption, never in the callback.
       let guestUserId: string | undefined;
       const header = request.headers.authorization;
       if (typeof header === 'string' && header.startsWith('Bearer ')) {
-        const userId = verifyAuthToken(header.slice('Bearer '.length).trim());
-        if (!userId) {
+        const verified = verifyAuthTokenDetailed(header.slice('Bearer '.length).trim());
+        if (!verified) {
           return reply.status(401).send({ error: 'invalid_token' });
         }
-        guestUserId = userId;
+        if (verified.kind !== 'guest') {
+          return reply.status(400).send({ error: 'not_a_guest_token' });
+        }
+        guestUserId = verified.userId;
       }
 
       const ticketId = await createAuthTicket(getFirestore(), { codeChallenge, guestUserId });
@@ -66,9 +73,27 @@ async function nativeAuthRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'invalid_request' });
       }
 
-      const userId = await redeemAuthCode(getFirestore(), code, codeVerifier);
-      if (!userId) {
+      const redeemed = await redeemAuthCode(getFirestore(), code, codeVerifier);
+      if (!redeemed) {
         return reply.status(400).send({ error: 'invalid_code' });
+      }
+      const { userId, guestUserId } = redeemed;
+
+      // The PKCE proof above established that this caller is the app that
+      // created the ticket, i.e. the holder of the guest token presented to
+      // /start. Only now is it safe to merge that guest's conversations into
+      // the signed-in account. mergeUsers deletes the guest, which also kills
+      // every copy of its 365-day token. Never merge a user who already has an
+      // external identity (that is an account, not a guest).
+      if (guestUserId && guestUserId !== userId) {
+        const guest = await prisma.user.findUnique({ where: { id: guestUserId } });
+        const guestIdentities = guest
+          ? await prisma.externalIdentity.findMany({ where: { userId: guestUserId } })
+          : [];
+        if (guest && guestIdentities.length === 0) {
+          await mergeUsers(guestUserId, userId, prisma);
+          request.log.info({ userId, mergedFrom: guestUserId }, 'Native sign-in merged guest');
+        }
       }
 
       request.log.info({ userId }, 'Native app redeemed sign-in code');

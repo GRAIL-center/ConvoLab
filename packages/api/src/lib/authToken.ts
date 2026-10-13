@@ -77,6 +77,14 @@ const TOKEN_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/;
 
 /** Returns the user id for a valid, unexpired token, otherwise null. */
 export function verifyAuthToken(token: string, now = Date.now()): string | null {
+  return verifyAuthTokenDetailed(token, now)?.userId ?? null;
+}
+
+/** As verifyAuthToken, but also says which kind of token it is. */
+export function verifyAuthTokenDetailed(
+  token: string,
+  now = Date.now()
+): { userId: string; kind: AuthTokenKind } | null {
   if (!TOKEN_SHAPE.test(token)) return null;
   const dot = token.indexOf('.');
   const payloadB64 = token.slice(0, dot);
@@ -96,6 +104,7 @@ export function verifyAuthToken(token: string, now = Date.now()): string | null 
   }
   if (payload.v !== TOKEN_VERSION) return null;
   if (typeof payload.uid !== 'string' || payload.uid.length === 0) return null;
+  if (payload.kind !== 'guest' && payload.kind !== 'account') return null;
   if (typeof payload.exp !== 'number' || payload.exp * 1000 <= now) return null;
-  return payload.uid;
+  return { userId: payload.uid, kind: payload.kind };
 }

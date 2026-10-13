@@ -55,26 +55,32 @@ async function authRoutes(fastify: FastifyInstance) {
       const userInfo = (await userInfoResponse.json()) as GoogleUserInfo;
 
       if (nativeTicketId) {
+        // A later website sign-in in this browser must not inherit a native
+        // flow's in-app redirect either.
+        request.session.set('authNext', undefined);
+
         // Single-use ticket; missing, expired or reused all land here.
         const ticket = await consumeAuthTicket(getFirestore(), nativeTicketId);
         if (!ticket) {
           return reply.redirect(`${nativeRedirect}?error=ticket_invalid`);
         }
 
-        // Merge the app's guest into the account exactly as the web does, but
-        // set no cookie: the app gets its token by redeeming the one-time
-        // code (never the token itself in a URL; codes are short-lived,
-        // single-use and bound to the PKCE verifier).
-        const result = await handleGoogleAuth(userInfo, ticket.guestUserId, prisma);
+        // SECURITY: the ticket's guest is NOT linked or merged here. Whoever
+        // completes Google in this browser may have been lured onto someone
+        // else's ticket, and linking their fresh identity onto the ticket's
+        // guest would hand their new account to whoever holds that guest's
+        // token. The guest rides on the one-time code instead and is merged
+        // only at redemption, where the PKCE verifier proves the redeemer is
+        // the app that owned the guest. No cookie is set; the code is
+        // short-lived, single-use and bound to the verifier.
+        const result = await handleGoogleAuth(userInfo, undefined, prisma);
         const code = await createAuthCode(getFirestore(), {
           userId: result.user.id,
           codeChallenge: ticket.codeChallenge,
+          guestUserId: ticket.guestUserId,
         });
 
-        fastify.log.info(
-          { userId: result.user.id, merged: !!result.mergedFrom },
-          'Native app user logged in via Google'
-        );
+        fastify.log.info({ userId: result.user.id }, 'Native app user logged in via Google');
         return reply.redirect(`${nativeRedirect}?code=${code}`);
       }
 

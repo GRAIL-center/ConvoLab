@@ -56,6 +56,12 @@ async function oauth(fastify: FastifyInstance) {
         const native = request.query.native?.trim();
         if (native && /^[A-Za-z0-9_-]{1,64}$/.test(native)) {
           request.session.set('authNative', native);
+        } else {
+          // Always clear a leftover ticket id: a native flow abandoned at
+          // Google (or a hostile ?native= link opened earlier) must not turn
+          // a later ordinary website sign-in in this browser into a native
+          // one. The session cookie lives for up to a year.
+          request.session.set('authNative', undefined);
         }
 
         const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);

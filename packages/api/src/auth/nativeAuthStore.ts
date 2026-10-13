@@ -13,8 +13,10 @@ import type { Firestore } from '@google-cloud/firestore';
  * epoch milliseconds, not Dates: these are raw Firestore reads (not the shim),
  * and raw reads return Timestamp objects, which is exactly the comparison bug
  * B26 was (see docs/bugs.md). Numbers compare the same everywhere, including
- * the in-memory test fake. Cleanup is lazy: a consumed or expired document is
- * deleted when it is next read.
+ * the in-memory test fake. Consumed documents are deleted in the consuming
+ * transaction; an abandoned ticket or code is deleted if it is ever read
+ * again, and otherwise sits inert past its expiry (both collections hold only
+ * random ids, a hash, a user id and an expiry; a periodic sweep can come later).
  */
 
 const TICKETS_COLLECTION = 'authTickets';
@@ -85,7 +87,7 @@ export async function consumeAuthTicket(
 
 export async function createAuthCode(
   db: Firestore,
-  input: { userId: string; codeChallenge: string },
+  input: { userId: string; codeChallenge: string; guestUserId?: string },
   now = Date.now()
 ): Promise<string> {
   const code = randomBytes(32).toString('base64url');
@@ -95,23 +97,34 @@ export async function createAuthCode(
     .set({
       userId: input.userId,
       codeChallenge: input.codeChallenge,
+      // The ticket's guest rides along to redemption: merging it there, after
+      // the PKCE proof, is what stops a hostile ticket from attaching a
+      // victim's fresh Google identity to an attacker-held guest (the
+      // callback itself never links the guest).
+      guestUserId: input.guestUserId ?? null,
       expiresAtMs: now + CODE_TTL_MS,
-      used: false,
     });
   return code;
 }
 
+export interface RedeemedAuthCode {
+  userId: string;
+  guestUserId?: string;
+}
+
 /**
- * Redeems a one-time code against its PKCE verifier. The `used` flag is set
- * inside the transaction, so two simultaneous redemptions cannot both succeed.
- * Returns the user id, or null for a missing, used, expired or mismatched code.
+ * Redeems a one-time code against its PKCE verifier. The document is deleted
+ * inside the transaction, so two simultaneous redemptions cannot both succeed
+ * and nothing lingers in the collection. Returns the user id (and the guest to
+ * merge, if the ticket carried one), or null for a missing, expired or
+ * mismatched code.
  */
 export async function redeemAuthCode(
   db: Firestore,
   code: string,
   codeVerifier: string,
   now = Date.now()
-): Promise<string | null> {
+): Promise<RedeemedAuthCode | null> {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(code)) return null;
   return db.runTransaction(async (tx) => {
     const ref = db.collection(CODES_COLLECTION).doc(code);
@@ -120,24 +133,21 @@ export async function redeemAuthCode(
     const data = snapshot.data() as {
       userId?: string;
       codeChallenge?: string;
+      guestUserId?: string | null;
       expiresAtMs?: number;
-      used?: boolean;
     };
-    if (data.used === true || typeof data.expiresAtMs !== 'number' || data.expiresAtMs <= now) {
-      tx.delete(ref);
-      return null;
-    }
+    // Single use: redeemed, expired and guessed-at codes all leave nothing
+    // behind. A wrong verifier burns the code too, so someone guessing cannot
+    // leave the real one replayable.
+    tx.delete(ref);
+    if (typeof data.expiresAtMs !== 'number' || data.expiresAtMs <= now) return null;
     if (
       typeof data.codeChallenge !== 'string' ||
       typeof data.userId !== 'string' ||
       !constantTimeEquals(codeChallengeFrom(codeVerifier), data.codeChallenge)
     ) {
-      // A wrong verifier burns the code: someone other than the app that
-      // created the challenge is guessing, so stop the real one being replayed.
-      tx.delete(ref);
       return null;
     }
-    tx.update(ref, { used: true });
-    return data.userId;
+    return { userId: data.userId, guestUserId: data.guestUserId ?? undefined };
   });
 }

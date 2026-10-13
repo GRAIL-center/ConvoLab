@@ -56,8 +56,20 @@ describe('auth tickets', () => {
 describe('one-time codes', () => {
   it('the right verifier succeeds exactly once', async () => {
     const code = await createAuthCode(db, { userId: 'u1', codeChallenge: CHALLENGE });
-    expect(await redeemAuthCode(db, code, VERIFIER)).toBe('u1');
+    expect(await redeemAuthCode(db, code, VERIFIER)).toEqual({
+      userId: 'u1',
+      guestUserId: undefined,
+    });
     expect(await redeemAuthCode(db, code, VERIFIER)).toBeNull();
+  });
+
+  it('carries the ticket guest through to redemption', async () => {
+    const code = await createAuthCode(db, {
+      userId: 'u1',
+      codeChallenge: CHALLENGE,
+      guestUserId: 'g9',
+    });
+    expect(await redeemAuthCode(db, code, VERIFIER)).toEqual({ userId: 'u1', guestUserId: 'g9' });
   });
 
   it('a wrong verifier fails and burns the code', async () => {
