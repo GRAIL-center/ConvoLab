@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { apiUrl } from '../../lib/apiUrl';
+import { isNativeApp, startNativeSignIn } from '../../lib/authToken';
 import { muted, scrollToSection, textLink } from './ui';
 
 // Each label is the exact heading it scrolls to, listed in page order, so the
@@ -39,6 +40,16 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
     <a href="/home" className={`text-sm font-medium ${muted} ${textLink}`}>
       Your sessions
     </a>
+  ) : isNativeApp() ? (
+    // The app cannot sign in inside its web view (Google blocks it); the
+    // PKCE flow opens the phone's real browser instead (plan 18, step 6).
+    <button
+      type="button"
+      onClick={() => void startNativeSignIn()}
+      className={`text-sm font-medium ${muted} ${textLink}`}
+    >
+      Sign in
+    </button>
   ) : (
     <a
       href={apiUrl('/api/auth/google?next=%2Fhome')}

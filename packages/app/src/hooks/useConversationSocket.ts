@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { wsUrl } from "../lib/apiUrl";
+import { wsProtocols } from "../lib/authToken";
 import { lastStreamingIndex, removeAt, replaceAt } from "./streamingMessages";
 
 export type EntityId = string | number;
@@ -357,8 +358,11 @@ export function useConversationSocket(
 				return;
 
 			fatalErrorRef.current = null;
+			// wsProtocols() is undefined on the website; in the native app it
+			// carries the bearer token as a subprotocol (plan 18, step 3).
 			const ws = new WebSocket(
 				wsUrl(`/ws/conversation/${encodeURIComponent(sessionId)}`),
+				wsProtocols(),
 			);
 			wsRef.current = ws;
 

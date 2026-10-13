@@ -9,6 +9,7 @@ import {
 } from '../components/CustomScenarioForm';
 import { SignOutConfirmDialog } from '../components/SignOutConfirmDialog';
 import { apiUrl } from '../lib/apiUrl';
+import { setAuthToken } from '../lib/authToken';
 
 export function Invite() {
   const { token } = useParams<{ token: string }>();
@@ -50,6 +51,9 @@ export function Invite() {
   const claimMutation = useMutation({
     ...trpc.invitation.claim.mutationOptions(),
     onSuccess: (data) => {
+      // Only ever present inside the native app (plan 18, step 4).
+      if (data.authToken) setAuthToken(data.authToken);
+
       // Invalidate auth query so UserMenu updates to show guest state
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
 

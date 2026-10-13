@@ -5,6 +5,7 @@ import { useTRPC } from '../api/trpc';
 import Recaptcha from '../components/Recaptcha';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { apiUrl } from '../lib/apiUrl';
+import { setAuthToken } from '../lib/authToken';
 import { PersonaPicker, type PracticeScenario } from './practice/PersonaPicker';
 import { PracticeMarketing } from './practice/PracticeMarketing';
 
@@ -120,6 +121,8 @@ export function PracticeLanding() {
   const startMutation = useMutation({
     ...trpc.practice.start.mutationOptions(),
     onSuccess: (data) => {
+      // Only ever present inside the native app (plan 18, step 4).
+      if (data.authToken) setAuthToken(data.authToken);
       sessionStorage.removeItem(PENDING_SCENARIO_KEY);
       navigate(`/conversation/${data.sessionId}`, { replace: true });
     },
