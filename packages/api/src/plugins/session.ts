@@ -10,6 +10,8 @@ declare module '@fastify/secure-session' {
     mergedFrom?: string; // Set when anonymous user was merged into authenticated user
     /** Safe in-app path to redirect to after Google OAuth (must start with `/`). */
     authNext?: string;
+    /** Native sign-in ticket id (plan 18): set by /api/auth/google?native=, read once by the callback. */
+    authNative?: string;
   }
 }
 

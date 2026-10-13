@@ -3,6 +3,7 @@ import type { PrismaClient } from '@workspace/database';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { createSession, listSessions } from '../../data/index.js';
+import { issueAuthToken } from '../../lib/authToken.js';
 import { elaborateDescription } from '../../lib/elaborate.js';
 import { getInvitationQuotaStatus, parseQuota } from '../../lib/quota.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
@@ -183,7 +184,10 @@ export const invitationRouter = router({
 
       let userId = ctx.userId ?? undefined;
 
-      // If no session user, create anonymous user
+      // If no session user, create anonymous user. The native app cannot hold
+      // the cookie, so it also gets a bearer token back (plan 18, step 4); the
+      // website never sends the X-ConvoLab-Client header.
+      let authToken: string | undefined;
       if (!userId) {
         const anonymousUser = await ctx.prisma.user.create({
           data: {
@@ -192,6 +196,9 @@ export const invitationRouter = router({
         });
         userId = anonymousUser.id;
         ctx.req.session.set('userId', userId);
+        if (ctx.req.headers['x-convolab-client'] === 'native') {
+          authToken = issueAuthToken(anonymousUser.id, 'guest');
+        }
       }
 
       // Link invitation to user if not already linked
@@ -330,6 +337,7 @@ export const invitationRouter = router({
         user,
         alreadyClaimed,
         sessionId,
+        authToken,
         // Return custom scenario info if it was elaborated
         customScenario: elaborationResult
           ? {

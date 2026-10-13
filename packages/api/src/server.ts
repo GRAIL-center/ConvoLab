@@ -47,6 +47,7 @@ import { runStartupSeedingOnce } from './lib/startupSeeding.js';
 import oauthPlugin from './plugins/oauth.js';
 import sessionPlugin from './plugins/session.js';
 import authRoutes from './routes/auth.js';
+import nativeAuthRoutes from './routes/nativeAuth.js';
 import { createContext } from './trpc/context.js';
 import { type AppRouter, appRouter } from './trpc/router.js';
 import { registerWebSocketHandler } from './ws/handler.js';
@@ -108,6 +109,7 @@ if (process.env.SESSION_KEY) {
   await fastify.register(sessionPlugin);
   await fastify.register(oauthPlugin);
   await fastify.register(authRoutes);
+  await fastify.register(nativeAuthRoutes);
 
   // tRPC (requires session for context)
   await fastify.register(fastifyTRPCPlugin, {

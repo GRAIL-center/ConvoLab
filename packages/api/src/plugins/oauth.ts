@@ -34,7 +34,7 @@ async function oauth(fastify: FastifyInstance) {
   });
 
   // Custom auth start route that adds prompt=select_account
-  fastify.get<{ Querystring: { next?: string } }>(
+  fastify.get<{ Querystring: { next?: string; native?: string } }>(
     '/api/auth/google',
     async (request, reply) => {
       if (!fastify.googleOAuth2) {
@@ -46,6 +46,22 @@ async function oauth(fastify: FastifyInstance) {
         // Only allow same-origin relative paths so this can't be used as an open redirect.
         if (next && next.startsWith('/') && !next.startsWith('//')) {
           request.session.set('authNext', next);
+        }
+
+        // Native sign-in (plan 18, step 5): the app opened the phone's browser
+        // with a ticket id. Park it in the browser's cookie session, like
+        // authNext; the callback reads it once and redirects to convolab://
+        // instead of setting a cookie. The id is opaque; the callback
+        // validates it against the authTickets collection.
+        const native = request.query.native?.trim();
+        if (native && /^[A-Za-z0-9_-]{1,64}$/.test(native)) {
+          request.session.set('authNative', native);
+        } else {
+          // Always clear a leftover ticket id: a native flow abandoned at
+          // Google (or a hostile ?native= link opened earlier) must not turn
+          // a later ordinary website sign-in in this browser into a native
+          // one. The session cookie lives for up to a year.
+          request.session.set('authNative', undefined);
         }
 
         const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(request, reply);

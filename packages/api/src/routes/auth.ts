@@ -1,10 +1,13 @@
 import type { OAuth2Namespace } from '@fastify/oauth2';
-import { db as prisma } from '../db/firestoreHelpers.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { handleGoogleAuth } from '../auth/handlers.js';
+import { consumeAuthTicket, createAuthCode } from '../auth/nativeAuthStore.js';
 import { resolveUserId } from '../auth/resolveUser.js';
-import { deleteUserCascade } from '../data/users.js';
 import type { GoogleUserInfo } from '../auth/types.js';
+import { deleteUserCascade } from '../data/users.js';
+import { db as prisma } from '../db/firestoreHelpers.js';
+import { getFirestore } from '../lib/firestore.js';
+import { nativeAuthRedirect } from './nativeAuth.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -21,6 +24,15 @@ async function authRoutes(fastify: FastifyInstance) {
       return reply.status(503).send({ error: 'OAuth not configured' });
     }
 
+    // Native sign-in (plan 18, step 5): read and clear the ticket id up front,
+    // whatever happens next, so a later website sign-in in this browser is
+    // never treated as native, and so errors below can be routed to the app.
+    const nativeTicketId = request.session.get('authNative');
+    if (nativeTicketId) {
+      request.session.set('authNative', undefined);
+    }
+    const nativeRedirect = nativeAuthRedirect();
+
     try {
       // Exchange code for tokens
       const tokenResult =
@@ -35,10 +47,43 @@ async function authRoutes(fastify: FastifyInstance) {
 
       if (!userInfoResponse.ok) {
         fastify.log.error('Failed to fetch user info from Google');
-        return reply.redirect(`${frontendUrl}/login?error=google_fetch_failed`);
+        return nativeTicketId
+          ? reply.redirect(`${nativeRedirect}?error=google_fetch_failed`)
+          : reply.redirect(`${frontendUrl}/login?error=google_fetch_failed`);
       }
 
       const userInfo = (await userInfoResponse.json()) as GoogleUserInfo;
+
+      if (nativeTicketId) {
+        // A later website sign-in in this browser must not inherit a native
+        // flow's in-app redirect either.
+        request.session.set('authNext', undefined);
+
+        // Single-use ticket; missing, expired or reused all land here.
+        const ticket = await consumeAuthTicket(getFirestore(), nativeTicketId);
+        if (!ticket) {
+          return reply.redirect(`${nativeRedirect}?error=ticket_invalid`);
+        }
+
+        // SECURITY: the ticket's guest is NOT linked or merged here. Whoever
+        // completes Google in this browser may have been lured onto someone
+        // else's ticket, and linking their fresh identity onto the ticket's
+        // guest would hand their new account to whoever holds that guest's
+        // token. The guest rides on the one-time code instead and is merged
+        // only at redemption, where the PKCE verifier proves the redeemer is
+        // the app that owned the guest. No cookie is set; the code is
+        // short-lived, single-use and bound to the verifier.
+        const result = await handleGoogleAuth(userInfo, undefined, prisma);
+        const code = await createAuthCode(getFirestore(), {
+          userId: result.user.id,
+          codeChallenge: ticket.codeChallenge,
+          guestUserId: ticket.guestUserId,
+        });
+
+        fastify.log.info({ userId: result.user.id }, 'Native app user logged in via Google');
+        return reply.redirect(`${nativeRedirect}?code=${code}`);
+      }
+
       const sessionUserId = request.session.get('userId');
 
       // Handle the auth logic (extracted for testability)
@@ -67,7 +112,9 @@ async function authRoutes(fastify: FastifyInstance) {
       return reply.redirect(`${frontendUrl}${safeNext}`);
     } catch (err) {
       fastify.log.error(err, 'OAuth callback error');
-      return reply.redirect(`${frontendUrl}/login?error=oauth_failed`);
+      return nativeTicketId
+        ? reply.redirect(`${nativeRedirect}?error=oauth_failed`)
+        : reply.redirect(`${frontendUrl}/login?error=oauth_failed`);
     }
   });
 
