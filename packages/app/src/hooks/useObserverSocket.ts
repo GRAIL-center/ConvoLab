@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { wsUrl } from '../lib/apiUrl';
-import type { EntityId, Message, ScenarioInfo } from './useConversationSocket';
+import { wsProtocols } from '../lib/authToken';
 import { lastStreamingIndex, removeAt, replaceAt } from './streamingMessages';
+import type { EntityId, Message, ScenarioInfo } from './useConversationSocket';
 
 // Reuse types from useConversationSocket
 export type { Message, ScenarioInfo };
@@ -77,7 +78,10 @@ export function useObserverSocket(
     function connect() {
       if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
 
-      const ws = new WebSocket(wsUrl(`/ws/observe/${encodeURIComponent(String(sessionId))}`));
+      const ws = new WebSocket(
+        wsUrl(`/ws/observe/${encodeURIComponent(String(sessionId))}`),
+        wsProtocols()
+      );
       wsRef.current = ws;
 
       ws.onopen = () => {

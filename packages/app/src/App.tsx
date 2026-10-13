@@ -8,6 +8,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import { AdminLayout } from './layouts/AdminLayout';
 import { apiUrl } from './lib/apiUrl';
+import { isNativeApp, nativeAuthHeaders } from './lib/authToken';
 import { Feedback } from './pages/admin/Feedback';
 import { Telemetry } from './pages/admin/Telemetry';
 import { UserDetail } from './pages/admin/UserDetail';
@@ -37,10 +38,16 @@ function makeTRPCClient() {
     links: [
       httpBatchLink({
         url: apiUrl('/trpc'),
+        // {} on the website; bearer + X-ConvoLab-Client inside the native app
+        // (plan 18, step 6). Read per request so a token stored after sign-in
+        // is picked up without a reload.
+        headers: nativeAuthHeaders,
         fetch(url, options) {
           return fetch(url, {
             ...options,
-            credentials: 'include',
+            // The native app authenticates with the bearer header; the
+            // website keeps its cookie exactly as before.
+            ...(isNativeApp() ? {} : { credentials: 'include' as const }),
           });
         },
       }),
