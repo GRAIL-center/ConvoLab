@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Recaptcha from '../../components/Recaptcha';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PersonaDetailsModal } from './PersonaDetailsModal';
 import { Reveal } from './Reveal';
@@ -35,13 +34,9 @@ type PersonaPickerProps = {
   showPreviewBadge: boolean;
   listStatus: 'ready' | 'loading' | 'error';
   onRetry: () => void;
-  isSignedIn: boolean;
   isPending: boolean;
   isError: boolean;
   primaryCtaLabel: string | null;
-  recaptchaSiteKey: string;
-  onRecaptchaChange: (token: string | null) => void;
-  recaptchaToken: string | null;
 };
 
 export function PersonaPicker({
@@ -54,18 +49,16 @@ export function PersonaPicker({
   showPreviewBadge,
   listStatus,
   onRetry,
-  isSignedIn,
   isPending,
   isError,
   primaryCtaLabel,
-  recaptchaSiteKey,
-  onRecaptchaChange,
-  recaptchaToken,
 }: PersonaPickerProps) {
   const [detailsIndex, setDetailsIndex] = useState<number | null>(null);
   const detailsScenario = detailsIndex == null ? null : (scenarios[detailsIndex] ?? null);
-  const continueDisabled =
-    !selectedScenario || isPending || !canStartLive || (isSignedIn && !recaptchaToken);
+  // Signed-in accounts skip the captcha: the server exempts them, and asking
+  // someone to prove humanity right after Google sign-in was the complaint
+  // (14 Oct 2026). Guests answer it on the auth step instead.
+  const continueDisabled = !selectedScenario || isPending || !canStartLive;
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
@@ -241,9 +234,6 @@ export function PersonaPicker({
             )}
           </p>
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-4">
-            {selectedScenario && recaptchaSiteKey && isSignedIn ? (
-              <Recaptcha onChange={onRecaptchaChange} />
-            ) : null}
             {isError ? <p className="text-sm text-[#a36b55]">Couldn’t start. Try again.</p> : null}
             <button
               type="button"
