@@ -223,9 +223,9 @@ export function PracticeLanding() {
                 className="h-8 w-8 animate-spin rounded-full border-2 border-[#328278] border-t-transparent dark:border-[#eeeae1] dark:border-t-transparent"
                 aria-hidden="true"
               />
-              <p className="text-sm text-[#7a756c] dark:text-[#8f8a80]" role="status">
+              <output className="block text-sm text-[#7a756c] dark:text-[#8f8a80]">
                 Signed in. Starting your conversation&hellip;
-              </p>
+              </output>
             </>
           ) : (
             <>
