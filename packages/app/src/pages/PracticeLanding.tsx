@@ -235,7 +235,6 @@ export function PracticeLanding() {
             </p>
 
             <div className="mx-auto mt-8 flex w-full max-w-sm flex-col items-center gap-3">
-              {recaptchaSiteKey ? <Recaptcha onChange={setRecaptchaToken} /> : null}
               <a
                 href={apiUrl(`/api/auth/google?next=${encodeURIComponent('/?resumePractice=1')}`)}
                 onClick={(e) => {
@@ -246,6 +245,26 @@ export function PracticeLanding() {
               >
                 Sign in
               </a>
+
+              {/* The captcha belongs to the guest path only (signing in skips
+                  it), so it sits under the divider with the guest button:
+                  above both buttons it read as required for everyone, and
+                  people with an account solved it for nothing (Hanna, 14 Oct). */}
+              <div className="mt-2 flex w-full items-center gap-3">
+                <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+                <span className="text-xs text-[#7a756c] dark:text-[#8f8a80]">
+                  or continue as a guest
+                </span>
+                <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+              </div>
+              {recaptchaSiteKey ? (
+                <>
+                  <p className="text-xs text-[#7a756c] dark:text-[#8f8a80]">
+                    Guests check the box first. No account needed.
+                  </p>
+                  <Recaptcha onChange={setRecaptchaToken} />
+                </>
+              ) : null}
               <button
                 type="button"
                 onClick={handleContinueAsGuest}
