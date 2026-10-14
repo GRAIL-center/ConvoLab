@@ -15,6 +15,7 @@ import { MessageList } from '../components/conversation/MessageList';
 import { MobileMessageInput } from '../components/conversation/MobileMessageInput';
 import { MobileSheet } from '../components/conversation/MobileSheet';
 import { ConversationTour } from '../components/conversation/tour/ConversationTour';
+import { FeedbackButton } from '../components/FeedbackButton';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 import { useKeyboardViewportHeight } from '../hooks/useKeyboardViewportHeight';
@@ -484,6 +485,9 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
               End conversation early
             </button>
           )}
+          {/* Regular app only: a study participant must not get a feedback
+              dialog mid-conversation (not part of the registered surface). */}
+          {!isStudySession && <FeedbackButton variant="header" />}
           <ThemeToggle />
         </div>
       </header>
