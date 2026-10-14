@@ -22,6 +22,13 @@ interface CoachPanelProps {
   coachInputRef: RefObject<HTMLTextAreaElement | null>;
   disabled: boolean;
   partnerName: string;
+  /**
+   * When set, the quick-prompt chips send the question immediately instead of
+   * filling the input. Used by the narrow-screen coach view, where the filled
+   * input sits below the chips and the extra tap is easy to miss (mobile
+   * audit, issue #135). Desktop keeps fill-then-edit.
+   */
+  onQuickPrompt?: (prompt: string) => void;
 }
 
 type Tone = 'constructive' | 'warm' | 'neutral' | 'tense';
@@ -190,6 +197,7 @@ export function CoachPanel({
   coachInputRef,
   disabled,
   partnerName,
+  onQuickPrompt,
 }: CoachPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -333,6 +341,10 @@ export function CoachPanel({
               key={prompt}
               type="button"
               onClick={() => {
+                if (onQuickPrompt) {
+                  onQuickPrompt(prompt);
+                  return;
+                }
                 setCoachDraft(prompt);
                 coachInputRef.current?.focus();
               }}

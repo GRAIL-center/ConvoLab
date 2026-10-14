@@ -273,6 +273,15 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     setCoachDraft('');
   };
 
+  // Narrow-screen quick prompts send immediately (mobile audit, issue #135):
+  // on a phone the filled input sits below the chips and the extra tap is
+  // easy to miss. Desktop keeps fill-then-edit.
+  const sendCoachPrompt = (prompt: string) => {
+    if (isAsideStreaming || !coachEnabled) return;
+    startAside(prompt);
+    setCoachDraft('');
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -440,7 +449,12 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
             </button>
           )}
           <div className="flex min-w-0 items-baseline gap-3 sm:gap-4">
-            <span className="font-semibold text-[#24221d] dark:text-[#f2efe7]">ConvoLab</span>
+            {/* Hidden on phones: with the rail buttons present the wordmark
+                squeezed the partner name into "Angry U..." at 375px (mobile
+                audit, issue #135); the back arrow already leads home. */}
+            <span className="hidden font-semibold text-[#24221d] dark:text-[#f2efe7] sm:inline">
+              ConvoLab
+            </span>
             <span className="hidden border-l border-[#d6d1c4] pl-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a857b] dark:border-[#34312c] dark:text-[#77736b] sm:inline">
               Practice
             </span>
@@ -575,6 +589,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                 coachInputRef={mobileCoachInputRef}
                 disabled={isAsideStreaming}
                 partnerName={shortName}
+                onQuickPrompt={sendCoachPrompt}
               />
             </div>
           )}
