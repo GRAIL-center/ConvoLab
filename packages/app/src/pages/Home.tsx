@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useTRPC } from '../api/trpc';
+import { LappFramework } from '../components/LappFramework';
 import { ScenarioList } from '../components/ScenarioList';
 import { SetupGuide } from '../components/SetupGuide';
-import { LappFramework } from '../components/LappFramework';
 import { YourSessions } from '../components/YourSessions';
 import { apiUrl } from '../lib/apiUrl';
 
@@ -31,36 +30,8 @@ function GoogleLogo() {
 }
 
 function LandingPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  /*
-   * ── INPUT FIELD SIZE ──────────────────────────────────────────────────────
-   * py-2.5   = vertical padding inside input  (try py-3 / py-4 to make taller)
-   * px-4     = horizontal padding inside input
-   * text-base = input font size              (try text-lg to go bigger)
-   * rounded-xl = corner radius
-   */
-  const inputClass = `
-    w-full px-4 py-2.5 rounded-xl text-base
-    bg-white dark:bg-[rgba(38,38,38,0.95)]
-    border border-gray-200 dark:border-[rgba(255,255,255,0.09)]
-    text-gray-900 dark:text-[#EBEBEB]
-    placeholder-gray-400 dark:placeholder-[#4A4A4A]
-    focus:outline-none
-    focus:border-[rgba(130,167,161,0.6)] dark:focus:border-[rgba(212,232,229,0.3)]
-    focus:ring-2 focus:ring-[rgba(130,167,161,0.12)] dark:focus:ring-[rgba(212,232,229,0.07)]
-    transition-colors shadow-sm
-  `.trim();
-
   return (
     <div className="min-h-[calc(100vh-73px)] flex flex-col items-center justify-center px-4 py-12">
-      {/*
-        ── PAGE TITLE ──────────────────────────────────────────────────────────
-        text-3xl = main heading size   (try text-4xl to go bigger)
-        text-lg  = subtitle size       (try text-xl to go bigger)
-        mb-6     = gap below title block
-      */}
       <div className="text-center mb-6">
         <h2 className="text-3xl font-bold text-gray-900 dark:text-[#EBEBEB]">Conversation Coach</h2>
         <p className="mt-2 text-lg text-gray-500 dark:text-[#A0A0A0]">
@@ -68,7 +39,9 @@ function LandingPage() {
         </p>
       </div>
 
-      {/* Login card */}
+      {/* Sign-in card. There is deliberately no email/password form: the only
+          sign-in that exists is Google, and the old fields silently ignored
+          whatever was typed into them (mobile audit, issue #135). */}
       <div
         className="w-full max-w-[520px]
                       rounded-2xl px-8 py-7
@@ -76,77 +49,6 @@ function LandingPage() {
                       border border-gray-200 dark:border-[rgba(255,255,255,0.07)]
                       shadow-sm"
       >
-        {/*
-          ── LABEL SIZE ────────────────────────────────────────────────────────
-          text-sm = field label size   (try text-base to go bigger)
-        */}
-
-        {/* Email */}
-        <div className="mb-4">
-          <label
-            className="block text-sm font-medium text-gray-700 dark:text-[#B0B0B0] mb-1.5"
-            htmlFor="email"
-          >
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            className={inputClass}
-          />
-        </div>
-
-        {/* Password */}
-        <div className="mb-5">
-          <label
-            className="block text-sm font-medium text-gray-700 dark:text-[#B0B0B0] mb-1.5"
-            htmlFor="password"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className={inputClass}
-          />
-        </div>
-
-        {/*
-          ── PRIMARY BUTTON (Sign In) ───────────────────────────────────────────
-          py-3     = button height     (try py-4 to make taller)
-          text-base = button font size (try text-lg to go bigger)
-        */}
-        <a
-          href={apiUrl('/api/auth/google')}
-          className="flex items-center justify-center w-full py-3 rounded-xl
-                     text-base font-medium
-                     bg-[rgba(134,199,194,0.35)] dark:bg-[rgba(134,199,194,0.2)]
-                     border border-[rgba(134,199,194,0.5)] dark:border-[rgba(134,199,194,0.3)]
-                     text-gray-800 dark:text-[#EBEBEB]
-                     hover:bg-[rgba(134,199,194,0.48)] dark:hover:bg-[rgba(134,199,194,0.3)]
-                     transition-colors duration-200 mb-3"
-        >
-          Sign In
-        </a>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-px flex-1 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
-          <span className="text-sm text-gray-400 dark:text-[#555]">or</span>
-          <div className="h-px flex-1 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
-        </div>
-
-        {/*
-          ── GOOGLE BUTTON ─────────────────────────────────────────────────────
-          py-3     = button height     (try py-4 to make taller)
-          text-base = button font size (try text-lg to go bigger)
-        */}
         <a
           href={apiUrl('/api/auth/google')}
           className="flex items-center justify-center gap-3 w-full py-3 rounded-xl
@@ -161,20 +63,8 @@ function LandingPage() {
           <GoogleLogo />
           Sign in with Google
         </a>
-
-        {/*
-          ── SIGN UP LINK ──────────────────────────────────────────────────────
-          text-base = link text size   (try text-lg to go bigger)
-        */}
-        <p className="mt-5 text-center text-sm text-gray-500 dark:text-[#707070]">
-          Don't have an account?{' '}
-          <a
-            href={apiUrl('/api/auth/google')}
-            className="font-semibold underline text-gray-700 dark:text-[#EBEBEB]
-                        hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            Sign up
-          </a>
+        <p className="mt-4 text-center text-sm text-gray-500 dark:text-[#707070]">
+          New here? Signing in with Google creates your account.
         </p>
       </div>
 

@@ -97,6 +97,9 @@ export function App() {
             {/* Public practice landing is the app entry; /practice kept as alias */}
             <Route path="/" element={<PracticeLanding />} />
             <Route path="/practice" element={<Navigate to="/" replace />} />
+            {/* /signup rendered a blank page (mobile audit, issue #135); there
+                is no signup distinct from signing in, so send it home. */}
+            <Route path="/signup" element={<Navigate to="/" replace />} />
             <Route path="/study" element={<Study />} />
 
             {/* Admin area with sidebar layout */}
