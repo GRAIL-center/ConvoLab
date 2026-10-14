@@ -1,9 +1,18 @@
 import { useMutation } from '@tanstack/react-query';
-import Recaptcha from './Recaptcha';
 import { useCallback, useEffect, useState } from 'react';
 import { useTRPC } from '../api/trpc';
+import Recaptcha from './Recaptcha';
 
-export function FeedbackButton() {
+interface FeedbackButtonProps {
+  /**
+   * 'floating' is the fixed bottom-right pill (the /home and /invite pages).
+   * 'header' is a compact round icon button for the conversation header,
+   * where a floating pill would sit on top of the composer and coach panel.
+   */
+  variant?: 'floating' | 'header';
+}
+
+export function FeedbackButton({ variant = 'floating' }: FeedbackButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
@@ -60,34 +69,51 @@ export function FeedbackButton() {
 
   const displayed = hoverRating || rating;
 
+  const bubbleIcon = (iconClass: string) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={iconClass}
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-label="Send feedback"
-        className="fixed bottom-5 right-5 z-30 flex items-center gap-2
-                   rounded-full px-4 py-2.5 text-sm font-medium shadow-lg
-                   bg-[rgba(134,199,194,0.95)] dark:bg-[rgba(134,199,194,0.85)]
-                   text-[rgba(35,75,70,1)] dark:text-[rgba(20,40,38,1)]
-                   hover:bg-[rgba(120,190,184,1)] dark:hover:bg-[rgba(150,210,205,0.95)]
-                   transition-colors"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-4 h-4"
-          aria-hidden="true"
+      {variant === 'header' ? (
+        // Styled like the conversation header's other round icon buttons.
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Send feedback"
+          title="Send feedback"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-[#5f5a51] transition-colors hover:bg-[#ece8dc] dark:text-[#aaa59b] dark:hover:bg-[#24231f]"
         >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        Feedback
-      </button>
+          {bubbleIcon('w-5 h-5')}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Send feedback"
+          className="fixed bottom-5 right-5 z-30 flex items-center gap-2
+                     rounded-full px-4 py-2.5 text-sm font-medium shadow-lg
+                     bg-[rgba(134,199,194,0.95)] dark:bg-[rgba(134,199,194,0.85)]
+                     text-[rgba(35,75,70,1)] dark:text-[rgba(20,40,38,1)]
+                     hover:bg-[rgba(120,190,184,1)] dark:hover:bg-[rgba(150,210,205,0.95)]
+                     transition-colors"
+        >
+          {bubbleIcon('w-4 h-4')}
+          Feedback
+        </button>
+      )}
 
       {isOpen && (
         <>
@@ -253,19 +279,19 @@ export function FeedbackButton() {
                   >
                     Cancel
                   </button>
-                    <Recaptcha onChange={setRecaptchaToken} />
-                    <button
-                      type="submit"
-                      disabled={submit.isPending || rating < 1 || !recaptchaToken}
-                      className="flex-1 rounded-lg px-4 py-2 text-sm font-medium
+                  <Recaptcha onChange={setRecaptchaToken} />
+                  <button
+                    type="submit"
+                    disabled={submit.isPending || rating < 1 || !recaptchaToken}
+                    className="flex-1 rounded-lg px-4 py-2 text-sm font-medium
                                  bg-[rgba(134,199,194,0.95)] dark:bg-[rgba(134,199,194,0.85)]
                                  text-[rgba(35,75,70,1)] dark:text-[rgba(20,40,38,1)]
                                  hover:bg-[rgba(120,190,184,1)] dark:hover:bg-[rgba(150,210,205,0.95)]
                                  disabled:opacity-50 disabled:cursor-not-allowed
                                  transition-colors"
-                    >
-                      {submit.isPending ? 'Sending...' : 'Send feedback'}
-                    </button>
+                  >
+                    {submit.isPending ? 'Sending...' : 'Send feedback'}
+                  </button>
                 </div>
               </form>
             )}
