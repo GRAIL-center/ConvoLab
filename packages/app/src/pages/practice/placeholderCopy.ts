@@ -142,8 +142,10 @@ export const placeholderCopy = {
       initials: 'KK',
       name: 'Kiki Khosla',
       role: 'Developer',
+      photo: '/team/kiki-khosla.jpg',
       // Kiki's own wording, 6 Oct 2026.
       bio: 'Kiki Khosla is a Computer Science student at Purdue University with interests in technology, data, and innovation. Alongside his work with ConvoLab, he works on industry-focused projects through Purdue\u2019s Data Mine, including data and AI initiatives with Cummins, and serves as President of Boiler Bhangra. He enjoys collaborating with others, solving complex problems, and turning ideas into meaningful outcomes.',
+      link: { label: 'Kiki on LinkedIn', url: 'https://www.linkedin.com/in/jaskeerat-khosla/' },
     },
     {
       initials: 'NA',
