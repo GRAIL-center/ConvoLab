@@ -134,11 +134,20 @@ export function PracticeLanding() {
   };
 
   // Coming back from Google sign-in (?resumePractice=1): start the pending
-  // conversation without another click and without a captcha. Before this,
-  // the effect waited for a captcha token no widget on this screen could
-  // produce, so the sign-in round trip dumped people back on the landing to
-  // click through and solve a captcha again (Hanna, 14 Oct 2026). Signed-in
-  // accounts are captcha-exempt server-side.
+  // conversation without another click and without a captcha. Signed-in
+  // accounts are captcha-exempt server-side. resumeState drives a visible
+  // "starting..." screen: on a cold backend this takes long enough (~30 s
+  // observed) that the bare hero read as "sign-in dumped me back on the
+  // landing page" (Hanna, 14 Oct 2026).
+  const [resumeState, setResumeState] = useState<'idle' | 'starting' | 'failed'>(() => {
+    if (searchParams.get('resumePractice') !== '1') return 'idle';
+    try {
+      return sessionStorage.getItem(PENDING_SCENARIO_KEY) ? 'starting' : 'idle';
+    } catch {
+      return 'idle';
+    }
+  });
+
   useEffect(() => {
     if (resumeAttempted.current) return;
     if (searchParams.get('resumePractice') !== '1') return;
@@ -148,8 +157,11 @@ export function PracticeLanding() {
     resumeAttempted.current = true;
     setSearchParams({}, { replace: true });
 
-    if (!pending || !isSignedIn) return;
-    startMutation.mutate({ scenarioId: pending });
+    if (!pending || !isSignedIn) {
+      setResumeState('idle');
+      return;
+    }
+    startMutation.mutate({ scenarioId: pending }, { onError: () => setResumeState('failed') });
   }, [searchParams, authData, isSignedIn, setSearchParams, startMutation]);
 
   // Each screen swap should start at the top, not wherever the CTA was clicked.
@@ -199,7 +211,41 @@ export function PracticeLanding() {
 
   return (
     <div className="min-h-screen bg-[#f7faf9] text-[#1a1916] antialiased [font-family:Inter,ui-sans-serif,system-ui,sans-serif] dark:bg-[#11110f] dark:text-[#f2efe7]">
-      {!picking ? (
+      {resumeState !== 'idle' ? (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="inline-flex items-center gap-2.5">
+            <img src="/convolab-logo.svg" alt="" className="h-6 w-6" />
+            <span className="font-semibold tracking-[-0.02em]">ConvoLab</span>
+          </div>
+          {resumeState === 'starting' ? (
+            <>
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-[#328278] border-t-transparent dark:border-[#eeeae1] dark:border-t-transparent"
+                aria-hidden="true"
+              />
+              <p className="text-sm text-[#7a756c] dark:text-[#8f8a80]" role="status">
+                Signed in. Starting your conversation&hellip;
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-[#7a756c] dark:text-[#8f8a80]" role="alert">
+                Signed in, but the conversation didn&rsquo;t start. Please try again.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeState('idle');
+                  setSearchParams({ step: 'pick' });
+                }}
+                className="rounded-xl bg-[#328278] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-95 dark:bg-[#eeeae1] dark:text-[#151513]"
+              >
+                Pick a partner
+              </button>
+            </>
+          )}
+        </div>
+      ) : !picking ? (
         <PracticeMarketing
           isSignedIn={isSignedIn}
           showPreviewBadge={showPreviewBadge}
