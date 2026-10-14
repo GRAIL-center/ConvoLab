@@ -128,23 +128,29 @@ export function PracticeLanding() {
     },
   });
 
-  const startWithScenario = (scenarioId: string | number, token: string) => {
+  const startWithScenario = (scenarioId: string | number, token?: string) => {
     if (startMutation.isPending) return;
     startMutation.mutate({ scenarioId, recaptchaToken: token });
   };
 
+  // Coming back from Google sign-in (?resumePractice=1): start the pending
+  // conversation without another click and without a captcha. Before this,
+  // the effect waited for a captcha token no widget on this screen could
+  // produce, so the sign-in round trip dumped people back on the landing to
+  // click through and solve a captcha again (Hanna, 14 Oct 2026). Signed-in
+  // accounts are captcha-exempt server-side.
   useEffect(() => {
     if (resumeAttempted.current) return;
     if (searchParams.get('resumePractice') !== '1') return;
-    if (!recaptchaToken || startMutation.isPending) return;
+    if (!authData || startMutation.isPending) return; // wait for auth to resolve
 
     const pending = sessionStorage.getItem(PENDING_SCENARIO_KEY);
     resumeAttempted.current = true;
     setSearchParams({}, { replace: true });
 
-    if (!pending) return;
-    startMutation.mutate({ scenarioId: pending, recaptchaToken });
-  }, [searchParams, recaptchaToken, setSearchParams, startMutation]);
+    if (!pending || !isSignedIn) return;
+    startMutation.mutate({ scenarioId: pending });
+  }, [searchParams, authData, isSignedIn, setSearchParams, startMutation]);
 
   // Each screen swap should start at the top, not wherever the CTA was clicked.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on screen changes only.
@@ -166,8 +172,8 @@ export function PracticeLanding() {
   };
 
   const handleStartSignedIn = () => {
-    if (!selectedScenario || !recaptchaToken || !canStartLive) return;
-    startWithScenario(selectedScenario.id, recaptchaToken);
+    if (!selectedScenario || !canStartLive) return;
+    startWithScenario(selectedScenario.id);
   };
 
   // Leaving the picker clears the choice; going back from the sign-in step keeps it.
@@ -272,13 +278,9 @@ export function PracticeLanding() {
           }}
           canStartLive={canStartLive}
           showPreviewBadge={showPreviewBadge}
-          isSignedIn={isSignedIn}
           isPending={startMutation.isPending}
           isError={startMutation.isError}
           primaryCtaLabel={primaryCtaLabel}
-          recaptchaSiteKey={recaptchaSiteKey}
-          onRecaptchaChange={setRecaptchaToken}
-          recaptchaToken={recaptchaToken}
         />
       )}
     </div>

@@ -19,14 +19,28 @@ const PRACTICE_PRESET_NAME = 'public-practice';
 
 const startInput = z.object({
   scenarioId: z.union([z.number().int().positive(), z.string().trim().min(1)]),
-  recaptchaToken: z.string().min(1),
+  // Required for anonymous visitors; signed-in accounts are exempt below.
+  recaptchaToken: z.string().min(1).optional(),
 });
 
 export const practiceRouter = router({
   start: publicProcedure.input(startInput).mutation(async ({ ctx, input }) => {
-    const humanVerified = await verifyRecaptcha(input.recaptchaToken, ctx.req.log);
-    if (!humanVerified) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captcha verification failed.' });
+    // The captcha gates anonymous abuse of the public model-backed endpoint.
+    // A signed-in account (any role above GUEST) has already identified
+    // itself through Google, so it is not asked to prove humanity again --
+    // being sent back to a captcha right after signing in was the complaint
+    // that motivated this (14 Oct 2026).
+    const signedInUser = ctx.userId
+      ? await ctx.prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true } })
+      : null;
+    const isSignedInAccount = !!signedInUser && signedInUser.role !== Role.GUEST;
+    if (!isSignedInAccount) {
+      const humanVerified = input.recaptchaToken
+        ? await verifyRecaptcha(input.recaptchaToken, ctx.req.log)
+        : false;
+      if (!humanVerified) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captcha verification failed.' });
+      }
     }
 
     const scenario = await ctx.prisma.scenario.findUnique({
