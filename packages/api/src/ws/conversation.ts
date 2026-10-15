@@ -26,6 +26,11 @@ import {
   personaFromScenarioSlug,
 } from '../lib/conversationIntro.js';
 import {
+  buildAsideTranscript,
+  buildCoachTranscript,
+  buildLappTranscript,
+} from '../lib/exchangePrompts.js';
+import {
   DEFAULT_PARTNER_MODEL,
   defaultCoachModel,
   isAnthropicModel,
@@ -35,11 +40,6 @@ import {
   resolveSessionModels,
   type SessionModels,
 } from '../lib/modelResolution.js';
-import {
-  buildAsideTranscript,
-  buildCoachTranscript,
-  buildLappTranscript,
-} from '../lib/exchangePrompts.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
 import {
@@ -251,6 +251,28 @@ function parseJsonObject(content: string): Record<string, unknown> | null {
       return null;
     }
   }
+}
+
+/**
+ * Whether a stored message belongs in the PARTNER's context. Only the spoken
+ * conversation qualifies: private coach asides share role 'user' (the
+ * aside-memory change pushes them onto session.messages so the coach can see
+ * them in sequence), but the coach panel promises "[partner] can't see this
+ * side of the room" and the PAP registers the aside channel as private, so
+ * they must never reach the partner. They leaked into its context from 3 Oct
+ * (aside memory) until the 14 Oct PAP-vs-code audit caught it.
+ */
+export function isSpokenToPartner(m: {
+  role?: unknown;
+  content?: unknown;
+  messageType?: unknown;
+}): boolean {
+  return (
+    (m.role === 'user' || m.role === 'partner') &&
+    (m.messageType ?? 'main') !== 'aside' &&
+    typeof m.content === 'string' &&
+    m.content.trim().length > 0
+  );
 }
 
 /**
@@ -1429,12 +1451,10 @@ export class ConversationManager {
       // dev stack, 23 Sep 2026 (session 2lpQMC8bduL2BgvfOxWU, attempt 0, no
       // retries). A provider that rejects a leading assistant message would
       // have to be handled here, not by inventing a synthetic user turn.
-      return messages
-        .filter((m) => (m.role === 'user' || m.role === 'partner') && m.content.trim().length > 0)
-        .map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content.trim(),
-        })) as LLMMessage[];
+      return messages.filter(isSpokenToPartner).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content.trim(),
+      })) as LLMMessage[];
     }
 
     // For coach: group messages into exchanges (user + partner + optional coach)
