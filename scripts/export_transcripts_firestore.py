@@ -276,6 +276,32 @@ def coaching_engagement(messages):
     }
 
 
+def partner_search_use(messages):
+    """Partner web-search use for one session (PAP 3.3: the share of partner
+    replies that drew on search is reported by arm).
+
+    Pure function of the message dicts. `queries` counts ATTEMPTED searches:
+    the API enforces max_uses=2 server-side, so a logged third query was
+    refused; a reply "drew on search" when at least one query was attempted
+    and executed (>=1 query logged).
+    """
+    replies = offered = searched = 0
+    for m in messages:
+        if m.get("role") != "partner" or m.get("messageType", "main") != "main":
+            continue
+        replies += 1
+        ws = (m.get("metadata") or {}).get("webSearch") or {}
+        if ws.get("offered"):
+            offered += 1
+        if ws.get("queries"):
+            searched += 1
+    return {
+        "partner_replies_n": replies,
+        "partner_search_offered_n": offered,
+        "partner_search_replies_n": searched,
+    }
+
+
 def session_models(s, scenario):
     """Model provenance columns for one session (see MODEL PROVENANCE above).
 
@@ -446,6 +472,18 @@ def export(db, args):
                 }
                 if m.get("asideThreadId"):
                     t["aside_thread"] = m["asideThreadId"]
+                ws = (m.get("metadata") or {}).get("webSearch")
+                if ws:
+                    # Which model actually produced this reply (the emergency
+                    # lane can swap the partner mid-session) and what, if
+                    # anything, it searched for. Queries count attempts; the
+                    # API caps executed searches at two.
+                    t["model"] = ws.get("model")
+                    t["web_search"] = {
+                        "offered": bool(ws.get("offered")),
+                        "queries": ws.get("queries") or [],
+                        "n_sources": len(ws.get("sources") or []),
+                    }
                 sc = lapp.get(str(m["_id"]))
                 if sc:
                     t["lapp"] = {"turn": sc.get("turnNumber"), "l": sc.get("l"),
@@ -457,7 +495,14 @@ def export(db, args):
             if study is not None:
                 # Computed from messages, not stored on the session, so these
                 # sit outside STUDY_FIELDS. Non-study sessions keep study=null.
-                study.update(coaching_engagement(msgs))
+                study.update(partner_search_use(msgs))
+                if str(study.get("condition")) == "1":
+                    study.update(coaching_engagement(msgs))
+                else:
+                    # Appendix D: coaching-engagement fields are undefined in
+                    # the control arm, not zero (there is no coach to engage).
+                    study.update({"coach_insights_n": None,
+                                  "coach_aside_n": None, "coach_aside": None})
 
             rec = {
                 "session_id": sid,
