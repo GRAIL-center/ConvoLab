@@ -198,6 +198,24 @@ if (!isDev) {
   await fastify.register(fastifyStatic, {
     root: publicDir,
     prefix: '/',
+    // The Docker build writes a .gz next to every text asset; serve it when
+    // the client accepts gzip. The main JS bundle is ~690 KB raw and ~180 KB
+    // gzipped, and nothing was compressed before (measured 15 Oct).
+    preCompressed: true,
+    // The plugin's own Cache-Control (default max-age=0) would override
+    // setHeaders; disable it so the values below are what actually ships.
+    cacheControl: false,
+    setHeaders(res, filePath) {
+      // Vite content-hashes everything under /assets, so those files never
+      // change at their URL: cache them for a year. Everything else
+      // (index.html above all) must revalidate on every load, or a deploy
+      // leaves returning visitors on a stale bundle.
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('cache-control', 'no-cache');
+      }
+    },
   });
 
   // SPA fallback: serve index.html for non-API routes
