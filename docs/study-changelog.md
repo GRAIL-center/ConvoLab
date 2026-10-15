@@ -20,6 +20,28 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-10-15: private coach asides no longer reach the partner (fix; leak live 2026-10-04 to this deploy)
+
+- **What was wrong.** Since the aside-memory change (PR #167, first deployed
+  2026-10-04 with revision `convolab-api-00100-mqx`), a participant's private
+  questions to the coach were also passed to the PARTNER as if spoken: asides
+  share role `user` in the session's message list, and the partner's context
+  filter selected on role alone. Treatment arm only (asides require the
+  coach). This contradicted the coach panel's "[partner] can't see this side
+  of the room", the PAP's private-channel description, and arm comparability.
+- **What is unaffected.** The offline DQI scoring transcript (its loader
+  drops asides) and the export's turn counts; the control arm; every main
+  spoken turn.
+- **The fix.** PR #221: the partner's context filter drops
+  `messageType: 'aside'` (exported predicate `isSpokenToPartner`, with
+  tests). The coach still sees asides, as designed.
+- **Sessions affected.** Treatment-arm sessions where the participant used
+  the aside channel between 2026-10-04 and this deploy; all are tester
+  sessions (the pilot has not launched). Found by the 14 Oct PAP-vs-code
+  audit (memo in Preanalysis plan/Notes/PAP_code_audit_14Oct2026.md).
+
+---
+
 ## 2026-10-07: study partners can use web search (live 2026-10-07 ~04:10 UTC, revision `convolab-api-00126-fcv`)
 
 - **Why.** Study sessions carry a persona snapshot and no scenario, and the
