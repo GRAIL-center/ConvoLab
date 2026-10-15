@@ -329,7 +329,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     !!study && !hardStopped && elapsedSeconds >= Math.max(0, study.hardStopSeconds - 90);
   const showCanFinishNotice = pastSoftCap && !showWrapSoon && !hardStopped;
 
-  const isInputDisabled = isStreaming || isQuotaExhausted || hardStopped;
+  // isAsideStreaming is part of this: while the coach answers a private
+  // question the server holds a single processing lock and rejects a spoken
+  // message with a recoverable error the UI does not show, so before this a
+  // message sent in that window appeared on screen, got no reply, and was
+  // missing from the transcript while still counting toward the unlock
+  // (14 Oct audit, finding 3).
+  const isInputDisabled = isStreaming || isAsideStreaming || isQuotaExhausted || hardStopped;
 
   // While the coach tab is showing the participant is looking at the thread,
   // so new coach output arriving is already read.
