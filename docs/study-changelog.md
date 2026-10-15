@@ -20,6 +20,29 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-10-15: partner must verify volunteered current events (runtime prompt line)
+
+- **Why.** With search offered but model-decided, the partner volunteered
+  specific stale events as current when the participant had not asked about
+  news (observed 15 Oct: a greeting answered with a year-old National Guard
+  situation asserted as ongoing; search offered, not used). The existing
+  date-check line only fired when the conversation already concerned a live
+  event.
+- **What changed.** One line added to the runtime fact context
+  (`partnerRuntimePrompt.ts`, appended to every partner prompt in both arms):
+  a hard rule that a specific event may only be presented as happening now if
+  this reply ran a search with current coverage; otherwise the partner opens
+  from a general issue instead of naming current events.
+- **Probed before shipping** (real prompt path, claude-sonnet-5): greeting
+  turns now open from general issues with no search latency (3/3 trials,
+  previously 2/2 asserted the stale event); a direct current-events question
+  still searches and answered correctly that the deployment had ended.
+- **Arms.** Both (the partner is shared). **Sessions affected.** New sessions
+  from the deploy carrying this entry; sessions in flight keep their stamped
+  prompt. All earlier sessions are testers.
+
+---
+
 ## 2026-10-15: private coach asides no longer reach the partner (fix; leak live 2026-10-04 to this deploy)
 
 - **What was wrong.** Since the aside-memory change (PR #167, first deployed

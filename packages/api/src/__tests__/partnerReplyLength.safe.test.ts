@@ -197,6 +197,10 @@ describe('runtime fact context date', () => {
       '\n- Today is January 3, 2027.\n'
     );
     expect(buildFactContext(NOW)).not.toContain('August 6, 2026');
+    // The partner must verify events it VOLUNTEERS, not only ones it is asked
+    // about: on 15 Oct it opened a conversation by asserting a year-old
+    // National Guard situation as current (greeting turn, no search).
+    expect(buildFactContext(NOW)).toContain('events you bring up yourself');
   });
 
   it('uses the UTC day regardless of server time zone', () => {
@@ -215,6 +219,7 @@ Runtime factual context:
 ${PRESIDENT_LINE}
 - For current-events or "right now" factual questions, use web search/grounding when available and let current evidence override stale model memory.
 - Search results often include older articles. Check each result's date against today's date, and only describe something as happening now if the coverage is from the last few weeks. If the newest coverage you find is older, talk about it in the past tense or say you haven't followed it lately.
+- Hard rule, and it applies to events you bring up yourself, not only to questions you are asked: never present a specific event, case, deployment, or court fight as happening right now unless you ran a web search in this very reply and the coverage is current. No search in this reply means no named current events: open from a general issue you care about (prices, the border, crime, schools) or something timeless about politics instead.
 - Do not claim Joe Biden is the current U.S. president unless current search evidence explicitly says that.
 `);
   });
