@@ -40,6 +40,11 @@ RUN pnpm -F @workspace/app build
 # Copy frontend build into API's public directory
 RUN cp -r packages/app/dist packages/api/dist/public
 
+# Precompress text assets so fastify-static (preCompressed: true) can serve
+# .gz variants with zero runtime CPU. gzip -k keeps the originals for
+# clients that do not accept gzip.
+RUN find packages/api/dist/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.svg' -o -name '*.webmanifest' \) -exec gzip -k -9 {} +
+
 # Production image
 FROM node:22-slim
 
