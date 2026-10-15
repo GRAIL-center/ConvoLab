@@ -139,13 +139,13 @@ export const placeholderCopy = {
       bio: 'Brinda Akuthota is a Purdue computer science undergraduate who develops tools and conversational systems for the ConvoLab project. She focuses on containerized backend deployments and interactive AI interfaces that support talking across political differences. She is passionate about building scalable software solutions that make complex communication tools intuitive and accessible.',
     },
     {
-      initials: 'KK',
-      name: 'Kiki Khosla',
+      initials: 'JK',
+      name: 'Jaskeerat Khosla',
       role: 'Developer',
-      photo: '/team/kiki-khosla.jpg',
-      // Kiki's own wording, 6 Oct 2026.
-      bio: 'Kiki Khosla is a Computer Science student at Purdue University with interests in technology, data, and innovation. Alongside his work with ConvoLab, he works on industry-focused projects through Purdue\u2019s Data Mine, including data and AI initiatives with Cummins, and serves as President of Boiler Bhangra. He enjoys collaborating with others, solving complex problems, and turning ideas into meaningful outcomes.',
-      link: { label: 'Kiki on LinkedIn', url: 'https://www.linkedin.com/in/jaskeerat-khosla/' },
+      photo: '/team/jaskeerat-khosla.jpg',
+      // Jaskeerat's own wording, 6 Oct 2026; renamed from Kiki at Hanna's ask, 15 Oct 2026.
+      bio: 'Jaskeerat Khosla is a Computer Science student at Purdue University with interests in technology, data, and innovation. Alongside his work with ConvoLab, he works on industry-focused projects through Purdue\u2019s Data Mine, including data and AI initiatives with Cummins, and serves as President of Boiler Bhangra. He enjoys collaborating with others, solving complex problems, and turning ideas into meaningful outcomes.',
+      link: { label: 'Jaskeerat on LinkedIn', url: 'https://www.linkedin.com/in/jaskeerat-khosla/' },
     },
     {
       initials: 'NA',
@@ -155,7 +155,15 @@ export const placeholderCopy = {
       // Nebras's own wording, 6 Oct 2026.
       bio: 'Nebras Alam is a Computer Engineering student at Purdue University interested in the intersection of artificial intelligence, political science, and civic technology. At ConvoLab, he contributes to backend development, prompt engineering, experimental design, and research on cross-partisan dialogue. His work focuses on how AI can support more productive political conversations and improve the quality of democratic discourse.',
     },
-    { initials: 'RS', name: 'Rohan Sunchu', role: 'Developer' },
+    {
+      initials: 'RS',
+      name: 'Rohan Sunchu',
+      role: 'Developer',
+      photo: '/team/rohan-sunchu.jpg',
+      // Rohan's own wording, 15 Oct 2026 ("On ConvoLab" -> "At ConvoLab" per Hanna).
+      bio: 'Rohan Sunchu is an undergraduate at Purdue University pursuing Data Science and Economics, with passions in analytics, technology, and business. At ConvoLab, he works on backend development, voice integration, and app building. Outside of that, he’s drawn to building projects at the intersection of business and software.',
+      link: { label: 'Rohan on LinkedIn', url: 'https://www.linkedin.com/in/rohan-sunchu/' },
+    },
     {
       initials: 'AR',
       name: 'Abbey Ripstra',
