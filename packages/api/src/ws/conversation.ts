@@ -91,7 +91,7 @@ const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;
 // LAPP scorer instrument version — stored on every score row for reproducibility/
 // audit. Bump when the prompt, schema, model default, or sampling params change.
-const LAPP_SCORER_VERSION = 'lapp-v1-2026-08-08';
+const LAPP_SCORER_VERSION = 'lapp-v2-2026-10-07';
 /**
  * Sent after the exchange, so the scorer reads the rubric with the turn in
  * front of it. `l` and `a` are judged against the partner turn the participant
