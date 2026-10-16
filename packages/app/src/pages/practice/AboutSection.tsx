@@ -51,6 +51,30 @@ export function AboutSection() {
           <p className={`mt-4 text-[1.02rem] leading-relaxed ${soft}`}>
             {placeholderCopy.aboutMission2}
           </p>
+          <h3 className="mt-8 text-[0.95rem] font-semibold">
+            {placeholderCopy.aboutResearchHeading}
+          </h3>
+          <p className={`mt-3 text-[1.02rem] leading-relaxed ${soft}`}>
+            {placeholderCopy.aboutResearch}
+          </p>
+          <h3 className="mt-8 text-[0.95rem] font-semibold">
+            {placeholderCopy.aboutPersonasHeading}
+          </h3>
+          <p className={`mt-3 text-[1.02rem] leading-relaxed ${soft}`}>
+            {placeholderCopy.aboutPersonas1}{' '}
+            <a
+              href="https://www.pewresearch.org/politics/2026/06/10/beyond-red-vs-blue-the-political-typology/"
+              target="_blank"
+              rel="noreferrer"
+              className={`font-medium underline decoration-black/20 underline-offset-4 dark:decoration-white/25 ${accent} ${textLink}`}
+            >
+              Pew Research Center political typology
+            </a>
+            .
+          </p>
+          <p className={`mt-4 text-[1.02rem] leading-relaxed ${soft}`}>
+            {placeholderCopy.aboutPersonas2}
+          </p>
           <p className={`${serif} mt-8 text-[1.02rem] italic ${muted}`}>
             {placeholderCopy.purdueLine}
           </p>
