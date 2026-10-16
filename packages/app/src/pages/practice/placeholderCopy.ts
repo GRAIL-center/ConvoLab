@@ -101,9 +101,9 @@ export const placeholderCopy = {
   aboutPersonasHeading: 'How we built the conversation partners',
   // Iterated from Nebras's draft, 16 Oct 2026; viewpoints grounded in the Pew political typology (linked in AboutSection).
   aboutPersonas1:
-    'Each conversation partner is built around a coherent political outlook, a personal background, and a conversational style of its own, so it reads as a person with consistent beliefs rather than a collection of talking points. Their viewpoints are grounded in the',
+    'Each conversation partner is built around a coherent outlook, a personal background, and a conversational style of its own, so it reads as a person with consistent beliefs rather than a collection of talking points. The political personas’ viewpoints are grounded in the',
   aboutPersonas2:
-    'Every persona carries positions on the major issues, including how strongly each view is held and how it responds when challenged. Consistency safeguards keep beliefs and tone stable across a conversation, and factual-humility rules keep a partner from inventing statistics or studies, so disagreement stays natural and productive without turning into caricature.',
+    'Every political persona carries positions on the major issues, including how strongly each view is held and how it responds when challenged. Consistency safeguards keep beliefs and tone stable across a conversation, and factual-humility rules keep a partner from inventing statistics or studies, so disagreement stays natural and productive without turning into caricature.',
   teamTitle: 'The team',
   team: [
     {
