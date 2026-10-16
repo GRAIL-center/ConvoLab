@@ -95,6 +95,15 @@ export const placeholderCopy = {
     'ConvoLab is a research project on talking across political difference. We build tools that let anyone practice the skills that keep those conversations going.',
   aboutMission2:
     'Conversations you have here help us understand what types of communication actually work, and for whom.',
+  aboutResearchHeading: 'A platform for studying conversation',
+  aboutResearch:
+    'ConvoLab is built as a research tool, not a single experiment. The conversation partner, the coach, and the scoring pipeline are all configurable, so other researchers can use the same infrastructure to teach and evaluate their own conversation frameworks, with ours as the first case study.',
+  aboutPersonasHeading: 'How we built the conversation partners',
+  // Iterated from Nebras's draft, 16 Oct 2026; viewpoints grounded in the Pew political typology (linked in AboutSection).
+  aboutPersonas1:
+    'Each conversation partner is built around a coherent political outlook, a personal background, and a conversational style of its own, so it reads as a person with consistent beliefs rather than a collection of talking points. Their viewpoints are grounded in the',
+  aboutPersonas2:
+    'Every persona carries positions on the major issues, including how strongly each view is held and how it responds when challenged. Consistency safeguards keep beliefs and tone stable across a conversation, and factual-humility rules keep a partner from inventing statistics or studies, so disagreement stays natural and productive without turning into caricature.',
   teamTitle: 'The team',
   team: [
     {
