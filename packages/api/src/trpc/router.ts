@@ -9,6 +9,7 @@ import { sessionRouter } from './routers/session.js';
 import { studyRouter } from './routers/study.js';
 import { telemetryRouter } from './routers/telemetry.js';
 import { userRouter } from './routers/user.js';
+import { voiceRouter } from './routers/voice.js';
 
 export const appRouter = router({
   auth: authRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   study: studyRouter,
   telemetry: telemetryRouter,
   user: userRouter,
+  voice: voiceRouter,
 });
 
 export type AppRouter = typeof appRouter;
