@@ -98,7 +98,9 @@ export function buildLiveConfig(args: {
     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: args.voiceName } } },
     inputAudioTranscription: {},
     outputAudioTranscription: {},
-    sessionResumption: {},
+    // No sessionResumption: every field here is locked, so the client could
+    // never pass a resume handle. A reconnect takes a new grant instead, which
+    // rebuilds the conversation from our stored record.
     contextWindowCompression: { slidingWindow: {} },
     ...(args.useWebSearch ? { tools: [{ googleSearch: {} }] } : {}),
   };
@@ -111,7 +113,13 @@ export type TokenMinter = (args: {
   expireTime: string;
 }) => Promise<string>;
 
-/** Real minter. `lockAdditionalFields: []` locks every field set in the constraints. */
+/**
+ * Real minter. `lockAdditionalFields` is left out on purpose: with no field
+ * mask the Live session takes its whole setup from the token and ignores the
+ * client's. `[]` would build a mask from the fields instead, and Gemini
+ * rejects any mask containing `tools` ("field_mask is invalid", 17 Oct 2026),
+ * which broke every scenario with web search on.
+ */
 export const geminiTokenMinter: TokenMinter = async ({
   model,
   config,
@@ -131,7 +139,6 @@ export const geminiTokenMinter: TokenMinter = async ({
       newSessionExpireTime,
       expireTime,
       liveConnectConstraints: { model, config },
-      lockAdditionalFields: [],
     },
   });
   if (!token.name) throw new Error('Gemini returned an ephemeral token with no name');
