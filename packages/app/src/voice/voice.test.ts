@@ -24,6 +24,10 @@ describe('estimateDeliveredText', () => {
     expect(estimateDeliveredText(reply, 0, 4000)).toBe('');
   });
 
+  it('is nothing when the transcript arrived but no audio had yet', () => {
+    expect(estimateDeliveredText('Hey.', 0, 0)).toBe('');
+  });
+
   it('keeps only whole words heard before the cut', () => {
     const heard = estimateDeliveredText(reply, 2000, 4000);
     expect(reply.startsWith(heard)).toBe(true);

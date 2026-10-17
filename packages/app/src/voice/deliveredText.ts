@@ -14,8 +14,11 @@ export function estimateDeliveredText(
 ): string {
   const text = generatedText.replace(/\s+/g, ' ').trim();
   if (!text) return '';
-  if (receivedMs <= 0 || playedMs >= receivedMs) return text;
-  if (playedMs <= 0) return '';
+  // Only called for interrupted turns. No audio received means the transcript
+  // ran ahead of the sound and nothing was heard (17 Oct 2026: a reply cut off
+  // before its first audio chunk was stored as if heard in full).
+  if (receivedMs <= 0 || playedMs <= 0) return '';
+  if (playedMs >= receivedMs) return text;
 
   const target = Math.floor(text.length * (playedMs / receivedMs));
   if (target >= text.length) return text;

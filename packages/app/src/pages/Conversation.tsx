@@ -302,7 +302,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const mainMessages = messages.filter((m) => m.role !== 'coach');
+  // A spoken partner reply interrupted before any of it played is stored
+  // with empty content (nothing was heard); there is no bubble to show.
+  const mainMessages = messages.filter(
+    (m) => m.role !== 'coach' && (m.role !== 'partner' || m.isStreaming || m.content.trim())
+  );
   const coachMessages = messages.filter((m) => m.role === 'coach');
   // "The participant has started" is no longer "there are messages": in the
   // partner-opens variant the transcript already holds the partner's opener
