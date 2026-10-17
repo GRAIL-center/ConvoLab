@@ -19,6 +19,8 @@ import { FeedbackButton } from '../components/FeedbackButton';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 import { useKeyboardViewportHeight } from '../hooks/useKeyboardViewportHeight';
+import { useVoiceMode } from '../voice/useVoiceMode';
+import { VOICE_DISCLOSURE, VoicePanel, VoiceStartButton } from '../voice/VoicePanel';
 
 // Inline SVG Icons
 const ArrowLeftIcon = () => (
@@ -187,7 +189,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     asideMessages,
     isAsideStreaming,
     startAside,
+    sendVoiceExchange,
+    sendVoiceStatus,
+    voiceSaveError,
   } = useConversationSocket(sessionId);
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
 
   const finishMutation = useMutation({
     ...trpc.study.finish.mutationOptions(),
@@ -336,6 +342,30 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   // missing from the transcript while still counting toward the unlock
   // (14 Oct audit, finding 3).
   const isInputDisabled = isStreaming || isAsideStreaming || isQuotaExhausted || hardStopped;
+
+  // Voice is offered in the regular app only. A study session would be a
+  // different treatment surface from the registered one until the research
+  // team approves voice as a condition (docs/plans/19-voice-mode.md).
+  const voice = useVoiceMode({
+    sessionId,
+    enabled: !!scenario && !isStudySession,
+    sendVoiceExchange,
+    sendVoiceStatus,
+  });
+  const voiceEnded = isQuotaExhausted || hardStopped;
+  const stopVoice = voice.stop;
+  useEffect(() => {
+    if (voiceEnded) {
+      stopVoice();
+      setVoicePanelOpen(false);
+    }
+  }, [voiceEnded, stopVoice]);
+  // Opening the panel does not open the rails: nothing has been said yet, so
+  // the scene-setting intro stays up until the first exchange is stored.
+  const openVoice = () => setVoicePanelOpen(true);
+  // Voice start-up errors show inside the panel; this is for a spoken
+  // exchange that could not be saved.
+  const voiceNotice = voiceSaveError;
 
   // While the coach tab is showing the participant is looking at the thread,
   // so new coach output arriving is already read.
@@ -697,40 +727,64 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   </button>
                 )}
               </div>
-              <div
-                data-tour="composer"
-                className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]"
-              >
-                <textarea
-                  ref={inputRef}
-                  value={partnerDraft}
-                  onChange={handlePartnerDraftChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    isQuotaExhausted
-                      ? 'Token quota exhausted'
-                      : hardStopped
-                        ? 'Conversation window ended'
-                        : `Reply to ${shortName}...`
-                  }
-                  rows={1}
-                  disabled={isInputDisabled}
-                  className="min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-base text-[#24221d] outline-none placeholder:text-[#8c877d] disabled:opacity-50 dark:text-[#efece4] dark:placeholder:text-[#77736b]"
-                />
-                <button
-                  type="button"
-                  onClick={handleSendPartner}
-                  disabled={isInputDisabled || !partnerDraft.trim()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#24221d] text-white transition-colors hover:bg-[#3a362f] disabled:bg-[#e0ddd4] disabled:text-[#928d84] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white dark:disabled:bg-[#2d2b27] dark:disabled:text-[#77736b]"
-                  aria-label={`Send reply to ${shortName}`}
+              {voiceNotice && (
+                <p
+                  role="alert"
+                  className="pointer-events-auto mb-3 rounded-2xl border border-[#d8d3c8] bg-[#fbfaf6] px-4 py-2 text-sm text-[#4a463f] dark:border-[#34312c] dark:bg-[#1b1a17] dark:text-[#cfcbc2]"
                 >
-                  <SendIcon />
-                </button>
-              </div>
+                  {voiceNotice}
+                </p>
+              )}
+              {voicePanelOpen ? (
+                <div data-tour="composer" className="pointer-events-auto">
+                  <VoicePanel
+                    voice={voice}
+                    partnerName={shortName}
+                    onClose={() => {
+                      voice.dismissError();
+                      setVoicePanelOpen(false);
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  data-tour="composer"
+                  className="pointer-events-auto flex items-end gap-2 rounded-[22px] border border-[#d8d3c8] bg-[#f6f4ee] p-3 shadow-sm dark:border-[#34312c] dark:bg-[#1b1a17]"
+                >
+                  <textarea
+                    ref={inputRef}
+                    value={partnerDraft}
+                    onChange={handlePartnerDraftChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isQuotaExhausted
+                        ? 'Token quota exhausted'
+                        : hardStopped
+                          ? 'Conversation window ended'
+                          : `Reply to ${shortName}...`
+                    }
+                    rows={1}
+                    disabled={isInputDisabled}
+                    className="min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-base text-[#24221d] outline-none placeholder:text-[#8c877d] disabled:opacity-50 dark:text-[#efece4] dark:placeholder:text-[#77736b]"
+                  />
+                  {voice.available && (
+                    <VoiceStartButton onClick={openVoice} disabled={isInputDisabled} />
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSendPartner}
+                    disabled={isInputDisabled || !partnerDraft.trim()}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#24221d] text-white transition-colors hover:bg-[#3a362f] disabled:bg-[#e0ddd4] disabled:text-[#928d84] dark:bg-[#eeeae1] dark:text-[#151513] dark:hover:bg-white dark:disabled:bg-[#2d2b27] dark:disabled:text-[#77736b]"
+                    aria-label={`Send reply to ${shortName}`}
+                  >
+                    <SendIcon />
+                  </button>
+                </div>
+              )}
               {!isStudySession && (
                 <div
                   className={`mt-4 flex flex-wrap justify-center gap-3 transition-opacity duration-300 ${
-                    composerDocked ? 'hidden' : 'pointer-events-auto opacity-100'
+                    composerDocked || voicePanelOpen ? 'hidden' : 'pointer-events-auto opacity-100'
                   }`}
                 >
                   {OPENING_PROMPTS.map((prompt) => (
@@ -750,21 +804,48 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                 </div>
               )}
               <p className="pt-3 text-center text-xs text-[#8c877d] dark:text-[#77736b]">
-                Enter to send · goes to {shortName}
+                {!voicePanelOpen
+                  ? `Enter to send · goes to ${shortName}`
+                  : voice.active
+                    ? `Speaking with ${shortName}`
+                    : VOICE_DISCLOSURE}
               </p>
             </div>
           </div>
 
           <div className={mobileView === 'coach' ? 'hidden' : 'md:hidden'}>
-            <MobileMessageInput
-              onSendPartner={(content) => {
-                activateRails(content);
-                sendMessage(content);
-              }}
-              partnerName={shortName}
-              disabled={isInputDisabled}
-              onInputChange={activateRails}
-            />
+            {voiceNotice && (
+              <p
+                role="alert"
+                className="border-t border-[#ddd8cc] bg-[#fbfaf6] px-4 py-2 text-sm text-[#4a463f] dark:border-[#2b2925] dark:bg-[#151513] dark:text-[#cfcbc2]"
+              >
+                {voiceNotice}
+              </p>
+            )}
+            {voicePanelOpen ? (
+              <div className="border-t border-[#ddd8cc] bg-[#fbfaf6] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-[#2b2925] dark:bg-[#151513]">
+                <VoicePanel
+                  voice={voice}
+                  partnerName={shortName}
+                  compact
+                  onClose={() => {
+                    voice.dismissError();
+                    setVoicePanelOpen(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <MobileMessageInput
+                onSendPartner={(content) => {
+                  activateRails(content);
+                  sendMessage(content);
+                }}
+                partnerName={shortName}
+                disabled={isInputDisabled}
+                onInputChange={activateRails}
+                onStartVoice={voice.available ? openVoice : undefined}
+              />
+            )}
           </div>
         </main>
 

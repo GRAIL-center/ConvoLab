@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "1.37.0",
     "@tanstack/react-query": "^5.90.16",
     "@trpc/client": "^11.8.1",
     "@trpc/tanstack-react-query": "^11.8.1",

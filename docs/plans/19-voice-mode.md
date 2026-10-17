@@ -12,10 +12,10 @@ browser ──audio──▶ Gemini Live          (ephemeral token, config locke
    └── voice:exchange (WS) ──▶ ConvoLab ──▶ store once ──▶ coach + LAPP (as for typed turns)
 ```
 
-1. Client calls tRPC `voice.startSession({ sessionId })` and gets a `VoiceSessionGrant`. The token is single-use and expires quickly, with model, voice, persona prompt, transcription and search locked into it. The conversation so far is rebuilt from Firestore into the system instruction, so reconnecting or switching between text and voice resumes from our record.
+1. Client calls tRPC `voice.startSession({ sessionId })` and gets a `VoiceSessionGrant`. The token is single-use and expires quickly, with model, voice, persona prompt, transcription and search set in it. No field mask is sent, so the Live session takes its whole setup from the token. (`lockAdditionalFields: []` builds a mask, and Gemini rejects any mask containing `tools`.) The conversation so far is rebuilt from Firestore into the system instruction, so reconnecting or switching between text and voice resumes from our record.
 2. Client runs the Live session itself, with mic capture, playback and interruption handling.
 3. When an exchange finishes, the client sends `{ type: 'voice:exchange', exchange }` on the existing `/ws/conversation/:id` socket. The server validates it, stores both turns in one transaction keyed by `exchangeId` (so a resend is a no-op), acks it, then runs coach/LAPP with the usual turn-1 gate.
-4. To reconnect, call `voice.startSession` again.
+4. To reconnect, call `voice.startSession` again. Gemini's own session resumption is not used, because the client can't pass a resume handle into a token-locked setup.
 
 ## The contract (`packages/api/src/voice/contract.ts`)
 
@@ -26,14 +26,16 @@ Both tracks build against this file. Change it only by agreement.
 - Server replies are `voice:exchange:ack` (with `duplicate`) or `voice:exchange:rejected` (`retryable` is true only for `storage_failed`).
 - `voice:status` sends operational events and is logged only. It never carries transcript text.
 
-## Work split (no shared files)
+## Where things live
 
-| Track | Owns | Status |
-|---|---|---|
-| **A — server** (`voice-server` branch) | everything under `packages/api/`: contract, grant endpoint, idempotent storage, WS handling, tests | done, needs real-key probe |
-| **B — browser** | everything under `packages/app/`: `src/voice/*` (mic, Live client, playback, delivered-text tracking, retry queue), the voice UI, `useConversationSocket.ts` send/ack, mounting in `Conversation.tsx`, mic check, text fallback | not started |
+| Side | Files |
+|---|---|
+| Server (`voice-server` branch) | `packages/api/src/voice/*`, `data/voiceExchanges.ts`, `trpc/routers/voice.ts`, WS handling in `ws/conversation.ts`, `handler.ts` and `protocol.ts` |
+| Browser (`voice-full` branch, on top of server) | `packages/app/src/voice/*`: `audio.ts` (16 kHz mic capture, 24 kHz playback), `exchangeAssembler.ts`, `deliveredText.ts`, `voiceController.ts` (Live events → exchanges, barge-in, reconnect, fallback), `geminiLive.ts` (lazy-loaded SDK), `useVoiceMode.ts`, `VoicePanel.tsx`. Also wired into `useConversationSocket.ts` (send, retry until acked, show on ack), `Conversation.tsx` and `MobileMessageInput.tsx` |
 
-Track B imports types only: `import type { VoiceExchange } from '@workspace/api/src/voice/contract'`. It needs `voice` on `AppRouter`, so merge A first or rebase B onto it.
+Voice is offered **only in non-study sessions** until the research team approves it as a condition. The mic button is hidden when `voice.available` is false, i.e. when there's no key.
+
+Turn detection is Gemini's automatic VAD; there's no push-to-talk. Barge-in is handled two ways: on Gemini's `interrupted` event, and locally when the participant talks over audio that is still buffered after generation has finished.
 
 ## Known limits / open items
 
@@ -41,6 +43,7 @@ Track B imports types only: `import type { VoiceExchange } from '@workspace/api/
 - **Transcripts are client-asserted.** In the direct route the browser reports what was said. The prompt, voice and model are locked, but the transcript text is not verifiable server-side. This is acceptable for a pilot; only the proxy route closes it.
 - **Coach timing.** Coaching starts after the whole exchange arrives, not alongside the partner as it does for typed turns.
 - **Quota.** Gemini Live usage isn't metered against invitation quotas (the server never sees usage). The quota check only blocks once a quota is already exhausted.
+- **Not yet heard end to end.** Token minting works against the real key and the browser reaches Gemini Live. On 17 Oct 2026 the account's prepaid credits were depleted (close code 1011), so audio, transcription, latency and interruption quality are still unverified.
 - **Credentials.** Ephemeral tokens exist only on the Gemini Developer API. Set `GEMINI_LIVE_API_KEY` (falls back to `GOOGLE_AI_API_KEY`) even where text runs on Vertex. `VOICE_PARTNER_MODEL` overrides the default Live model; probe it first.
 - **Voices** in `voice/voiceConfig.ts` (`Charon` male, `Kore` female, the same voice across ideologies) are placeholders until the research team approves them.
 - **Partner-opens study variant.** The opener is already a stored text turn. Decide whether the client speaks it or only shows it.

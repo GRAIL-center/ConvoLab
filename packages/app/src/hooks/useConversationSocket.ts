@@ -1,3 +1,7 @@
+import type {
+	VoiceExchange,
+	VoiceStatusEvent,
+} from "@workspace/api/src/voice/contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { wsUrl } from "../lib/apiUrl";
 import { wsProtocols } from "../lib/authToken";
@@ -121,14 +125,29 @@ type ServerMessage =
 	| { type: "aside:error"; threadId: string; error: string }
 	| { type: "error"; code: string; message: string; recoverable: boolean }
 	| { type: "quota:warning"; remaining: number; total: number }
-	| { type: "quota:exhausted" };
+	| { type: "quota:exhausted" }
+	| {
+			type: "voice:exchange:ack";
+			exchangeId: string;
+			userMessageId: string;
+			partnerMessageId: string;
+			duplicate: boolean;
+	  }
+	| {
+			type: "voice:exchange:rejected";
+			exchangeId: string | null;
+			reason: "invalid" | "session_ended" | "quota_exhausted" | "storage_failed";
+			retryable: boolean;
+	  };
 
 type ClientMessage =
 	| { type: "message"; content: string }
 	| { type: "ping" }
 	| { type: "resume"; afterMessageId?: EntityId }
 	| { type: "aside:start"; content: string; threadId: string }
-	| { type: "aside:cancel"; threadId: string };
+	| { type: "aside:cancel"; threadId: string }
+	| { type: "voice:exchange"; exchange: VoiceExchange }
+	| { type: "voice:status"; event: VoiceStatusEvent };
 
 export type ConnectionStatus =
 	| "connecting"
@@ -173,9 +192,17 @@ interface UseConversationSocketResult {
 	// Aside actions
 	startAside: (question: string) => string;
 	cancelAside: () => void;
+	// Voice mode
+	/** Queue a finished spoken exchange; resent until the server acknowledges it. */
+	sendVoiceExchange: (exchange: VoiceExchange) => void;
+	sendVoiceStatus: (event: VoiceStatusEvent) => void;
+	/** Set when a spoken exchange could not be saved and will not be retried. */
+	voiceSaveError: string | null;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 5;
+const VOICE_RETRY_DELAY_MS = 2000;
+const MAX_VOICE_SEND_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 function estimateProvisionalTone(content: string): LappScore["tone"] {
@@ -243,6 +270,13 @@ export function useConversationSocket(
 		null,
 	);
 	const [asideError, setAsideError] = useState<AsideError | null>(null);
+	const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
+
+	// Spoken exchanges not yet acknowledged, keyed by exchangeId. They are
+	// resent on reconnect; the server stores each exchangeId once.
+	const pendingVoiceRef = useRef(
+		new Map<string, { exchange: VoiceExchange; attempts: number }>(),
+	);
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectAttemptsRef = useRef(0);
@@ -344,6 +378,25 @@ export function useConversationSocket(
 		[send],
 	);
 
+	const sendVoiceExchange = useCallback(
+		(exchange: VoiceExchange) => {
+			pendingVoiceRef.current.set(exchange.exchangeId, {
+				exchange,
+				attempts: 1,
+			});
+			// If the socket is down, the onopen handler sends it.
+			send({ type: "voice:exchange", exchange });
+		},
+		[send],
+	);
+
+	const sendVoiceStatus = useCallback(
+		(event: VoiceStatusEvent) => {
+			send({ type: "voice:status", event });
+		},
+		[send],
+	);
+
 	const cancelAside = useCallback(() => {
 		const threadId = activeAsideThreadIdRef.current;
 		if (threadId) {
@@ -385,6 +438,10 @@ export function useConversationSocket(
 				// If reconnecting, request messages since last known
 				if (lastMessageIdRef.current !== null) {
 					send({ type: "resume", afterMessageId: lastMessageIdRef.current });
+				}
+
+				for (const { exchange } of pendingVoiceRef.current.values()) {
+					send({ type: "voice:exchange", exchange });
 				}
 
 				// Start ping interval
@@ -851,6 +908,70 @@ export function useConversationSocket(
 						});
 						break;
 
+					case "voice:exchange:ack": {
+						const pending = pendingVoiceRef.current.get(msg.exchangeId);
+						pendingVoiceRef.current.delete(msg.exchangeId);
+						if (!pending) break;
+						const { exchange } = pending;
+						// Finalized turns only: the transcript shows a spoken exchange
+						// once it is stored, under the ids the coach and scores use.
+						setMessages((prev) => {
+							const known = new Set(prev.map((m) => String(m.id)));
+							const added: Message[] = [];
+							if (!known.has(msg.userMessageId)) {
+								added.push({
+									id: msg.userMessageId,
+									role: "user",
+									content: exchange.participant.transcript,
+									timestamp: exchange.participant.endedAt,
+									messageType: "main",
+									clientTone: estimateProvisionalTone(
+										exchange.participant.transcript,
+									),
+								});
+							}
+							if (!known.has(msg.partnerMessageId)) {
+								added.push({
+									id: msg.partnerMessageId,
+									role: "partner",
+									content: exchange.partner.deliveredText,
+									timestamp: exchange.partner.endedAt,
+									messageType: "main",
+								});
+							}
+							return added.length ? [...prev, ...added] : prev;
+						});
+						lastMessageIdRef.current = msg.partnerMessageId;
+						break;
+					}
+
+					case "voice:exchange:rejected": {
+						const id = msg.exchangeId;
+						const pending = id ? pendingVoiceRef.current.get(id) : undefined;
+						if (
+							id &&
+							pending &&
+							msg.retryable &&
+							pending.attempts < MAX_VOICE_SEND_ATTEMPTS
+						) {
+							pending.attempts++;
+							setTimeout(() => {
+								if (pendingVoiceRef.current.has(id)) {
+									send({ type: "voice:exchange", exchange: pending.exchange });
+								}
+							}, VOICE_RETRY_DELAY_MS * pending.attempts);
+							break;
+						}
+						if (id) pendingVoiceRef.current.delete(id);
+						if (msg.reason === "quota_exhausted") break; // quota:exhausted covers it
+						setVoiceSaveError(
+							msg.reason === "session_ended"
+								? "This conversation has ended, so that last exchange was not saved."
+								: "That last spoken exchange could not be saved.",
+						);
+						break;
+					}
+
 					case "quota:warning":
 						setQuota({
 							remaining: msg.remaining,
@@ -919,5 +1040,9 @@ export function useConversationSocket(
 		// Aside actions
 		startAside,
 		cancelAside,
+		// Voice mode
+		sendVoiceExchange,
+		sendVoiceStatus,
+		voiceSaveError,
 	};
 }
