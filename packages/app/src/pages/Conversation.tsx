@@ -17,7 +17,7 @@ import { MobileSheet } from '../components/conversation/MobileSheet';
 import { ConversationTour } from '../components/conversation/tour/ConversationTour';
 import { FeedbackButton } from '../components/FeedbackButton';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { useConversationSocket } from '../hooks/useConversationSocket';
+import { type Message, useConversationSocket } from '../hooks/useConversationSocket';
 import { useKeyboardViewportHeight } from '../hooks/useKeyboardViewportHeight';
 import { useVoiceMode } from '../voice/useVoiceMode';
 import { VOICE_DISCLOSURE, VoicePanel, VoiceStartButton } from '../voice/VoicePanel';
@@ -191,6 +191,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     startAside,
     sendVoiceExchange,
     sendVoiceStatus,
+    transcribeVoiceTurn,
     voiceSaveError,
   } = useConversationSocket(sessionId);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
@@ -302,11 +303,53 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const isStudySession = study?.source === 'qualtrics_prolific';
+  // Voice is offered in the regular app only. A study session would be a
+  // different treatment surface from the registered one until the research
+  // team approves voice as a condition (docs/plans/19-voice-mode.md).
+  const voice = useVoiceMode({
+    sessionId,
+    enabled: !!scenario && !isStudySession,
+    sendVoiceExchange,
+    sendVoiceStatus,
+    transcribeVoiceTurn,
+  });
+
   // A spoken partner reply interrupted before any of it played is stored
   // with empty content (nothing was heard); there is no bubble to show.
-  const mainMessages = messages.filter(
+  const storedMainMessages = messages.filter(
     (m) => m.role !== 'coach' && (m.role !== 'partner' || m.isStreaming || m.content.trim())
   );
+  // The spoken exchange in flight: the participant's bubble (dots until the
+  // server has transcribed them), then the speaking dots while the partner
+  // talks. The partner's words appear only once the reply ends, as what was
+  // actually heard.
+  const { liveTurn } = voice;
+  const liveBubbles: Message[] = [];
+  if (liveTurn.participant || liveTurn.participantPending) {
+    liveBubbles.push({
+      id: 'voice-live-user',
+      role: 'user',
+      content: liveTurn.participant,
+      timestamp: '',
+      messageType: 'main',
+      isOptimistic: true,
+      isStreaming: liveTurn.participantPending,
+    });
+  }
+  if (liveTurn.partnerSpeaking) {
+    liveBubbles.push({
+      id: 'voice-live-partner',
+      role: 'partner',
+      content: '',
+      timestamp: '',
+      messageType: 'main',
+      isStreaming: true,
+    });
+  }
+  const mainMessages = liveBubbles.length
+    ? [...storedMainMessages, ...liveBubbles]
+    : storedMainMessages;
   const coachMessages = messages.filter((m) => m.role === 'coach');
   // "The participant has started" is no longer "there are messages": in the
   // partner-opens variant the transcript already holds the partner's opener
@@ -327,7 +370,6 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const coachItemCount =
     coachMessages.length + asideMessages.filter((m) => m.role === 'coach').length;
   const unreadCoachCount = Math.max(0, coachItemCount - seenCoachCount);
-  const isStudySession = study?.source === 'qualtrics_prolific';
   const participantTurnCount = mainMessages.filter((m) => m.role === 'user').length;
   const canFinishStudy = !study || participantTurnCount >= study.minParticipantTurns;
   // The soft cap used to be a countdown to the end. It now marks the point where
@@ -347,15 +389,6 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   // (14 Oct audit, finding 3).
   const isInputDisabled = isStreaming || isAsideStreaming || isQuotaExhausted || hardStopped;
 
-  // Voice is offered in the regular app only. A study session would be a
-  // different treatment surface from the registered one until the research
-  // team approves voice as a condition (docs/plans/19-voice-mode.md).
-  const voice = useVoiceMode({
-    sessionId,
-    enabled: !!scenario && !isStudySession,
-    sendVoiceExchange,
-    sendVoiceStatus,
-  });
   const voiceEnded = isQuotaExhausted || hardStopped;
   const stopVoice = voice.stop;
   useEffect(() => {

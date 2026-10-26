@@ -166,6 +166,12 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
             manager.handleVoiceStatus(message.event);
             break;
 
+          case 'voice:transcribe':
+            // Not awaited: transcription runs while the partner is talking,
+            // and must not hold up the exchange that follows it.
+            void manager.handleVoiceTranscribe(message);
+            break;
+
           default:
             send(socket, {
               type: 'error',

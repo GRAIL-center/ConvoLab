@@ -28,9 +28,25 @@ export type VoiceState =
 const MAX_TURN_CHARS = 10_000;
 const isoTimestamp = z.iso.datetime({ offset: true });
 
+const opaqueId = z
+  .string()
+  .min(8)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
 const participantTurnSchema = z.object({
-  /** Final input transcription. Never a partial. */
+  /**
+   * The participant's words: the server transcription from voice:transcript
+   * when there is one, else Gemini Live's input transcription. Never a partial.
+   */
   transcript: z.string().trim().min(1).max(MAX_TURN_CHARS),
+  /**
+   * From voice:transcript. The server stores its own copy of that text rather
+   * than `transcript`, so a re-transcribed turn is not client-asserted.
+   */
+  transcriptId: opaqueId.optional(),
+  /** Gemini Live's input transcription, kept in metadata for comparison. */
+  liveTranscript: z.string().max(MAX_TURN_CHARS).optional(),
   startedAt: isoTimestamp,
   endedAt: isoTimestamp,
 });
@@ -60,11 +76,7 @@ export const voiceExchangeSchema = z.object({
    * the idempotency key: resending the same exchange after a reconnect stores
    * nothing new. Never reuse one for a different exchange.
    */
-  exchangeId: z
-    .string()
-    .min(8)
-    .max(64)
-    .regex(/^[A-Za-z0-9_-]+$/),
+  exchangeId: opaqueId,
   participant: participantTurnSchema,
   partner: partnerTurnSchema,
   /** Echo of `voiceSessionVersion` from voice.startSession, so we can tell which config produced the turn. */
@@ -77,6 +89,67 @@ export type VoiceExchange = z.infer<typeof voiceExchangeSchema>;
 export interface VoiceExchangeClientMessage {
   type: 'voice:exchange';
   exchange: VoiceExchange;
+}
+
+/**
+ * Client -> server: the audio of one participant turn, sent when the
+ * participant stops speaking. Answered with voice:transcript or
+ * voice:transcript:failed; on failure the client keeps Gemini Live's text.
+ */
+/** Turn audio format for voice:transcribe: PCM16 mono, little-endian. */
+export const TRANSCRIBE_SAMPLE_RATE = 16_000;
+/** Longer turns are trimmed to their last part by the client. */
+export const MAX_TRANSCRIBE_SECONDS = 90;
+const MAX_TRANSCRIBE_BASE64 =
+  Math.ceil((MAX_TRANSCRIBE_SECONDS * TRANSCRIBE_SAMPLE_RATE * 2 * 4) / 3) + 4;
+
+const MAX_CONTEXT_CHARS = 2000;
+
+/**
+ * Text that helps the transcriber read a turn; it is a prompt hint only and is
+ * never stored. Short turns need it most: when the partner jumps in at a pause
+ * mid-sentence, the rest of the sentence arrives as a fragment ("and what are
+ * their names") that is guesswork without the words before it.
+ */
+export const voiceTranscribeContextSchema = z.object({
+  /** Gemini Live's transcript of this audio so far. Often wrong, but it helps with fragments. */
+  hint: z.string().max(MAX_CONTEXT_CHARS).optional(),
+  /** The exchange just before this turn, which may not be stored yet. */
+  previous: z
+    .object({
+      participant: z.string().max(MAX_CONTEXT_CHARS),
+      partner: z.string().max(MAX_CONTEXT_CHARS),
+    })
+    .optional(),
+});
+
+export type VoiceTranscribeContext = z.infer<typeof voiceTranscribeContextSchema>;
+
+export const voiceTranscribeRequestSchema = z.object({
+  requestId: opaqueId,
+  /** Base64 PCM16 mono at 16 kHz, at most MAX_TRANSCRIBE_SECONDS of it. */
+  audio: z.string().min(1).max(MAX_TRANSCRIBE_BASE64),
+  context: voiceTranscribeContextSchema.optional(),
+});
+
+export type VoiceTranscribeRequest = z.infer<typeof voiceTranscribeRequestSchema>;
+
+export interface VoiceTranscribeClientMessage extends VoiceTranscribeRequest {
+  type: 'voice:transcribe';
+}
+
+/** Server -> client: the turn's words. Echo transcriptId on the exchange. */
+export interface VoiceTranscriptServerMessage {
+  type: 'voice:transcript';
+  requestId: string;
+  transcriptId: string;
+  text: string;
+}
+
+/** Server -> client: no transcription (nothing heard, or the model failed). */
+export interface VoiceTranscriptFailedServerMessage {
+  type: 'voice:transcript:failed';
+  requestId: string;
 }
 
 /** Client -> server: operational events for monitoring. No transcript content. */

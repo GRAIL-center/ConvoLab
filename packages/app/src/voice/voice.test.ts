@@ -2,11 +2,15 @@ import type { VoiceExchange, VoiceStatusEvent } from '@workspace/api/src/voice/c
 import { describe, expect, it, vi } from 'vitest';
 import { estimateDeliveredText } from './deliveredText';
 import { ExchangeAssembler } from './exchangeAssembler';
+import { TurnAudio } from './turnAudio';
 import {
   type LiveMessageLike,
   type LiveSessionLike,
+  type LiveTurn,
+  NO_LIVE_TURN,
   type PlayerLike,
   VoiceController,
+  type VoiceControllerDeps,
   type VoiceError,
 } from './voiceController';
 
@@ -144,8 +148,9 @@ class FakePlayer implements PlayerLike {
   }
 }
 
-function harness(opts: { micError?: Error } = {}) {
+function harness(opts: { micError?: Error; transcribe?: VoiceControllerDeps['transcribe'] } = {}) {
   const exchanges: VoiceExchange[] = [];
+  const liveTurns: LiveTurn[] = [];
   const statuses: VoiceStatusEvent[] = [];
   const fatal: VoiceError[] = [];
   const player = new FakePlayer();
@@ -191,6 +196,8 @@ function harness(opts: { micError?: Error } = {}) {
       return mic;
     },
     onExchange: (e) => exchanges.push(e),
+    transcribe: opts.transcribe,
+    onLiveTurn: (t) => liveTurns.push(t),
     onStatus: (s) => statuses.push(s),
     onState: () => {},
     onFatal: (e) => fatal.push(e),
@@ -200,6 +207,7 @@ function harness(opts: { micError?: Error } = {}) {
   return {
     controller,
     exchanges,
+    liveTurns,
     statuses,
     fatal,
     player,
@@ -209,13 +217,218 @@ function harness(opts: { micError?: Error } = {}) {
   };
 }
 
+/** `ms` of 16 kHz PCM16 mic audio: a steady tone for speech, zeros for silence. */
+function micAudio(ms: number, speech: boolean): string {
+  const samples = new Int16Array((16_000 * ms) / 1000).fill(speech ? 8000 : 0);
+  return Buffer.from(samples.buffer).toString('base64');
+}
+
+/** Feed `ms` of mic audio in 100 ms frames, as the worklet does. */
+function talk(h: ReturnType<typeof harness>, ms: number, speech = true) {
+  for (let t = 0; t < ms; t += 100) h.sendMic(micAudio(100, speech));
+}
+
 const audio = (data = 'AAAA') => ({
   serverContent: {
     modelTurn: { parts: [{ inlineData: { data, mimeType: 'audio/pcm;rate=24000' } }] },
   },
 });
 
+describe('TurnAudio', () => {
+  it('trims the silence around the speech, keeping a little padding', () => {
+    const turn = new TurnAudio();
+    for (let i = 0; i < 30; i++) turn.push(micAudio(100, false));
+    for (let i = 0; i < 5; i++) turn.push(micAudio(100, true));
+    for (let i = 0; i < 20; i++) turn.push(micAudio(100, false));
+
+    expect(turn.speechMs).toBe(500);
+    expect(turn.silenceAfterSpeechMs).toBe(2000);
+    const clip = turn.clip();
+    // 400 ms pad + 500 ms speech + 400 ms pad, at 32 bytes per ms.
+    expect(Buffer.from(clip ?? '', 'base64').length).toBe(1300 * 32);
+  });
+
+  it('has no clip when nothing was said', () => {
+    const turn = new TurnAudio();
+    for (let i = 0; i < 10; i++) turn.push(micAudio(100, false));
+    expect(turn.clip()).toBeNull();
+  });
+});
+
 describe('VoiceController', () => {
+  it('shows the participant turn as soon as it is heard, then the partner speaking', async () => {
+    const h = harness();
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    live.emit({ serverContent: { inputTranscription: { text: 'Hello' } } });
+    live.emit({ serverContent: { inputTranscription: { text: ' there.' } } });
+    expect(h.liveTurns.at(-1)).toEqual({
+      participant: 'Hello there.',
+      participantPending: false,
+      partnerSpeaking: false,
+    });
+
+    live.emit(audio());
+    expect(h.liveTurns.at(-1)).toMatchObject({
+      participant: 'Hello there.',
+      partnerSpeaking: true,
+    });
+
+    live.emit({ serverContent: { turnComplete: true } });
+    h.player.drain();
+    expect(h.exchanges).toHaveLength(1);
+    expect(h.liveTurns.at(-1)).toEqual(NO_LIVE_TURN);
+  });
+
+  it('replaces the Live transcript with the server transcription of the turn audio', async () => {
+    let finish: (r: { transcriptId: string; text: string } | null) => void = () => {};
+    const transcribe = vi.fn(
+      () =>
+        new Promise<{ transcriptId: string; text: string } | null>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const h = harness({ transcribe });
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    talk(h, 500);
+    live.emit({ serverContent: { inputTranscription: { text: 'Why do you thing that' } } });
+    // Words are held back while the participant talks: Live's guess is not shown.
+    expect(h.liveTurns.at(-1)).toMatchObject({ participant: '', participantPending: true });
+
+    talk(h, 300);
+    live.emit(audio());
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    live.emit({ serverContent: { turnComplete: true } });
+    h.player.drain();
+    // Reply over, transcription not back yet: the exchange waits for it.
+    expect(h.exchanges).toHaveLength(0);
+    expect(h.liveTurns.at(-1)).toMatchObject({ participantPending: true, partnerSpeaking: true });
+
+    finish({ transcriptId: 'tr-00000001', text: 'Why do you think that?' });
+    await vi.waitFor(() => expect(h.exchanges).toHaveLength(1));
+    expect(h.exchanges[0].participant).toMatchObject({
+      transcript: 'Why do you think that?',
+      transcriptId: 'tr-00000001',
+      liveTranscript: 'Why do you thing that',
+    });
+    expect(h.liveTurns.at(-1)).toEqual(NO_LIVE_TURN);
+  });
+
+  it('starts transcribing at a pause, before the partner answers, and shows the words', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValue({ transcriptId: 'tr-00000001', text: 'Hi Ashley.' });
+    const h = harness({ transcribe });
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    talk(h, 500);
+    live.emit({ serverContent: { inputTranscription: { text: 'Hi Ashly' } } });
+    talk(h, 500, false);
+    expect(transcribe).not.toHaveBeenCalled(); // not quiet for long enough yet
+    talk(h, 200, false);
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(h.liveTurns.at(-1)).toEqual({
+        participant: 'Hi Ashley.',
+        participantPending: false,
+        partnerSpeaking: false,
+      })
+    );
+
+    // The partner's answer reuses it rather than transcribing again.
+    live.emit(audio());
+    live.emit({ serverContent: { turnComplete: true } });
+    h.player.drain();
+    await vi.waitFor(() => expect(h.exchanges).toHaveLength(1));
+    expect(transcribe).toHaveBeenCalledTimes(1);
+    expect(h.exchanges[0].participant.transcript).toBe('Hi Ashley.');
+  });
+
+  it('redoes the transcription when they carry on after a pause', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValueOnce({ transcriptId: 'tr-00000001', text: 'Hi Ashley.' })
+      .mockResolvedValueOnce({
+        transcriptId: 'tr-00000002',
+        text: 'Hi Ashley. I keep hearing about tariffs.',
+      });
+    const h = harness({ transcribe });
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    talk(h, 500);
+    live.emit({ serverContent: { inputTranscription: { text: 'Hi Ashly.' } } });
+    talk(h, 700, false);
+    talk(h, 800);
+    live.emit({
+      serverContent: { inputTranscription: { text: ' I keep hearing about tariffs.' } },
+    });
+    // Speaking again hides the early words until the whole turn is transcribed.
+    expect(h.liveTurns.at(-1)).toMatchObject({ participant: '', participantPending: true });
+
+    live.emit(audio());
+    expect(transcribe).toHaveBeenCalledTimes(2);
+    live.emit({ serverContent: { turnComplete: true } });
+    h.player.drain();
+    await vi.waitFor(() => expect(h.exchanges).toHaveLength(1));
+    expect(h.exchanges[0].participant).toMatchObject({
+      transcript: 'Hi Ashley. I keep hearing about tariffs.',
+      transcriptId: 'tr-00000002',
+    });
+  });
+
+  it('keeps the start of an interruption for transcription', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValueOnce({ transcriptId: 'tr-00000001', text: 'Why?' })
+      .mockResolvedValueOnce({ transcriptId: 'tr-00000002', text: 'Wait, hold on.' });
+    const h = harness({ transcribe });
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    talk(h, 500);
+    live.emit({ serverContent: { inputTranscription: { text: 'Why?' } } });
+    live.emit(audio());
+    // The partner talks for a while, then the participant cuts in. Gemini
+    // flags the interruption before it has transcribed a word of it.
+    talk(h, 3000, false);
+    talk(h, 1200);
+    live.emit({ serverContent: { interrupted: true } });
+    talk(h, 600);
+    live.emit({ serverContent: { inputTranscription: { text: 'Wait, hold up.' } } });
+    talk(h, 700, false);
+
+    expect(transcribe).toHaveBeenCalledTimes(2);
+    // The interruption is read in the light of the exchange it cut into.
+    expect(transcribe.mock.calls[1][1]).toEqual({
+      hint: 'Wait, hold up.',
+      previous: { participant: 'Why?', partner: '' },
+    });
+    const clip = Buffer.from(transcribe.mock.calls[1][0] as string, 'base64');
+    // All 1.8 s of the barge-in, plus padding, with the partner's turn trimmed off.
+    expect(clip.length).toBe((400 + 1200 + 600 + 400) * 32);
+  });
+
+  it('keeps the Live transcript when server transcription fails', async () => {
+    const h = harness({ transcribe: vi.fn().mockResolvedValue(null) });
+    await h.controller.start();
+    const live = h.sessions[0];
+
+    talk(h, 500);
+    live.emit({ serverContent: { inputTranscription: { text: 'Hello.' } } });
+    live.emit(audio());
+    live.emit({ serverContent: { turnComplete: true } });
+    h.player.drain();
+
+    await vi.waitFor(() => expect(h.exchanges).toHaveLength(1));
+    expect(h.exchanges[0].participant.transcript).toBe('Hello.');
+    expect(h.exchanges[0].participant.transcriptId).toBeUndefined();
+  });
+
   it('reports a played-out exchange once playback finishes, not when generation does', async () => {
     const h = harness();
     await h.controller.start();

@@ -51,7 +51,7 @@ function stored(duplicate = false) {
   };
 }
 
-function setup(messages: unknown[] = []) {
+function setup(messages: unknown[] = [], transcriber = vi.fn()) {
   const sent: Array<Record<string, unknown>> = [];
   const manager = new ConversationManager(
     { send: (data: string) => sent.push(JSON.parse(data)) } as never,
@@ -65,7 +65,8 @@ function setup(messages: unknown[] = []) {
       invitationId: null,
       userId: 'user-1',
     } as never,
-    { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never
+    { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
+    { transcriber }
   );
   const jobs = vi
     .spyOn(
@@ -154,6 +155,111 @@ describe('ConversationManager.handleVoiceExchange', () => {
       })
     );
     expect(jobs).not.toHaveBeenCalled();
+  });
+
+  it('stores the server transcription, not the client text, for a transcriptId it issued', async () => {
+    storeVoiceExchange.mockResolvedValue(stored());
+    const { manager, sent } = setup(
+      [...PRIOR],
+      vi.fn().mockResolvedValue({ text: 'Why do you think so?', model: 'gemini-test' })
+    );
+
+    await manager.handleVoiceTranscribe({
+      type: 'voice:transcribe',
+      requestId: 'req-0001',
+      audio: 'AAAA',
+    });
+    const reply = sent.find((m) => m.type === 'voice:transcript');
+    expect(reply).toMatchObject({ requestId: 'req-0001', text: 'Why do you think so?' });
+
+    await manager.handleVoiceExchange({
+      ...EXCHANGE,
+      participant: {
+        ...EXCHANGE.participant,
+        transcript: 'Tampered text',
+        transcriptId: reply?.transcriptId,
+        liveTranscript: 'Why do you thing that',
+      },
+    });
+    expect(storeVoiceExchange).toHaveBeenLastCalledWith(
+      's1',
+      expect.objectContaining({
+        transcriptSource: 'server',
+        transcriptModel: 'gemini-test',
+        participant: expect.objectContaining({
+          transcript: 'Why do you think so?',
+          liveTranscript: 'Why do you thing that',
+        }),
+      })
+    );
+  });
+
+  it('gives the transcriber the recent turns, the unsaved previous exchange and the Live hint', async () => {
+    const transcriber = vi.fn().mockResolvedValue({ text: 'their names?', model: 'gemini-test' });
+    const { manager } = setup([...PRIOR], transcriber);
+
+    await manager.handleVoiceTranscribe({
+      type: 'voice:transcribe',
+      requestId: 'req-0001',
+      audio: 'AAAA',
+      context: {
+        hint: 'AND WHAT THEY IN',
+        // The partner line repeats a stored one; only the new participant line is added.
+        previous: {
+          participant: 'How many kids do you have? And what are',
+          partner: 'Hello there.',
+        },
+      },
+    });
+
+    expect(transcriber).toHaveBeenCalledWith(expect.any(Buffer), {
+      context: [
+        { speaker: 'Participant', text: 'Hi.' },
+        { speaker: 'Partner', text: 'Hello there.' },
+        { speaker: 'Participant', text: 'How many kids do you have? And what are' },
+      ],
+      hint: 'AND WHAT THEY IN',
+    });
+  });
+
+  it('marks client text naming an unknown transcriptId as unverified', async () => {
+    storeVoiceExchange.mockResolvedValueOnce(stored());
+    const { manager } = setup([...PRIOR]);
+    await manager.handleVoiceExchange({
+      ...EXCHANGE,
+      participant: { ...EXCHANGE.participant, transcriptId: 'from-another-connection' },
+    });
+    expect(storeVoiceExchange).toHaveBeenLastCalledWith(
+      's1',
+      expect.objectContaining({
+        transcriptSource: 'unverified',
+        participant: expect.objectContaining({ transcript: 'Why do you think that?' }),
+      })
+    );
+  });
+
+  it('answers voice:transcript:failed when transcription errors or hears nothing', async () => {
+    const { manager, sent } = setup(
+      [],
+      vi
+        .fn()
+        .mockRejectedValueOnce(new Error('quota'))
+        .mockResolvedValueOnce({ text: '', model: 'gemini-test' })
+    );
+    await manager.handleVoiceTranscribe({
+      type: 'voice:transcribe',
+      requestId: 'req-0001',
+      audio: 'AAAA',
+    });
+    await manager.handleVoiceTranscribe({
+      type: 'voice:transcribe',
+      requestId: 'req-0002',
+      audio: 'AAAA',
+    });
+    expect(sent).toEqual([
+      { type: 'voice:transcript:failed', requestId: 'req-0001' },
+      { type: 'voice:transcript:failed', requestId: 'req-0002' },
+    ]);
   });
 
   it('rejects exchanges after the session has ended, not retryable', async () => {

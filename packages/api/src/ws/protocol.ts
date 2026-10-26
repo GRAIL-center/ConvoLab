@@ -4,6 +4,9 @@ import type {
   VoiceExchangeClientMessage,
   VoiceExchangeRejectedServerMessage,
   VoiceStatusClientMessage,
+  VoiceTranscribeClientMessage,
+  VoiceTranscriptFailedServerMessage,
+  VoiceTranscriptServerMessage,
 } from '../voice/contract.js';
 
 export type EntityId = string | number;
@@ -40,7 +43,9 @@ export type ServerMessage =
       tone: 'constructive' | 'warm' | 'neutral' | 'tense';
     }
   | VoiceExchangeAckServerMessage
-  | VoiceExchangeRejectedServerMessage;
+  | VoiceExchangeRejectedServerMessage
+  | VoiceTranscriptServerMessage
+  | VoiceTranscriptFailedServerMessage;
 
 // Client -> Server messages
 export type ClientMessage =
@@ -50,7 +55,8 @@ export type ClientMessage =
   | { type: 'aside:start'; content: string; threadId: string }
   | { type: 'aside:cancel'; threadId: string }
   | VoiceExchangeClientMessage
-  | VoiceStatusClientMessage;
+  | VoiceStatusClientMessage
+  | VoiceTranscribeClientMessage;
 
 export interface ScenarioInfo {
   id: EntityId;

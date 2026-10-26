@@ -3,12 +3,19 @@ import type {
   VoiceExchange,
   VoiceState,
   VoiceStatusEvent,
+  VoiceTranscribeContext,
 } from '@workspace/api/src/voice/contract';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTRPC, useTRPCClient } from '../api/trpc';
 import { PcmPlayer, startMicCapture } from './audio';
 import { connectGeminiLive } from './geminiLive';
-import { VoiceController, type VoiceError } from './voiceController';
+import {
+  type LiveTurn,
+  NO_LIVE_TURN,
+  type TurnTranscript,
+  VoiceController,
+  type VoiceError,
+} from './voiceController';
 
 export interface VoiceMode {
   /** The server can offer voice. False hides every voice control. */
@@ -18,6 +25,8 @@ export interface VoiceMode {
   state: VoiceState;
   /** Mic input level, 0-1, for the level meter. */
   level: number;
+  /** The exchange in flight, shown in the transcript until it is sent. */
+  liveTurn: LiveTurn;
   error: VoiceError | null;
   start: () => void;
   stop: () => void;
@@ -31,8 +40,12 @@ export function useVoiceMode(args: {
   enabled: boolean;
   sendVoiceExchange: (exchange: VoiceExchange) => void;
   sendVoiceStatus: (event: VoiceStatusEvent) => void;
+  transcribeVoiceTurn: (
+    audio: string,
+    context: VoiceTranscribeContext
+  ) => Promise<TurnTranscript | null>;
 }): VoiceMode {
-  const { sessionId, enabled, sendVoiceExchange, sendVoiceStatus } = args;
+  const { sessionId, enabled, sendVoiceExchange, sendVoiceStatus, transcribeVoiceTurn } = args;
   const trpc = useTRPC();
   const client = useTRPCClient();
   const availability = useQuery({
@@ -43,14 +56,17 @@ export function useVoiceMode(args: {
   const [active, setActive] = useState(false);
   const [state, setState] = useState<VoiceState>('disconnected');
   const [level, setLevel] = useState(0);
+  const [liveTurn, setLiveTurn] = useState<LiveTurn>(NO_LIVE_TURN);
   const [error, setError] = useState<VoiceError | null>(null);
   const controllerRef = useRef<VoiceController | null>(null);
 
   // The controller outlives renders; read the latest senders through refs.
   const sendExchangeRef = useRef(sendVoiceExchange);
   const sendStatusRef = useRef(sendVoiceStatus);
+  const transcribeRef = useRef(transcribeVoiceTurn);
   sendExchangeRef.current = sendVoiceExchange;
   sendStatusRef.current = sendVoiceStatus;
+  transcribeRef.current = transcribeVoiceTurn;
 
   const start = useCallback(() => {
     if (controllerRef.current) return;
@@ -62,9 +78,11 @@ export function useVoiceMode(args: {
       createPlayer: () => new PcmPlayer(),
       startMic: startMicCapture,
       onExchange: (exchange) => sendExchangeRef.current(exchange),
+      transcribe: (audio, context) => transcribeRef.current(audio, context),
       onStatus: (event) => sendStatusRef.current(event),
       onState: setState,
       onLevel: setLevel,
+      onLiveTurn: setLiveTurn,
       onFatal: (voiceError) => {
         controllerRef.current = null;
         setActive(false);
@@ -95,6 +113,7 @@ export function useVoiceMode(args: {
     active,
     state,
     level,
+    liveTurn,
     error,
     start,
     stop,

@@ -1,6 +1,7 @@
 import type {
 	VoiceExchange,
 	VoiceStatusEvent,
+	VoiceTranscribeContext,
 } from "@workspace/api/src/voice/contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { wsUrl } from "../lib/apiUrl";
@@ -134,6 +135,13 @@ type ServerMessage =
 			duplicate: boolean;
 	  }
 	| {
+			type: "voice:transcript";
+			requestId: string;
+			transcriptId: string;
+			text: string;
+	  }
+	| { type: "voice:transcript:failed"; requestId: string }
+	| {
 			type: "voice:exchange:rejected";
 			exchangeId: string | null;
 			reason: "invalid" | "session_ended" | "quota_exhausted" | "storage_failed";
@@ -147,7 +155,13 @@ type ClientMessage =
 	| { type: "aside:start"; content: string; threadId: string }
 	| { type: "aside:cancel"; threadId: string }
 	| { type: "voice:exchange"; exchange: VoiceExchange }
-	| { type: "voice:status"; event: VoiceStatusEvent };
+	| { type: "voice:status"; event: VoiceStatusEvent }
+	| {
+			type: "voice:transcribe";
+			requestId: string;
+			audio: string;
+			context: VoiceTranscribeContext;
+	  };
 
 export type ConnectionStatus =
 	| "connecting"
@@ -196,6 +210,11 @@ interface UseConversationSocketResult {
 	/** Queue a finished spoken exchange; resent until the server acknowledges it. */
 	sendVoiceExchange: (exchange: VoiceExchange) => void;
 	sendVoiceStatus: (event: VoiceStatusEvent) => void;
+	/** Server transcription of one spoken turn's audio; null on failure or timeout. */
+	transcribeVoiceTurn: (
+		audio: string,
+		context: VoiceTranscribeContext,
+	) => Promise<{ transcriptId: string; text: string } | null>;
 	/** Set when a spoken exchange could not be saved and will not be retried. */
 	voiceSaveError: string | null;
 }
@@ -203,6 +222,7 @@ interface UseConversationSocketResult {
 const MAX_RECONNECT_ATTEMPTS = 5;
 const VOICE_RETRY_DELAY_MS = 2000;
 const MAX_VOICE_SEND_ATTEMPTS = 5;
+const VOICE_TRANSCRIBE_TIMEOUT_MS = 15_000;
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 function estimateProvisionalTone(content: string): LappScore["tone"] {
@@ -244,6 +264,32 @@ function pendingPartnerBubble(): Message {
 		timestamp: new Date().toISOString(),
 		isStreaming: true,
 	};
+}
+
+/** Placeholder ids for a spoken exchange shown before the server stores it. */
+function voiceDraftIds(exchangeId: string) {
+	return { user: `voice-${exchangeId}-user`, partner: `voice-${exchangeId}-partner` };
+}
+
+function voiceDraftMessages(exchange: VoiceExchange): Message[] {
+	const ids = voiceDraftIds(exchange.exchangeId);
+	const user: Message = {
+		id: ids.user,
+		role: "user",
+		content: exchange.participant.transcript,
+		timestamp: exchange.participant.endedAt,
+		messageType: "main",
+		clientTone: estimateProvisionalTone(exchange.participant.transcript),
+		isOptimistic: true,
+	};
+	const partner: Message = {
+		id: ids.partner,
+		role: "partner",
+		content: exchange.partner.deliveredText,
+		timestamp: exchange.partner.endedAt,
+		messageType: "main",
+	};
+	return [user, partner];
 }
 
 export function useConversationSocket(
@@ -384,9 +430,34 @@ export function useConversationSocket(
 				exchange,
 				attempts: 1,
 			});
+			// Shown straight away, as typed turns are; the ack swaps in the stored ids.
+			setMessages((prev) => [...prev, ...voiceDraftMessages(exchange)]);
 			// If the socket is down, the onopen handler sends it.
 			send({ type: "voice:exchange", exchange });
 		},
+		[send],
+	);
+
+	const pendingTranscribeRef = useRef(
+		new Map<
+			string,
+			(result: { transcriptId: string; text: string } | null) => void
+		>(),
+	);
+
+	const transcribeVoiceTurn = useCallback(
+		(audio: string, context: VoiceTranscribeContext) =>
+			new Promise<{ transcriptId: string; text: string } | null>((resolve) => {
+				const requestId = crypto.randomUUID();
+				if (!send({ type: "voice:transcribe", requestId, audio, context })) {
+					resolve(null);
+					return;
+				}
+				pendingTranscribeRef.current.set(requestId, resolve);
+				setTimeout(() => {
+					if (pendingTranscribeRef.current.delete(requestId)) resolve(null);
+				}, VOICE_TRANSCRIBE_TIMEOUT_MS);
+			}),
 		[send],
 	);
 
@@ -913,35 +984,52 @@ export function useConversationSocket(
 						pendingVoiceRef.current.delete(msg.exchangeId);
 						if (!pending) break;
 						const { exchange } = pending;
-						// Finalized turns only: the transcript shows a spoken exchange
-						// once it is stored, under the ids the coach and scores use.
+						// The drafts become the stored turns, under the ids the coach
+						// and scores use. A reconnect may have replayed the stored
+						// copies already; then the drafts just go.
+						const drafts = voiceDraftIds(exchange.exchangeId);
 						setMessages((prev) => {
 							const known = new Set(prev.map((m) => String(m.id)));
-							const added: Message[] = [];
-							if (!known.has(msg.userMessageId)) {
-								added.push({
-									id: msg.userMessageId,
-									role: "user",
-									content: exchange.participant.transcript,
-									timestamp: exchange.participant.endedAt,
-									messageType: "main",
-									clientTone: estimateProvisionalTone(
-										exchange.participant.transcript,
-									),
-								});
+							const [userDraft, partnerDraft] = voiceDraftMessages(exchange);
+							const stored: Record<string, Message | null> = {
+								[drafts.user]: known.has(msg.userMessageId)
+									? null
+									: { ...userDraft, id: msg.userMessageId, isOptimistic: false },
+								[drafts.partner]: known.has(msg.partnerMessageId)
+									? null
+									: { ...partnerDraft, id: msg.partnerMessageId },
+							};
+							const next: Message[] = [];
+							let replaced = 0;
+							for (const m of prev) {
+								const key = String(m.id);
+								if (key in stored) {
+									replaced++;
+									const swap = stored[key];
+									if (swap) next.push(swap);
+								} else {
+									next.push(m);
+								}
 							}
-							if (!known.has(msg.partnerMessageId)) {
-								added.push({
-									id: msg.partnerMessageId,
-									role: "partner",
-									content: exchange.partner.deliveredText,
-									timestamp: exchange.partner.endedAt,
-									messageType: "main",
-								});
+							// A replayed history can drop the drafts before the ack lands.
+							if (replaced === 0) {
+								for (const swap of Object.values(stored)) if (swap) next.push(swap);
 							}
-							return added.length ? [...prev, ...added] : prev;
+							return next;
 						});
 						lastMessageIdRef.current = msg.partnerMessageId;
+						break;
+					}
+
+					case "voice:transcript":
+					case "voice:transcript:failed": {
+						const resolve = pendingTranscribeRef.current.get(msg.requestId);
+						pendingTranscribeRef.current.delete(msg.requestId);
+						resolve?.(
+							msg.type === "voice:transcript"
+								? { transcriptId: msg.transcriptId, text: msg.text }
+								: null,
+						);
 						break;
 					}
 
@@ -962,7 +1050,16 @@ export function useConversationSocket(
 							}, VOICE_RETRY_DELAY_MS * pending.attempts);
 							break;
 						}
-						if (id) pendingVoiceRef.current.delete(id);
+						if (id) {
+							pendingVoiceRef.current.delete(id);
+							// Not saved, so it must not look as though it was.
+							const drafts = voiceDraftIds(id);
+							setMessages((prev) =>
+								prev.filter(
+									(m) => m.id !== drafts.user && m.id !== drafts.partner,
+								),
+							);
+						}
 						if (msg.reason === "quota_exhausted") break; // quota:exhausted covers it
 						setVoiceSaveError(
 							msg.reason === "session_ended"
@@ -1043,6 +1140,7 @@ export function useConversationSocket(
 		// Voice mode
 		sendVoiceExchange,
 		sendVoiceStatus,
+		transcribeVoiceTurn,
 		voiceSaveError,
 	};
 }

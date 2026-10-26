@@ -15,6 +15,15 @@ export interface StoredVoiceExchange {
   partnerTimestamp: Date;
 }
 
+/**
+ * Where the stored participant text came from: `server` is our own
+ * transcription of the turn's audio; `live` is Gemini Live's input
+ * transcription as the client reported it; `unverified` is client text that
+ * names a server transcription this connection no longer holds (e.g. after a
+ * reconnect).
+ */
+export type VoiceTranscriptSource = 'server' | 'live' | 'unverified';
+
 export class SessionEndedError extends Error {
   constructor() {
     super('Cannot add a message to a completed session');
@@ -48,7 +57,11 @@ function asDate(value: unknown, fallback: Date): Date {
  */
 export async function storeVoiceExchange(
   sessionId: string,
-  exchange: VoiceExchange,
+  exchange: VoiceExchange & {
+    transcriptSource?: VoiceTranscriptSource;
+    /** Model that produced a `server` transcript. */
+    transcriptModel?: string;
+  },
   receivedAt: Date = new Date(),
   firestore: Firestore = getFirestoreClient()
 ): Promise<StoredVoiceExchange> {
@@ -108,6 +121,11 @@ export async function storeVoiceExchange(
         ...voiceMeta,
         spokenStartedAt: exchange.participant.startedAt,
         spokenEndedAt: exchange.participant.endedAt,
+        transcriptSource: exchange.transcriptSource ?? 'live',
+        ...(exchange.transcriptModel ? { transcriptModel: exchange.transcriptModel } : {}),
+        ...(exchange.participant.liveTranscript !== undefined
+          ? { liveTranscript: exchange.participant.liveTranscript }
+          : {}),
       },
     } as DocumentData);
     transaction.create(partnerRef, {

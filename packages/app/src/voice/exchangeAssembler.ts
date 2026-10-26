@@ -40,6 +40,11 @@ export class ExchangeAssembler {
     return this.partnerStartedAt !== null;
   }
 
+  /** What the participant has said so far in the exchange in flight. */
+  get participantTranscript(): string {
+    return joinTranscript(this.participantText);
+  }
+
   participantSpeech(text: string, now: Date): void {
     if (!text) return;
     if (this.partnerActive) {

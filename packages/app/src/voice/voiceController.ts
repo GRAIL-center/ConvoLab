@@ -3,9 +3,11 @@ import type {
   VoiceSessionGrant,
   VoiceState,
   VoiceStatusEvent,
+  VoiceTranscribeContext,
 } from '@workspace/api/src/voice/contract';
 import { INPUT_MIME } from './audio';
 import { ExchangeAssembler, type PartnerTurnEnd } from './exchangeAssembler';
+import { TurnAudio } from './turnAudio';
 
 /** The parts of a Gemini Live server message voice mode reads. */
 export interface LiveMessageLike {
@@ -60,6 +62,54 @@ export interface VoiceError {
   message: string;
 }
 
+/**
+ * The exchange in flight, for display only. It is never stored; the finished
+ * exchange goes through onExchange.
+ */
+export interface LiveTurn {
+  /** The participant's words, once known. */
+  participant: string;
+  /** The participant has spoken but their words are not ready to show yet. */
+  participantPending: boolean;
+  partnerSpeaking: boolean;
+}
+
+export const NO_LIVE_TURN: LiveTurn = {
+  participant: '',
+  participantPending: false,
+  partnerSpeaking: false,
+};
+
+/** A server transcription of one participant turn. */
+export interface TurnTranscript {
+  transcriptId: string;
+  text: string;
+}
+
+/** A transcription in progress; `result` is undefined until it settles, null if it failed. */
+interface PendingTranscript {
+  promise: Promise<TurnTranscript | null>;
+  result: TurnTranscript | null | undefined;
+}
+
+/** How long a finished exchange waits for its transcription before using Live's text. */
+const TRANSCRIPT_WAIT_MS = 8000;
+/**
+ * Silence after speech that starts transcription early, before Gemini has
+ * decided the turn is over (its reply arrives a second or two later). If they
+ * carry on talking, the early result is thrown away and the turn redone.
+ */
+const EARLY_TRANSCRIBE_SILENCE_MS = 600;
+/** Less speech than this (a cough, a click) never starts a transcription early. */
+const MIN_SPEECH_MS = 300;
+/**
+ * Mic audio kept from before an interruption. The participant started talking
+ * before either cue fired: Gemini flags `interrupted` once its turn detection
+ * has heard enough, and Live's transcript of the barge-in lags the speech by a
+ * second or more. Silence and echo-cancelled partner audio in it are trimmed.
+ */
+const BARGE_IN_LOOKBACK_MS = 4000;
+
 export interface VoiceControllerDeps {
   getGrant: () => Promise<VoiceSessionGrant>;
   connect: LiveConnector;
@@ -70,9 +120,16 @@ export interface VoiceControllerDeps {
     onEnded?: () => void;
   }) => Promise<MicLike>;
   onExchange: (exchange: VoiceExchange) => void;
+  /**
+   * Transcribe one participant turn (base64 PCM16, 16 kHz). Resolves null on
+   * failure. Without it, Gemini Live's input transcription is used as is.
+   */
+  transcribe?: (audio: string, context: VoiceTranscribeContext) => Promise<TurnTranscript | null>;
   onStatus: (event: VoiceStatusEvent) => void;
   onState: (state: VoiceState) => void;
   onLevel?: (level: number) => void;
+  /** The exchange in flight changed. Called after onExchange for a finished one. */
+  onLiveTurn?: (turn: LiveTurn) => void;
   /** Voice has stopped and cannot continue; the UI should offer text. */
   onFatal: (error: VoiceError) => void;
   now?: () => Date;
@@ -112,6 +169,21 @@ export class VoiceController {
   private reconnectAttempts = 0;
   /** Bumped per Live connection so callbacks from an old one are ignored. */
   private connectionSeq = 0;
+  /** Mic audio of the participant's current turn, for transcription. */
+  private readonly turnAudio = new TurnAudio();
+  /** Transcription of the turn the partner is answering now. */
+  private turnTranscript: PendingTranscript | null = null;
+  /** The last finished exchange, as context for transcribing the next turn. */
+  private previousExchange: {
+    transcript: PendingTranscript | null;
+    liveText: string;
+    partner: string;
+  } | null = null;
+  /** Transcription started at a pause, and the speech it covers. */
+  private early: { transcript: PendingTranscript; speechSeq: number } | null = null;
+  /** Finished exchanges waiting on their transcription, oldest first. */
+  private readonly unsent: Array<{ transcript: PendingTranscript; liveText: string }> = [];
+  private sendChain: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: VoiceControllerDeps) {
     this.now = deps.now ?? (() => new Date());
@@ -127,8 +199,11 @@ export class VoiceController {
     try {
       this.mic = await this.deps.startMic({
         onFrame: (data) => {
-          if (!this.muted)
-            this.session?.sendRealtimeInput({ audio: { data, mimeType: INPUT_MIME } });
+          if (this.muted || !this.session) return;
+          this.session.sendRealtimeInput({ audio: { data, mimeType: INPUT_MIME } });
+          if (!this.deps.transcribe) return;
+          this.turnAudio.push(data);
+          this.maybeTranscribeEarly();
         },
         onLevel: this.deps.onLevel,
         onEnded: () => this.fail('mic_lost'),
@@ -235,6 +310,7 @@ export class VoiceController {
         this.finishPartnerTurn(true, player.interrupt());
       }
       assembler.participantSpeech(heard, now);
+      this.emitLiveTurn();
       if (!assembler.partnerActive && !this.muted) this.deps.onState('participant_speaking');
     }
 
@@ -266,7 +342,10 @@ export class VoiceController {
     this.player?.resetTurn();
     this.generationDone = false;
     this.assembler.partnerOutput('', now);
+    // The participant's turn ends where the partner's begins.
+    this.turnTranscript = this.transcribeTurn();
     this.deps.onState('partner_speaking');
+    this.emitLiveTurn();
   }
 
   private onPlaybackDrained(): void {
@@ -282,9 +361,27 @@ export class VoiceController {
     if (!this.assembler) return;
     const end: PartnerTurnEnd = { interrupted, ...played };
     const { exchange, droppedPartnerTurn } = this.assembler.finishPartnerTurn(end, this.now());
+    const transcript = this.turnTranscript;
+    this.turnTranscript = null;
+    // Audio during the partner's turn is not the participant's, except when
+    // they talked over it: then the start of their next turn is in there. On
+    // an interruption their words have usually not been transcribed yet, so
+    // keep the recent audio rather than going by the transcript.
+    if (interrupted) this.turnAudio.keepLast(BARGE_IN_LOOKBACK_MS);
+    else if (!this.assembler.participantTranscript) this.turnAudio.clear();
     this.generationDone = false;
     this.player?.resetTurn();
-    if (exchange) this.deps.onExchange(exchange);
+    if (exchange) {
+      this.previousExchange = {
+        transcript,
+        liveText: exchange.participant.transcript,
+        // What they heard; if they cut it off before any played, what it was about to say.
+        partner: exchange.partner.deliveredText || exchange.partner.generatedText,
+      };
+      this.sendExchange(exchange, transcript);
+    }
+    // Held barge-in speech is now the participant's turn in flight.
+    this.emitLiveTurn();
     if (droppedPartnerTurn) {
       // The partner answered something the transcript never caught (often
       // noise). Not storable as an exchange; reported so it can be counted.
@@ -300,6 +397,8 @@ export class VoiceController {
     // Whatever was in flight is lost; never store half an exchange.
     this.player?.interrupt();
     this.assembler?.reset();
+    this.forgetTurn();
+    this.emitLiveTurn();
     await this.retryOrFail(`closed_${event.code ?? 'unknown'}`);
   }
 
@@ -329,6 +428,8 @@ export class VoiceController {
     this.connectionSeq++; // ignore the old connection's close
     old?.close();
     this.assembler?.reset();
+    this.forgetTurn();
+    this.emitLiveTurn();
     this.deps.onState('reconnecting');
     if (await this.openLive()) this.deps.onStatus({ kind: 'reconnected', detail: 'go_away' });
   }
@@ -356,5 +457,159 @@ export class VoiceController {
     this.player?.close();
     this.player = null;
     this.assembler = null;
+    this.forgetTurn();
+    // Finished exchanges still waiting on a transcription are sent regardless.
+    this.emitLiveTurn();
+  }
+
+  private forgetTurn(): void {
+    this.turnAudio.clear();
+    this.turnTranscript = null;
+    this.early = null;
+  }
+
+  /** The participant has paused: start transcribing now rather than when the partner answers. */
+  private maybeTranscribeEarly(): void {
+    if (this.assembler?.partnerActive !== false) return;
+    const audio = this.turnAudio;
+    if (audio.speechMs < MIN_SPEECH_MS) return;
+    if (audio.silenceAfterSpeechMs < EARLY_TRANSCRIBE_SILENCE_MS) return;
+    // Already transcribing exactly this speech.
+    if (this.early?.speechSeq === audio.lastSpeechSeq) return;
+    const transcript = this.startTranscription(audio.clip());
+    if (!transcript) return;
+    this.early = { transcript, speechSeq: audio.lastSpeechSeq };
+    this.emitLiveTurn();
+  }
+
+  /** The partner has started answering: the participant's turn is final. */
+  private transcribeTurn(): PendingTranscript | null {
+    const early = this.early;
+    this.early = null;
+    // Reuse the early transcription unless they spoke again after it started.
+    const transcript =
+      early && early.speechSeq === this.turnAudio.lastSpeechSeq
+        ? early.transcript
+        : this.startTranscription(this.turnAudio.clip());
+    this.turnAudio.clear();
+    return transcript;
+  }
+
+  /** Send a clip off for transcription. */
+  private startTranscription(audio: string | null): PendingTranscript | null {
+    if (!audio || !this.deps.transcribe) return null;
+    const pending: PendingTranscript = {
+      result: undefined,
+      promise: this.deps
+        .transcribe(audio, this.transcribeContext())
+        .catch(() => null)
+        .then((result) => {
+          pending.result = result;
+          this.emitLiveTurn();
+          return result;
+        }),
+    };
+    return pending;
+  }
+
+  private transcribeContext(): VoiceTranscribeContext {
+    const hint = this.assembler?.participantTranscript;
+    const previous = this.previousExchange;
+    return {
+      ...(hint ? { hint } : {}),
+      ...(previous
+        ? {
+            previous: {
+              participant: previous.transcript?.result?.text ?? previous.liveText,
+              partner: previous.partner,
+            },
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Report a finished exchange, with the server transcription in place of
+   * Live's when it arrives in time. Exchanges go out in order, so one waiting
+   * on its transcription holds back any that finish after it.
+   */
+  private sendExchange(exchange: VoiceExchange, transcript: PendingTranscript | null): void {
+    if (!transcript && this.unsent.length === 0) {
+      this.deps.onExchange(exchange);
+      return;
+    }
+    if (transcript) this.unsent.push({ transcript, liveText: exchange.participant.transcript });
+    this.sendChain = this.sendChain.then(async () => {
+      let result: TurnTranscript | null = null;
+      if (transcript) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        result = await Promise.race([
+          transcript.promise,
+          new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), TRANSCRIPT_WAIT_MS);
+          }),
+        ]);
+        clearTimeout(timer);
+        this.unsent.shift();
+      }
+      this.deps.onExchange(
+        result
+          ? {
+              ...exchange,
+              participant: {
+                ...exchange.participant,
+                transcript: result.text,
+                transcriptId: result.transcriptId,
+                liveTranscript: exchange.participant.transcript,
+              },
+            }
+          : exchange
+      );
+      this.emitLiveTurn();
+    });
+  }
+
+  private emitLiveTurn(): void {
+    this.deps.onLiveTurn?.(this.liveTurn());
+  }
+
+  private liveTurn(): LiveTurn {
+    // A finished exchange waiting on its transcription stays on screen with
+    // the partner still speaking, so the bubbles do not blink out and back.
+    const waiting = this.unsent[0];
+    if (waiting) {
+      return { ...this.shownWords(waiting.transcript, waiting.liveText), partnerSpeaking: true };
+    }
+    const assembler = this.assembler;
+    if (!assembler) return NO_LIVE_TURN;
+    const live = assembler.participantTranscript;
+    if (assembler.partnerActive) {
+      return { ...this.shownWords(this.turnTranscript, live), partnerSpeaking: true };
+    }
+    if (!this.deps.transcribe) {
+      return { participant: live, participantPending: false, partnerSpeaking: false };
+    }
+    // Their words show as soon as a transcription of everything they have
+    // said is back, which can be before the partner starts to answer.
+    const early = this.early;
+    const current = early?.speechSeq === this.turnAudio.lastSpeechSeq ? early : null;
+    if (current?.transcript.result) {
+      return {
+        participant: current.transcript.result.text,
+        participantPending: false,
+        partnerSpeaking: false,
+      };
+    }
+    return { participant: '', participantPending: !!live || !!early, partnerSpeaking: false };
+  }
+
+  private shownWords(
+    transcript: PendingTranscript | null,
+    liveText: string
+  ): Pick<LiveTurn, 'participant' | 'participantPending'> {
+    if (transcript && transcript.result === undefined) {
+      return { participant: '', participantPending: true };
+    }
+    return { participant: transcript?.result?.text ?? liveText, participantPending: false };
   }
 }
