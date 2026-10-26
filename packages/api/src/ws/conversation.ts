@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as Sentry from '@sentry/node';
 import type {
   ConversationSession,
@@ -19,6 +20,12 @@ import {
 
 //import { DEFAULT_MODEL } from '../lib/constants.js';
 
+import {
+  SessionEndedError,
+  type StoredVoiceExchange,
+  storeVoiceExchange,
+  type VoiceTranscriptSource,
+} from '../data/voiceExchanges.js';
 import {
   buildConversationIntro,
   type IntroGender,
@@ -49,9 +56,21 @@ import {
 } from '../lib/postExchangeGate.js';
 import { getInvitationQuotaStatus, type Quota } from '../lib/quota.js';
 import { retryBackoffMs } from '../lib/retryBackoff.js';
+import { resolveSessionPrompts } from '../lib/sessionPrompts.js';
 import { TelemetryEvents, track } from '../lib/telemetry.js';
 import { streamCompletion } from '../llm/registry.js';
 import type { LLMMessage, TokenUsage, WebSearchTrace } from '../llm/types.js';
+import {
+  voiceExchangeSchema,
+  voiceStatusEventSchema,
+  voiceTranscribeRequestSchema,
+} from '../voice/contract.js';
+import {
+  geminiTranscriber,
+  type TranscribeContextLine,
+  type Transcriber,
+} from '../voice/transcribe.js';
+import { saveTranscribeDebug, transcribeDebugDir } from '../voice/transcribeDebug.js';
 import { broadcast } from './broadcaster.js';
 import { type HistoryMessage, type ScenarioInfo, send } from './protocol.js';
 
@@ -89,6 +108,11 @@ const EMERGENCY_PARTNER_MODEL = 'claude-haiku-4-5';
 const MAX_STREAM_ATTEMPTS = 2;
 const COACH_TIMEOUT_MS = 12_000;
 const LAPP_SCORE_TIMEOUT_MS = 15_000;
+// Early transcriptions at pauses that are then redone can overlap the final one.
+const MAX_VOICE_TRANSCRIBES_IN_FLIGHT = 4;
+const MAX_VOICE_TRANSCRIPTS_KEPT = 20;
+/** Stored turns given to the transcriber as context. */
+const TRANSCRIBE_CONTEXT_TURNS = 4;
 // LAPP scorer instrument version — stored on every score row for reproducibility/
 // audit. Bump when the prompt, schema, model default, or sampling params change.
 const LAPP_SCORER_VERSION = 'lapp-v2-2026-10-07';
@@ -353,18 +377,29 @@ export class ConversationManager {
   private isProcessing = false;
   private activeAsideController: AbortController | null = null;
   private activeAsideThreadId: string | null = null;
+  private readonly transcriber: Transcriber;
+  /**
+   * Server transcriptions handed out on this connection, by transcriptId.
+   * An exchange naming one is stored with this text, not the client's copy.
+   * Per connection only: after a reconnect the client's text is stored and
+   * marked unverified.
+   */
+  private readonly voiceTranscripts = new Map<string, { text: string; model: string }>();
+  private voiceTranscribesInFlight = 0;
 
   constructor(
     ws: WebSocket,
     db: PrismaClient,
     session: SessionWithScenario,
-    logger: FastifyBaseLogger
+    logger: FastifyBaseLogger,
+    options: { transcriber?: Transcriber } = {}
   ) {
     this.ws = ws;
     this.db = db;
     this.prisma = db;
     this.session = session;
     this.logger = logger;
+    this.transcriber = options.transcriber ?? geminiTranscriber;
   }
 
   /**
@@ -677,6 +712,264 @@ export class ConversationManager {
     }
   }
 
+  /**
+   * A finished spoken exchange reported by the browser voice client (see
+   * voice/contract.ts). The browser has already heard the partner, so there is
+   * nothing to stream: store both turns once, then run the coach and scorer
+   * against the stored record exactly as for a typed turn. A resend of an
+   * exchange already stored is acknowledged and nothing reruns.
+   */
+  async handleVoiceExchange(raw: unknown): Promise<void> {
+    const parsed = voiceExchangeSchema.safeParse(raw);
+    const rawId = (raw as { exchangeId?: unknown } | null)?.exchangeId;
+    if (!parsed.success) {
+      send(this.ws, {
+        type: 'voice:exchange:rejected',
+        exchangeId: typeof rawId === 'string' ? rawId : null,
+        reason: 'invalid',
+        retryable: false,
+      });
+      return;
+    }
+    // A re-transcribed turn is stored with the server's own copy of the text.
+    const serverTranscript = parsed.data.participant.transcriptId
+      ? this.voiceTranscripts.get(parsed.data.participant.transcriptId)
+      : undefined;
+    const exchange = serverTranscript
+      ? {
+          ...parsed.data,
+          participant: { ...parsed.data.participant, transcript: serverTranscript.text },
+        }
+      : parsed.data;
+    const transcriptSource: VoiceTranscriptSource = serverTranscript
+      ? 'server'
+      : exchange.participant.transcriptId
+        ? 'unverified'
+        : 'live';
+    const reject = (reason: 'session_ended' | 'quota_exhausted' | 'storage_failed') =>
+      send(this.ws, {
+        type: 'voice:exchange:rejected',
+        exchangeId: exchange.exchangeId,
+        reason,
+        retryable: reason === 'storage_failed',
+      });
+
+    if (this.session.invitationId && !(await this.checkQuotaAllowed())) {
+      send(this.ws, { type: 'quota:exhausted' });
+      reject('quota_exhausted');
+      return;
+    }
+
+    let stored: StoredVoiceExchange;
+    try {
+      stored = await storeVoiceExchange(String(this.session.id), {
+        ...exchange,
+        transcriptSource,
+        ...(serverTranscript ? { transcriptModel: serverTranscript.model } : {}),
+      });
+    } catch (error) {
+      if (error instanceof SessionEndedError) {
+        reject('session_ended');
+        return;
+      }
+      this.logger.error(
+        {
+          sessionId: this.session.id,
+          exchangeId: exchange.exchangeId,
+          errorMsg: errorMessage(error),
+        },
+        '[voice] Failed to store exchange'
+      );
+      Sentry.captureException(error, { extra: { sessionId: this.session.id } });
+      reject('storage_failed');
+      return;
+    }
+
+    send(this.ws, {
+      type: 'voice:exchange:ack',
+      exchangeId: exchange.exchangeId,
+      userMessageId: stored.userMessageId,
+      partnerMessageId: stored.partnerMessageId,
+      duplicate: stored.duplicate,
+    });
+    if (stored.duplicate) return;
+
+    const base = {
+      sessionId: this.session.id,
+      messageType: 'main',
+      asideThreadId: null,
+      audioUrl: null,
+    };
+    const userMsg = {
+      ...base,
+      id: stored.userMessageId,
+      role: 'user',
+      content: exchange.participant.transcript,
+      timestamp: stored.userTimestamp,
+    } as unknown as Message;
+    const partnerMsg = {
+      ...base,
+      id: stored.partnerMessageId,
+      role: 'partner',
+      content: exchange.partner.deliveredText,
+      timestamp: stored.partnerTimestamp,
+    } as unknown as Message;
+    this.session.messages.push(userMsg, partnerMsg);
+
+    const turnNumber = this.countParticipantTurns();
+    await track(
+      this.prisma,
+      TelemetryEvents.MESSAGE_SENT,
+      {
+        length: exchange.participant.transcript.length,
+        turnNumber,
+        modality: 'voice',
+        partnerInterrupted: exchange.partner.interrupted,
+      },
+      { userId: this.session.userId ?? undefined, sessionId: this.session.id }
+    );
+    broadcast(this.session.id, {
+      type: 'history',
+      messages: [userMsg, partnerMsg].map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'partner',
+        content: m.content,
+        timestamp: toIsoString(m.timestamp),
+      })),
+    });
+
+    const partnerOpens = this.session.studyPartnerOpens === true;
+    if (shouldRunPostExchangeJobs({ partnerOpens, participantTurnCount: turnNumber })) {
+      // Same inputs as a typed turn. The partner turn answered is the
+      // previous exchange's delivered text, i.e. what the participant heard.
+      void this.runPostExchangeJobs({
+        userMessageId: userMsg.id,
+        userMessage: userMsg.content,
+        turnNumber,
+        partnerTurnAnswered: precedingPartnerTurn(this.session.messages, userMsg.id),
+        earlier: turnsBeforeExchange(this.session.messages, userMsg.id),
+      });
+    }
+  }
+
+  /**
+   * Transcribe one participant turn's audio with a text model, which hears
+   * far more accurately than Gemini Live's own input transcription. The audio
+   * is passed through and not kept. Any failure answers voice:transcript:failed
+   * and the client keeps the Live transcript.
+   */
+  async handleVoiceTranscribe(raw: unknown): Promise<void> {
+    const parsed = voiceTranscribeRequestSchema.safeParse(raw);
+    const rawId = (raw as { requestId?: unknown } | null)?.requestId;
+    if (!parsed.success) {
+      if (typeof rawId === 'string') {
+        send(this.ws, { type: 'voice:transcript:failed', requestId: rawId });
+      }
+      return;
+    }
+    const { requestId, audio, context } = parsed.data;
+    const failed = () => send(this.ws, { type: 'voice:transcript:failed', requestId });
+    // One participant turn at a time is the normal case; this only stops a
+    // runaway client from fanning out paid calls.
+    if (this.voiceTranscribesInFlight >= MAX_VOICE_TRANSCRIBES_IN_FLIGHT) {
+      failed();
+      return;
+    }
+
+    this.voiceTranscribesInFlight++;
+    const startMs = Date.now();
+    const pcm = Buffer.from(audio, 'base64');
+    const prompt = {
+      context: this.transcribeContext(context?.previous),
+      ...(context?.hint ? { hint: context.hint } : {}),
+    };
+    const debugDir = transcribeDebugDir();
+    const debug = (outcome: Record<string, unknown>) => {
+      if (!debugDir) return;
+      saveTranscribeDebug(debugDir, requestId, pcm, {
+        ...prompt,
+        ...outcome,
+        durationMs: Date.now() - startMs,
+      }).catch((error) =>
+        this.logger.warn({ errorMsg: errorMessage(error) }, '[voice] debug save failed')
+      );
+    };
+    let transcribed: { text: string; model: string };
+    try {
+      transcribed = await this.transcriber(pcm, prompt);
+    } catch (error) {
+      this.logger.warn(
+        { sessionId: this.session.id, errorMsg: errorMessage(error) },
+        '[voice] transcription failed'
+      );
+      debug({ error: errorMessage(error) });
+      failed();
+      return;
+    } finally {
+      this.voiceTranscribesInFlight--;
+    }
+    debug(transcribed);
+    const { text, model } = transcribed;
+    if (!text) {
+      failed();
+      return;
+    }
+
+    const transcriptId = randomUUID();
+    this.voiceTranscripts.set(transcriptId, transcribed);
+    // Bounded: an id is only needed until its exchange arrives.
+    if (this.voiceTranscripts.size > MAX_VOICE_TRANSCRIPTS_KEPT) {
+      const oldest = this.voiceTranscripts.keys().next().value;
+      if (oldest !== undefined) this.voiceTranscripts.delete(oldest);
+    }
+    this.logger.info(
+      { sessionId: this.session.id, durationMs: Date.now() - startMs, chars: text.length, model },
+      '[voice] turn transcribed'
+    );
+    send(this.ws, { type: 'voice:transcript', requestId, transcriptId, text });
+  }
+
+  /**
+   * The last few stored turns, then the client's exchange just before this
+   * one if it is not stored yet (it may still be waiting on its own
+   * transcription). Context for the transcriber only.
+   */
+  private transcribeContext(previous?: {
+    participant: string;
+    partner: string;
+  }): TranscribeContextLine[] {
+    const lines: TranscribeContextLine[] = this.session.messages
+      .filter(
+        (m) =>
+          (m.role === 'user' || m.role === 'partner') &&
+          m.messageType !== 'aside' &&
+          m.content.trim()
+      )
+      .slice(-TRANSCRIBE_CONTEXT_TURNS)
+      .map((m) => ({
+        speaker: m.role === 'user' ? 'Participant' : 'Partner',
+        text: m.content.trim().slice(0, 500),
+      }));
+    const stored = new Set(lines.map((l) => `${l.speaker}:${l.text}`));
+    if (previous) {
+      for (const line of [
+        { speaker: 'Participant', text: previous.participant.trim() },
+        { speaker: 'Partner', text: previous.partner.trim() },
+      ] as TranscribeContextLine[]) {
+        if (line.text && !stored.has(`${line.speaker}:${line.text}`)) lines.push(line);
+      }
+    }
+    return lines;
+  }
+
+  /** Operational voice events, for monitoring only. Carries no transcript text. */
+  handleVoiceStatus(raw: unknown): void {
+    const parsed = voiceStatusEventSchema.safeParse(raw);
+    if (!parsed.success) return;
+    // Logged rather than tracked: track() is a no-op in this deployment.
+    this.logger.info({ sessionId: this.session.id, voice: parsed.data }, '[voice] status');
+  }
+
   private logTiming(
     lane: 'partner' | 'coach' | 'lapp',
     startMs: number,
@@ -771,28 +1064,13 @@ export class ConversationManager {
     messageId: string | number;
     usage: TokenUsage;
   } | null> {
-    const scenario = this.session.scenario;
-
-    let modelString: string;
-    let systemPrompt: string;
-
     // For a custom or study session (no scenario) the live resolution is the
     // plain default, exactly as the old `role === 'partner' ? DEFAULT_PARTNER_MODEL
     // : DEFAULT_COACH_MODEL` was: resolving a default against itself is a no-op.
     const models = this.sessionModels();
-    if (scenario) {
-      modelString = role === 'partner' ? models.partner : models.coach;
-      systemPrompt =
-        role === 'partner'
-          ? (scenario.partnerSystemPrompt ?? scenario.description)
-          : (scenario.coachSystemPrompt ?? scenario.description);
-    } else if (this.session.customPartnerPrompt && this.session.customCoachPrompt) {
-      modelString = role === 'partner' ? models.partner : models.coach;
-      systemPrompt =
-        role === 'partner' ? this.session.customPartnerPrompt : this.session.customCoachPrompt;
-    } else {
-      throw new Error('Session has neither scenario nor custom prompts');
-    }
+    const prompts = resolveSessionPrompts(this.session);
+    const modelString = role === 'partner' ? models.partner : models.coach;
+    let systemPrompt = role === 'partner' ? prompts.partner : prompts.coach;
 
     if (role === 'partner') {
       systemPrompt = buildPartnerSystemPrompt(systemPrompt);
