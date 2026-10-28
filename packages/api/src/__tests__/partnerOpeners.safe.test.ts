@@ -4,6 +4,7 @@ import { GENERIC_OPENER, getPartnerOpener } from '../lib/partnerOpeners.js';
 
 const IDEOLOGIES = ['left', 'right'] as const;
 const TOPICS = Object.keys(TOPIC_PHRASES);
+const GREETING = "Hi, how's your day going?";
 
 /**
  * The opener is the stimulus in the partner-opens arm: every participant on a
@@ -23,6 +24,12 @@ describe('getPartnerOpener', () => {
       expect(opener).not.toBe(GENERIC_OPENER);
     }
     expect(new Set(openers).size).toBe(TOPICS.length);
+  });
+
+  it.each(IDEOLOGIES)('frames every topic opener the same way (%s)', (ideology) => {
+    for (const topic of TOPICS) {
+      expect(getPartnerOpener(topic, ideology)).toContain("I've been thinking quite a bit about");
+    }
   });
 
   it('gives the two ideologies different openers on the same topic', () => {
@@ -59,18 +66,22 @@ describe('opener copy rules', () => {
     // messages never contain them, so the opener must not either.
     expect(opener).not.toMatch(/[—–]/);
 
-    // One sentence stating the partner's position. The invitation to respond
-    // is the intro card's closing question ("How do you respond?"), so the
-    // opener neither asks a question nor needs to. A colon or comma inside the
-    // sentence is fine; a sentence terminator anywhere but the end is not.
+    // Every opener starts the same friendly way, so the greeting cannot vary
+    // with topic or ideology (Hanna, 28 Oct 2026).
     const text = opener.trim();
-    expect(text, `opener does not end a sentence: ${opener}`).toMatch(/[.!?]$/);
-    expect(text.slice(0, -1), `opener is more than one sentence: ${opener}`).not.toMatch(/[.!?]/);
+    expect(
+      text.startsWith(GREETING),
+      `opener does not start with the shared greeting: ${opener}`
+    ).toBe(true);
 
-    // Long enough to be a real position, short enough to sit comfortably next
-    // to the short replies the partner gives for the rest of the conversation.
+    // The invitation to respond is the intro card's closing question ("How do
+    // you respond?"), so the opener ends on the partner's position, not on a
+    // question to the participant.
+    expect(text, `opener does not end on a statement: ${opener}`).toMatch(/\.$/);
+
+    // Greeting plus one or two short sentences: friendly, not a speech.
     const words = text.split(/\s+/).filter(Boolean).length;
-    expect(words).toBeGreaterThanOrEqual(8);
-    expect(words).toBeLessThanOrEqual(16);
+    expect(words).toBeGreaterThanOrEqual(15);
+    expect(words).toBeLessThanOrEqual(40);
   });
 });

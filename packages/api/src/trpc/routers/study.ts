@@ -186,7 +186,7 @@ export function buildStudyPrompt(
   // persisted as the first message (lib/partnerOpeners.ts), so telling the
   // model to open would make it open a second time.
   const openingInstruction = partnerOpens
-    ? 'You have already opened the conversation with a short statement of your view; it appears as your first message. Respond to what the participant says next. Do not restate your opening or introduce the topic again. Keep your first reply SHORT, one or two sentences.'
+    ? 'You have already opened the conversation with a greeting and a short statement of your view; it appears as your first message. Respond to what the participant says next. If they answer your greeting, acknowledge it briefly and naturally. Do not restate your opening or introduce the topic again. Keep your first reply SHORT, one or two sentences.'
     : `Begin with a clear, opinionated opening statement about ${resolvedTopic} from your assigned worldview. Keep your first reply SHORT — one or two sentences. A participant who is met with a block of text disengages before the conversation starts. Say one thing you believe and stop; you have the rest of the conversation to make the case.`;
 
   return `${basePrompt.trim()}
