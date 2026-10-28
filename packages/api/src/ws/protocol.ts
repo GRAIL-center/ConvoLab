@@ -1,13 +1,4 @@
 import type { TokenUsage } from '../llm/types.js';
-import type {
-  VoiceExchangeAckServerMessage,
-  VoiceExchangeClientMessage,
-  VoiceExchangeRejectedServerMessage,
-  VoiceStatusClientMessage,
-  VoiceTranscribeClientMessage,
-  VoiceTranscriptFailedServerMessage,
-  VoiceTranscriptServerMessage,
-} from '../voice/contract.js';
 
 export type EntityId = string | number;
 
@@ -41,11 +32,7 @@ export type ServerMessage =
       turnNumber: number;
       scores: { l: number; a: number; p: number; pe: number };
       tone: 'constructive' | 'warm' | 'neutral' | 'tense';
-    }
-  | VoiceExchangeAckServerMessage
-  | VoiceExchangeRejectedServerMessage
-  | VoiceTranscriptServerMessage
-  | VoiceTranscriptFailedServerMessage;
+    };
 
 // Client -> Server messages
 export type ClientMessage =
@@ -53,10 +40,7 @@ export type ClientMessage =
   | { type: 'ping' }
   | { type: 'resume'; afterMessageId?: EntityId }
   | { type: 'aside:start'; content: string; threadId: string }
-  | { type: 'aside:cancel'; threadId: string }
-  | VoiceExchangeClientMessage
-  | VoiceStatusClientMessage
-  | VoiceTranscribeClientMessage;
+  | { type: 'aside:cancel'; threadId: string };
 
 export interface ScenarioInfo {
   id: EntityId;

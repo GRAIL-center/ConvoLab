@@ -8,8 +8,6 @@ export default defineConfig({
       'src/__tests__/firestoreProductionGuard.test.ts',
       'src/data/atomic.test.ts',
       'src/ws/conversation.atomic.test.ts',
-      'src/data/voiceExchanges.atomic.test.ts',
-      'src/ws/conversation.voice.atomic.test.ts',
     ],
   },
 });
