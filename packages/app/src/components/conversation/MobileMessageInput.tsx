@@ -1,13 +1,10 @@
 import { type FormEvent, type KeyboardEvent, useState } from 'react';
-import { VoiceStartButton } from '../../voice/VoicePanel';
 
 interface MobileMessageInputProps {
   onSendPartner: (content: string) => void;
   partnerName: string;
   disabled: boolean;
   onInputChange?: (value: string) => void;
-  /** Shown as a mic button when voice mode is available. */
-  onStartVoice?: () => void;
 }
 
 /**
@@ -24,7 +21,6 @@ export function MobileMessageInput({
   partnerName,
   disabled,
   onInputChange,
-  onStartVoice,
 }: MobileMessageInputProps) {
   const [content, setContent] = useState('');
 
@@ -59,7 +55,6 @@ export function MobileMessageInput({
           className="min-h-[48px] flex-1 resize-none rounded-3xl border border-[#d8d3c8] bg-[#f6f4ee] px-5 py-3 text-base text-[#24221d] outline-none placeholder:text-[#8c877d] focus:border-[#b9b3a6] disabled:opacity-50 dark:border-[#34312c] dark:bg-[#1b1a17] dark:text-[#efece4] dark:placeholder:text-[#77736b]"
         />
 
-        {onStartVoice && <VoiceStartButton onClick={onStartVoice} disabled={disabled} size="lg" />}
         <button
           type="submit"
           disabled={disabled || !content.trim()}

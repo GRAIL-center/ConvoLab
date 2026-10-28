@@ -36,17 +36,6 @@ const TONE_LABEL_STYLE: Record<
   },
 };
 
-/** Shown while a turn is still being written, spoken or transcribed. */
-function TypingDots() {
-  return (
-    <div className="flex gap-1 items-center h-6">
-      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:0ms]" />
-      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:150ms]" />
-      <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:300ms]" />
-    </div>
-  );
-}
-
 interface MessageBubbleProps {
   message: Message;
   partnerName?: string;
@@ -78,11 +67,7 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
                         text-[#1A1A1A] dark:text-[#EBEBEB]
                         border ${borderClass}`}
           >
-            {message.isStreaming && !message.content ? (
-              <TypingDots />
-            ) : (
-              <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
-            )}
+            <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
           </div>
         </div>
       </div>
@@ -128,7 +113,11 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
                           text-[#1A1A1A] dark:text-[#EBEBEB]"
           >
             {message.isStreaming && !message.content ? (
-              <TypingDots />
+              <div className="flex gap-1 items-center h-6">
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:300ms]" />
+              </div>
             ) : (
               <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <Markdown>{message.content}</Markdown>
@@ -188,7 +177,11 @@ export function MessageBubble({ message, partnerName, tone }: MessageBubbleProps
                           text-[#1A1A1A] dark:text-[#D4D4D4]"
           >
             {message.isStreaming && !message.content ? (
-              <TypingDots />
+              <div className="flex gap-1 items-center h-6">
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-current opacity-60 animate-bounce [animation-delay:300ms]" />
+              </div>
             ) : (
               <div className="text-base leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-[#1A1A1A] dark:[&_strong]:text-[#EBEBEB]">
                 <Markdown>{message.content}</Markdown>

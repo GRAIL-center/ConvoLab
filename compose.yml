@@ -57,10 +57,6 @@ services:
       # out coaching and LAPP scoring while the conversation still looks fine.
       COACH_MODEL: ${COACH_MODEL:-}
       LAPP_SCORER_MODEL: ${LAPP_SCORER_MODEL:-}
-      # Voice transcription: comma-separated models, and an opt-in directory
-      # (inside the container) to save each clip and its result for debugging.
-      VOICE_TRANSCRIBE_MODEL: ${VOICE_TRANSCRIBE_MODEL:-}
-      VOICE_TRANSCRIBE_DEBUG_DIR: ${VOICE_TRANSCRIBE_DEBUG_DIR:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       # Blank skips server-side reCAPTCHA in dev; set it to verify through the
       # Enterprise API with the ADC mounted below (see docs/recaptcha-setup.md).

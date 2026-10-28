@@ -1,8 +1,8 @@
+import { db as prisma } from '../db/firestoreHelpers.js';
+import { resolveWsUserId } from '../auth/resolveUser.js';
+import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { resolveWsUserId } from '../auth/resolveUser.js';
-import { getMessagesForSession, getSession } from '../data/index.js';
-import { db as prisma } from '../db/firestoreHelpers.js';
 import { ConversationManager } from './conversation.js';
 import { ObserverManager, verifyObserverAccess } from './observer.js';
 import { parseClientMessage, send } from './protocol.js';
@@ -42,6 +42,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       if (!(session as any).messages) {
         (session as any).messages = await getMessagesForSession(sessionIdStr);
       }
+
 
       // Auth check: must have valid session cookie and session must belong to that user
       if (!userId || session.userId !== userId) {
@@ -155,21 +156,6 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
             if (message.threadId) {
               manager.handleAsideCancel(message.threadId);
             }
-            break;
-
-          case 'voice:exchange':
-            // Validated inside: the payload is client-asserted.
-            await manager.handleVoiceExchange(message.exchange);
-            break;
-
-          case 'voice:status':
-            manager.handleVoiceStatus(message.event);
-            break;
-
-          case 'voice:transcribe':
-            // Not awaited: transcription runs while the partner is talking,
-            // and must not hold up the exchange that follows it.
-            void manager.handleVoiceTranscribe(message);
             break;
 
           default:

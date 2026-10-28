@@ -1,8 +1,3 @@
-import type {
-	VoiceExchange,
-	VoiceStatusEvent,
-	VoiceTranscribeContext,
-} from "@workspace/api/src/voice/contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { wsUrl } from "../lib/apiUrl";
 import { wsProtocols } from "../lib/authToken";
@@ -126,42 +121,14 @@ type ServerMessage =
 	| { type: "aside:error"; threadId: string; error: string }
 	| { type: "error"; code: string; message: string; recoverable: boolean }
 	| { type: "quota:warning"; remaining: number; total: number }
-	| { type: "quota:exhausted" }
-	| {
-			type: "voice:exchange:ack";
-			exchangeId: string;
-			userMessageId: string;
-			partnerMessageId: string;
-			duplicate: boolean;
-	  }
-	| {
-			type: "voice:transcript";
-			requestId: string;
-			transcriptId: string;
-			text: string;
-	  }
-	| { type: "voice:transcript:failed"; requestId: string }
-	| {
-			type: "voice:exchange:rejected";
-			exchangeId: string | null;
-			reason: "invalid" | "session_ended" | "quota_exhausted" | "storage_failed";
-			retryable: boolean;
-	  };
+	| { type: "quota:exhausted" };
 
 type ClientMessage =
 	| { type: "message"; content: string }
 	| { type: "ping" }
 	| { type: "resume"; afterMessageId?: EntityId }
 	| { type: "aside:start"; content: string; threadId: string }
-	| { type: "aside:cancel"; threadId: string }
-	| { type: "voice:exchange"; exchange: VoiceExchange }
-	| { type: "voice:status"; event: VoiceStatusEvent }
-	| {
-			type: "voice:transcribe";
-			requestId: string;
-			audio: string;
-			context: VoiceTranscribeContext;
-	  };
+	| { type: "aside:cancel"; threadId: string };
 
 export type ConnectionStatus =
 	| "connecting"
@@ -206,23 +173,9 @@ interface UseConversationSocketResult {
 	// Aside actions
 	startAside: (question: string) => string;
 	cancelAside: () => void;
-	// Voice mode
-	/** Queue a finished spoken exchange; resent until the server acknowledges it. */
-	sendVoiceExchange: (exchange: VoiceExchange) => void;
-	sendVoiceStatus: (event: VoiceStatusEvent) => void;
-	/** Server transcription of one spoken turn's audio; null on failure or timeout. */
-	transcribeVoiceTurn: (
-		audio: string,
-		context: VoiceTranscribeContext,
-	) => Promise<{ transcriptId: string; text: string } | null>;
-	/** Set when a spoken exchange could not be saved and will not be retried. */
-	voiceSaveError: string | null;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 5;
-const VOICE_RETRY_DELAY_MS = 2000;
-const MAX_VOICE_SEND_ATTEMPTS = 5;
-const VOICE_TRANSCRIBE_TIMEOUT_MS = 15_000;
 const PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 function estimateProvisionalTone(content: string): LappScore["tone"] {
@@ -266,32 +219,6 @@ function pendingPartnerBubble(): Message {
 	};
 }
 
-/** Placeholder ids for a spoken exchange shown before the server stores it. */
-function voiceDraftIds(exchangeId: string) {
-	return { user: `voice-${exchangeId}-user`, partner: `voice-${exchangeId}-partner` };
-}
-
-function voiceDraftMessages(exchange: VoiceExchange): Message[] {
-	const ids = voiceDraftIds(exchange.exchangeId);
-	const user: Message = {
-		id: ids.user,
-		role: "user",
-		content: exchange.participant.transcript,
-		timestamp: exchange.participant.endedAt,
-		messageType: "main",
-		clientTone: estimateProvisionalTone(exchange.participant.transcript),
-		isOptimistic: true,
-	};
-	const partner: Message = {
-		id: ids.partner,
-		role: "partner",
-		content: exchange.partner.deliveredText,
-		timestamp: exchange.partner.endedAt,
-		messageType: "main",
-	};
-	return [user, partner];
-}
-
 export function useConversationSocket(
 	sessionId: string,
 ): UseConversationSocketResult {
@@ -316,13 +243,6 @@ export function useConversationSocket(
 		null,
 	);
 	const [asideError, setAsideError] = useState<AsideError | null>(null);
-	const [voiceSaveError, setVoiceSaveError] = useState<string | null>(null);
-
-	// Spoken exchanges not yet acknowledged, keyed by exchangeId. They are
-	// resent on reconnect; the server stores each exchangeId once.
-	const pendingVoiceRef = useRef(
-		new Map<string, { exchange: VoiceExchange; attempts: number }>(),
-	);
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectAttemptsRef = useRef(0);
@@ -424,50 +344,6 @@ export function useConversationSocket(
 		[send],
 	);
 
-	const sendVoiceExchange = useCallback(
-		(exchange: VoiceExchange) => {
-			pendingVoiceRef.current.set(exchange.exchangeId, {
-				exchange,
-				attempts: 1,
-			});
-			// Shown straight away, as typed turns are; the ack swaps in the stored ids.
-			setMessages((prev) => [...prev, ...voiceDraftMessages(exchange)]);
-			// If the socket is down, the onopen handler sends it.
-			send({ type: "voice:exchange", exchange });
-		},
-		[send],
-	);
-
-	const pendingTranscribeRef = useRef(
-		new Map<
-			string,
-			(result: { transcriptId: string; text: string } | null) => void
-		>(),
-	);
-
-	const transcribeVoiceTurn = useCallback(
-		(audio: string, context: VoiceTranscribeContext) =>
-			new Promise<{ transcriptId: string; text: string } | null>((resolve) => {
-				const requestId = crypto.randomUUID();
-				if (!send({ type: "voice:transcribe", requestId, audio, context })) {
-					resolve(null);
-					return;
-				}
-				pendingTranscribeRef.current.set(requestId, resolve);
-				setTimeout(() => {
-					if (pendingTranscribeRef.current.delete(requestId)) resolve(null);
-				}, VOICE_TRANSCRIBE_TIMEOUT_MS);
-			}),
-		[send],
-	);
-
-	const sendVoiceStatus = useCallback(
-		(event: VoiceStatusEvent) => {
-			send({ type: "voice:status", event });
-		},
-		[send],
-	);
-
 	const cancelAside = useCallback(() => {
 		const threadId = activeAsideThreadIdRef.current;
 		if (threadId) {
@@ -509,10 +385,6 @@ export function useConversationSocket(
 				// If reconnecting, request messages since last known
 				if (lastMessageIdRef.current !== null) {
 					send({ type: "resume", afterMessageId: lastMessageIdRef.current });
-				}
-
-				for (const { exchange } of pendingVoiceRef.current.values()) {
-					send({ type: "voice:exchange", exchange });
 				}
 
 				// Start ping interval
@@ -979,96 +851,6 @@ export function useConversationSocket(
 						});
 						break;
 
-					case "voice:exchange:ack": {
-						const pending = pendingVoiceRef.current.get(msg.exchangeId);
-						pendingVoiceRef.current.delete(msg.exchangeId);
-						if (!pending) break;
-						const { exchange } = pending;
-						// The drafts become the stored turns, under the ids the coach
-						// and scores use. A reconnect may have replayed the stored
-						// copies already; then the drafts just go.
-						const drafts = voiceDraftIds(exchange.exchangeId);
-						setMessages((prev) => {
-							const known = new Set(prev.map((m) => String(m.id)));
-							const [userDraft, partnerDraft] = voiceDraftMessages(exchange);
-							const stored: Record<string, Message | null> = {
-								[drafts.user]: known.has(msg.userMessageId)
-									? null
-									: { ...userDraft, id: msg.userMessageId, isOptimistic: false },
-								[drafts.partner]: known.has(msg.partnerMessageId)
-									? null
-									: { ...partnerDraft, id: msg.partnerMessageId },
-							};
-							const next: Message[] = [];
-							let replaced = 0;
-							for (const m of prev) {
-								const key = String(m.id);
-								if (key in stored) {
-									replaced++;
-									const swap = stored[key];
-									if (swap) next.push(swap);
-								} else {
-									next.push(m);
-								}
-							}
-							// A replayed history can drop the drafts before the ack lands.
-							if (replaced === 0) {
-								for (const swap of Object.values(stored)) if (swap) next.push(swap);
-							}
-							return next;
-						});
-						lastMessageIdRef.current = msg.partnerMessageId;
-						break;
-					}
-
-					case "voice:transcript":
-					case "voice:transcript:failed": {
-						const resolve = pendingTranscribeRef.current.get(msg.requestId);
-						pendingTranscribeRef.current.delete(msg.requestId);
-						resolve?.(
-							msg.type === "voice:transcript"
-								? { transcriptId: msg.transcriptId, text: msg.text }
-								: null,
-						);
-						break;
-					}
-
-					case "voice:exchange:rejected": {
-						const id = msg.exchangeId;
-						const pending = id ? pendingVoiceRef.current.get(id) : undefined;
-						if (
-							id &&
-							pending &&
-							msg.retryable &&
-							pending.attempts < MAX_VOICE_SEND_ATTEMPTS
-						) {
-							pending.attempts++;
-							setTimeout(() => {
-								if (pendingVoiceRef.current.has(id)) {
-									send({ type: "voice:exchange", exchange: pending.exchange });
-								}
-							}, VOICE_RETRY_DELAY_MS * pending.attempts);
-							break;
-						}
-						if (id) {
-							pendingVoiceRef.current.delete(id);
-							// Not saved, so it must not look as though it was.
-							const drafts = voiceDraftIds(id);
-							setMessages((prev) =>
-								prev.filter(
-									(m) => m.id !== drafts.user && m.id !== drafts.partner,
-								),
-							);
-						}
-						if (msg.reason === "quota_exhausted") break; // quota:exhausted covers it
-						setVoiceSaveError(
-							msg.reason === "session_ended"
-								? "This conversation has ended, so that last exchange was not saved."
-								: "That last spoken exchange could not be saved.",
-						);
-						break;
-					}
-
 					case "quota:warning":
 						setQuota({
 							remaining: msg.remaining,
@@ -1137,10 +919,5 @@ export function useConversationSocket(
 		// Aside actions
 		startAside,
 		cancelAside,
-		// Voice mode
-		sendVoiceExchange,
-		sendVoiceStatus,
-		transcribeVoiceTurn,
-		voiceSaveError,
 	};
 }
