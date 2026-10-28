@@ -37,8 +37,8 @@ describe('placeholderCopy', () => {
     expect(placeholderCopy.contactEmail.endsWith('@fas.harvard.edu')).toBe(true);
   });
 
-  it('lists ten team members with initials, name and role', () => {
-    expect(placeholderCopy.team).toHaveLength(10);
+  it('lists nine team members with initials, name and role', () => {
+    expect(placeholderCopy.team).toHaveLength(9);
     for (const member of placeholderCopy.team) {
       expect(member.initials).toMatch(/^[A-Z]{2}$/);
       expect(member.name.trim()).not.toBe('');
