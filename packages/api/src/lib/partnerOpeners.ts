@@ -11,11 +11,13 @@ import type { IntroIdeology } from './conversationIntro.js';
  * to whatever the model happened to produce. Do not edit these strings to fix
  * style: the wording is the instrument.
  *
- * Each opener is one spoken-length sentence (10 to 15 words) stating the
- * partner's position: the length of a sentence said aloud, not written prose.
- * It does not ask the participant anything: the invitation to respond is the
- * intro card's closing question ("How do you respond?"), not part of the
- * opener.
+ * Each opener sounds like someone starting a conversation rather than
+ * delivering a position (Hanna, 28 Oct 2026): a greeting, a line saying what
+ * the partner has been thinking about, then the partner's position in one
+ * sentence. Every opener uses the same greeting and the same frame, so the
+ * topic and the partner's ideology are the only things that differ. The
+ * invitation to respond is still the intro card's closing question ("How do
+ * you respond?"), so the opener ends on the position, not on a question.
  *
  * Keyed by the canonical study topic labels (the keys of TOPIC_PHRASES in
  * conversationIntro.ts, which are the seven presets in STUDY_TOPICS) crossed
@@ -24,24 +26,34 @@ import type { IntroIdeology } from './conversationIntro.js';
  */
 const OPENERS: Record<IntroIdeology, Record<string, string>> = {
   right: {
-    Immigration: "If we don't enforce our immigration laws, citizenship stops meaning anything.",
-    'Freedom of speech': 'Calling an opinion hate speech is just a way to shut people up.',
-    Guns: 'I own guns to protect my family, so bans are a hard no for me.',
-    Housing: "I'm in construction, and permits and red tape are why houses cost so much.",
-    Environment: 'I want clean air, not climate rules from people who never pay the bill.',
-    Taxes: 'I run a small business, and government should cut spending before asking me for more.',
-    Healthcare: "Healthcare costs too much, but handing it all to Washington won't fix that.",
+    Immigration:
+      "Hi, how's your day going? I've been thinking quite a bit about immigration lately. I really feel like if we don't enforce our immigration laws, citizenship stops meaning anything.",
+    'Freedom of speech':
+      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I really feel like calling an opinion hate speech is just a way to shut people up.",
+    Guns: "Hi, how's your day going? I've been thinking quite a bit about guns lately. I own guns to protect my family, so bans are a hard no for me.",
+    Housing:
+      "Hi, how's your day going? I've been thinking quite a bit about housing lately. I'm in construction, and I really feel like permits and red tape are why houses cost so much.",
+    Environment:
+      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. I want clean air, but not climate rules from people who never pay the bill.",
+    Taxes:
+      "Hi, how's your day going? I've been thinking quite a bit about taxes lately. I run a small business, and I really feel like government should cut spending before asking me for more.",
+    Healthcare:
+      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. It costs too much, but I really don't think handing it all to Washington will fix that.",
   },
   left: {
     Immigration:
-      "I've organized workers for years, and immigrants were never why wages stayed flat.",
+      "Hi, how's your day going? I've been thinking quite a bit about immigration lately. I've organized workers for years, and immigrants were never why wages stayed flat.",
     'Freedom of speech':
-      'Free speech is about protecting ordinary people from the powerful, not the other way around.',
-    Guns: 'Gun violence is a safety problem, so background checks are the bare minimum.',
-    Housing: "A home shouldn't be treated like a stock, so renters need real protections.",
-    Environment: 'Climate change needs real action, and towns like mine need a real plan too.',
-    Taxes: 'Billionaires and big corporations should pay a lot more in taxes than they do.',
-    Healthcare: "I did home health care for years, and nobody's care should depend on their job.",
+      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I really feel like it's about protecting ordinary people from the powerful, not the other way around.",
+    Guns: "Hi, how's your day going? I've been thinking quite a bit about guns lately. To me gun violence is a safety problem, so background checks are the bare minimum.",
+    Housing:
+      "Hi, how's your day going? I've been thinking quite a bit about housing lately. A home shouldn't be treated like a stock, and I really feel like renters need real protections.",
+    Environment:
+      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. Climate change needs real action, and towns like mine need a real plan too.",
+    Taxes:
+      "Hi, how's your day going? I've been thinking quite a bit about billionaires and big corporations lately. I really feel like they should pay a lot more in taxes than they do.",
+    Healthcare:
+      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. I did home health care for years, and I really feel like nobody's care should depend on their job.",
   },
 };
 
@@ -51,7 +63,7 @@ const OPENERS: Record<IntroIdeology, Record<string, string>> = {
  * issue, which is the one thing that is true in every own-topic session.
  */
 export const GENERIC_OPENER =
-  "I probably see this differently than you, but I'd rather hear your side first.";
+  "Hi, how's your day going? I think we probably see this one differently, but I'd love to hear your side first.";
 
 /** The partner's fixed first message for this topic and ideology. */
 export function getPartnerOpener(topic: string, ideology: IntroIdeology): string {

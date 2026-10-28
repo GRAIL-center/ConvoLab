@@ -20,6 +20,30 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-10-28: partner openers start with a greeting (not yet live)
+
+- **Why.** Hanna, 28 Oct: the one-sentence openers of 1 Oct felt abrupt, a
+  stranger stating a political position with no hello.
+- **What changed.** All 14 topic openers and the generic own-topic opener
+  (`packages/api/src/lib/partnerOpeners.ts`) now read: "Hi, how's your day
+  going? I've been thinking quite a bit about [topic] lately." followed by
+  the partner's position, which is unchanged in substance from the 1 Oct
+  text. Every opener shares the greeting and frame, so topic and partner
+  ideology remain the only differences; both arms on a given topic and
+  ideology see identical text. Openers are 21 to 33 words (were 11 to 15).
+  The intro card's "How do you respond?" is unchanged.
+- **Partner first-turn instruction.** In the partner-opens variant the
+  study prompt now says the opening included a greeting and that, if the
+  participant answers it, the partner should acknowledge it briefly and
+  naturally (`buildStudyPrompt` in `trpc/routers/study.ts`).
+- **Scoring note.** A participant may spend part of turn 1 answering the
+  greeting. Turn 1 is scored for Listen and Acknowledge in this variant.
+- **Sessions affected.** Partner-opens sessions created by a revision that
+  includes this change (the opener and the study prompt are stamped at
+  session creation). Participant-first sessions are unaffected.
+
+---
+
 ## 2026-10-15: partner must verify volunteered current events (runtime prompt line)
 
 - **Why.** With search offered but model-decided, the partner volunteered

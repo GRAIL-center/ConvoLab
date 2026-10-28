@@ -17,7 +17,10 @@ describe('buildStudyPrompt', () => {
 
   it('tells the partner it has already opened, in the partner-opens variant', () => {
     const prompt = buildStudyPrompt(BASE, 'Immigration', undefined, true);
-    expect(prompt).toContain('You have already opened the conversation with a short statement');
+    expect(prompt).toContain(
+      'You have already opened the conversation with a greeting and a short statement'
+    );
+    expect(prompt).toContain('If they answer your greeting, acknowledge it briefly and naturally.');
     expect(prompt).toContain('Do not restate your opening or introduce the topic again.');
     expect(prompt).not.toContain('Begin with a clear, opinionated opening statement');
   });
