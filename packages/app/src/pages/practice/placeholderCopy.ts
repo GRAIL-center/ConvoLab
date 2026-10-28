@@ -124,14 +124,6 @@ export const placeholderCopy = {
       bio: "Daniel Schiff is an Associate Professor of Technology Policy in Purdue University's Department of Political Science and founding Co-Director of GRAIL, the Governance and Responsible AI Lab. His research examines how AI is governed, from public policy to industry practice, and its effects on education, work and misinformation. Before academia, he was JP Morgan Chase's founding Responsible AI Lead.",
     },
     {
-      initials: 'AL',
-      name: 'Andrew Le Blanc',
-      role: 'Developer',
-      photo: '/team/andrew-le-blanc.jpg',
-      // Andrew's own wording, 6 Oct 2026; his two profiles are linked in place.
-      bio: 'Andrew Le Blanc is a junior at Harvard College studying Computer Science. He enjoys building and researching technology at the intersection of artificial intelligence, software, and social impact. You can find his work at [github.com/andrewleblanc1](https://www.github.com/andrewleblanc1) and [linkedin.com/in/andrewleblanc1](https://www.linkedin.com/in/andrewleblanc1).',
-    },
-    {
       initials: 'AN',
       name: 'Anuj Krish Nair',
       role: 'Developer',
