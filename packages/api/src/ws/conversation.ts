@@ -42,6 +42,7 @@ import {
 } from '../lib/modelResolution.js';
 import { getPartnerOpener } from '../lib/partnerOpeners.js';
 import { buildFactContext, buildPartnerSystemPrompt } from '../lib/partnerRuntimePrompt.js';
+import { socketFor } from './liveSockets.js';
 import {
   precedingPartnerTurn,
   shouldRunPostExchangeJobs,
@@ -346,6 +347,7 @@ interface SessionWithScenario extends Omit<ConversationSession, 'id'> {
 
 export class ConversationManager {
   private ws: WebSocket;
+  private out: { send: (data: string) => void };
   private db: PrismaClient;
   private prisma: PrismaClient;
   private session: SessionWithScenario;
@@ -361,6 +363,11 @@ export class ConversationManager {
     logger: FastifyBaseLogger
   ) {
     this.ws = ws;
+    this.out = {
+      // Messages go to the session's newest open socket once this one has
+      // closed, so a reply that outlives a reconnect still arrives (liveSockets.ts).
+      send: (data: string) => socketFor(String(this.session.id), this.ws).send(data),
+    };
     this.db = db;
     this.prisma = db;
     this.session = session;
@@ -482,7 +489,7 @@ export class ConversationManager {
       });
     }
 
-    send(this.ws, {
+    send(this.out, {
       type: 'connected',
       sessionId: this.session.id,
       scenario: scenarioInfo,
@@ -552,7 +559,7 @@ export class ConversationManager {
       asideThreadId: m.asideThreadId ?? undefined,
     }));
 
-    send(this.ws, { type: 'history', messages: historyMessages });
+    send(this.out, { type: 'history', messages: historyMessages });
 
     // Replay persisted LAPP scores so the panel restores on re-open
     const existingScores = await getLappScoresForSession(String(this.session.id));
@@ -561,7 +568,7 @@ export class ConversationManager {
       const tone = validTones.includes(score.tone as (typeof validTones)[number])
         ? (score.tone as (typeof validTones)[number])
         : ('neutral' as const);
-      send(this.ws, {
+      send(this.out, {
         type: 'score:update',
         userMessageId: score.userMessageId,
         turnNumber: score.turnNumber,
@@ -573,7 +580,7 @@ export class ConversationManager {
 
   async handleUserMessage(content: string): Promise<void> {
     if (this.isProcessing) {
-      send(this.ws, {
+      send(this.out, {
         type: 'error',
         code: 'RATE_LIMITED',
         message: 'Please wait for the current response to complete',
@@ -588,7 +595,7 @@ export class ConversationManager {
       if (this.session.invitationId) {
         const hasQuota = await this.checkQuotaAllowed();
         if (!hasQuota) {
-          send(this.ws, { type: 'quota:exhausted' });
+          send(this.out, { type: 'quota:exhausted' });
           return;
         }
       }
@@ -656,7 +663,7 @@ export class ConversationManager {
         return;
       }
 
-      send(this.ws, { type: 'exchange:complete' });
+      send(this.out, { type: 'exchange:complete' });
       await this.logUsage(partnerResult.usage, null);
       await this.checkQuotaWarning();
     } catch (error) {
@@ -666,7 +673,7 @@ export class ConversationManager {
         'Error handling user message'
       );
       Sentry.captureException(error, { extra: { sessionId: this.session.id } });
-      send(this.ws, {
+      send(this.out, {
         type: 'error',
         code: 'INTERNAL_ERROR',
         message,
@@ -763,7 +770,7 @@ export class ConversationManager {
       asideThreadId: m.asideThreadId ?? undefined,
     }));
 
-    send(this.ws, { type: 'history', messages: historyMessages });
+    send(this.out, { type: 'history', messages: historyMessages });
   }
 
   private async streamResponse(role: 'partner' | 'coach'): Promise<{
@@ -818,7 +825,7 @@ export class ConversationManager {
    */
   private sendRetrySignal(role: 'partner' | 'coach'): void {
     const type = role === 'partner' ? 'partner:retry' : 'coach:retry';
-    send(this.ws, { type });
+    send(this.out, { type });
     broadcast(this.session.id, { type });
   }
 
@@ -841,7 +848,7 @@ export class ConversationManager {
     for (let attempt = 0; attempt < MAX_STREAM_ATTEMPTS; attempt++) {
       // On fallback attempt, signal frontend to clear partial content from first attempt
       if (attempt === 1 && role === 'partner') {
-        send(this.ws, { type: 'partner:retry' });
+        send(this.out, { type: 'partner:retry' });
       }
       let fullContent = '';
       let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
@@ -879,7 +886,7 @@ export class ConversationManager {
             if (chunk.type === 'delta' && chunk.content) {
               fullContent += chunk.content;
               const deltaType = role === 'partner' ? 'partner:delta' : 'coach:delta';
-              send(this.ws, { type: deltaType, content: chunk.content });
+              send(this.out, { type: deltaType, content: chunk.content });
               broadcast(this.session.id, {
                 type: deltaType,
                 content: chunk.content,
@@ -1013,7 +1020,7 @@ export class ConversationManager {
               usedFallback = true;
               break; // break while loop so for loop advances to attempt=1
             }
-            send(this.ws, {
+            send(this.out, {
               type: 'error',
               code: 'PROVIDER_ERROR',
               message: 'AI service returned an empty response. Please try again.',
@@ -1085,7 +1092,7 @@ export class ConversationManager {
             usage,
             content: fullContent.trim(),
           };
-          send(this.ws, doneMsg);
+          send(this.out, doneMsg);
           broadcast(this.session.id, doneMsg);
 
           await track(
@@ -1186,7 +1193,7 @@ export class ConversationManager {
             });
           }
 
-          send(this.ws, {
+          send(this.out, {
             type: 'error',
             code: 'PROVIDER_ERROR',
             message: 'AI service temporarily unavailable',
@@ -1382,7 +1389,7 @@ export class ConversationManager {
 
     const message = await this.persistMessage('coach', trimmed);
     this.session.messages.push(message);
-    send(this.ws, {
+    send(this.out, {
       type: 'coach:done',
       messageId: message.id,
       usage,
@@ -1423,7 +1430,7 @@ export class ConversationManager {
       scorerVersion: LAPP_SCORER_VERSION,
     } as unknown as Parameters<typeof createLappScore>[1]);
 
-    send(this.ws, {
+    send(this.out, {
       type: 'score:update',
       userMessageId,
       turnNumber,
@@ -1597,9 +1604,9 @@ export class ConversationManager {
     if (!quota?.tokens) return;
     const status = await getInvitationQuotaStatus(this.prisma, invitation.id, quota);
     if (!status.allowed) {
-      send(this.ws, { type: 'quota:exhausted' });
+      send(this.out, { type: 'quota:exhausted' });
     } else if (status.remaining < quota.tokens * 0.2) {
-      send(this.ws, {
+      send(this.out, {
         type: 'quota:warning',
         remaining: status.remaining,
         total: status.total,
@@ -1631,7 +1638,7 @@ export class ConversationManager {
 
   async handleAsideStart(threadId: string, question: string): Promise<void> {
     if (!this.isCoachEnabled()) {
-      send(this.ws, {
+      send(this.out, {
         type: 'aside:error',
         threadId,
         error: 'Coach is not available for this session.',
@@ -1640,7 +1647,7 @@ export class ConversationManager {
     }
 
     if (this.isProcessing || this.activeAsideThreadId) {
-      send(this.ws, {
+      send(this.out, {
         type: 'aside:error',
         threadId,
         error: 'Response in progress',
@@ -1734,7 +1741,7 @@ export class ConversationManager {
       })) {
         if (chunk.type === 'delta' && chunk.content) {
           fullContent += chunk.content;
-          send(this.ws, {
+          send(this.out, {
             type: 'aside:delta',
             threadId,
             content: chunk.content,
@@ -1775,7 +1782,7 @@ export class ConversationManager {
           { sessionId: this.session.id, threadId },
           'Aside stream returned empty content'
         );
-        send(this.ws, {
+        send(this.out, {
           type: 'aside:error',
           threadId,
           error: 'AI service returned an empty response. Please try again.',
@@ -1792,7 +1799,7 @@ export class ConversationManager {
           },
           '[aside] Dropping incomplete aside response'
         );
-        send(this.ws, {
+        send(this.out, {
           type: 'aside:error',
           threadId,
           error: 'Coach response was cut off. Please try again.',
@@ -1805,7 +1812,7 @@ export class ConversationManager {
         asideThreadId: threadId,
       });
       this.session.messages.push(message);
-      send(this.ws, {
+      send(this.out, {
         type: 'aside:done',
         threadId,
         messageId: message.id,
@@ -1839,7 +1846,7 @@ export class ConversationManager {
         },
         'Aside stream error'
       );
-      send(this.ws, {
+      send(this.out, {
         type: 'aside:error',
         threadId,
         error: 'AI service temporarily unavailable.',

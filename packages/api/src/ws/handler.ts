@@ -4,6 +4,7 @@ import { getSession, getMessagesForSession } from '../data/index.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { ConversationManager } from './conversation.js';
+import { registerSocket, unregisterSocket } from './liveSockets.js';
 import { ObserverManager, verifyObserverAccess } from './observer.js';
 import { parseClientMessage, send } from './protocol.js';
 
@@ -76,6 +77,10 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
         { ...session, scenario: (session as any).scenario, userId: userId as string } as any,
         fastify.log
       );
+
+      // Newest socket for this session, so a reply that outlives a reconnect
+      // is delivered here (ws/liveSockets.ts).
+      registerSocket(String(sessionId), socket);
 
       // Initialize (send connected + history)
       await manager.initialize();
@@ -169,6 +174,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       });
 
       socket.on('close', () => {
+        unregisterSocket(String(sessionId), socket);
         clearTimeout(idleTimer);
         manager.onClose(wasIdleTimeout ? 'idle_timeout' : 'disconnect').catch((err) => {
           fastify.log.error({ sessionId, err }, 'Failed to record session close');
