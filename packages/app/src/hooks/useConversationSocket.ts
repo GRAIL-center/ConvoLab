@@ -246,6 +246,13 @@ export function useConversationSocket(
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectAttemptsRef = useRef(0);
+	// Messages typed while the socket was closed. They are sent as soon as the
+	// connection is back, in order (3 Nov 2026: a message typed after the
+	// server's idle close was shown but never sent).
+	const outboxRef = useRef<string[]>([]);
+	const flushedThisConnectionRef = useRef(false);
+	// Lets callbacks outside the connection effect reopen the socket.
+	const reconnectNowRef = useRef<() => void>(() => {});
 	const lastMessageIdRef = useRef<EntityId | null>(null);
 	const hasLoadedHistoryRef = useRef(false);
 	const partnerStreamingContentRef = useRef<string>("");
@@ -306,6 +313,11 @@ export function useConversationSocket(
 				setIsStreaming(true);
 				setStreamingRole("partner");
 				setMessages((prev) => [...prev, pendingPartnerBubble()]);
+			} else {
+				// Not connected (e.g. the server closed an idle conversation while
+				// the laptop slept). Keep the message, reconnect, and send it then.
+				outboxRef.current.push(content.trim());
+				reconnectNowRef.current();
 			}
 		},
 		[send],
@@ -369,6 +381,7 @@ export function useConversationSocket(
 			ws.onopen = () => {
 				setStatus("connected");
 				setError(null);
+				flushedThisConnectionRef.current = false;
 
 				// Reset streaming content refs on (re)connect — stale content from a
 				// dropped connection would otherwise get prepended to the next stream.
@@ -518,9 +531,23 @@ export function useConversationSocket(
 									}
 									return true;
 								});
+								// Messages the server has not confirmed yet are the newest
+								// thing on screen, so they go after the server's history. Put
+								// first, a full history replay pushed them to the top.
+								const settled = confirmed.filter(
+									(m) => !(m.isOptimistic && m.role === "user"),
+								);
+								const unconfirmed = confirmed.filter(
+									(m) => m.isOptimistic && m.role === "user",
+								);
 								return keepWaiting
-									? [...confirmed, ...mainMessages, pendingPartnerBubble()]
-									: [...confirmed, ...mainMessages];
+									? [
+											...settled,
+											...mainMessages,
+											...unconfirmed,
+											pendingPartnerBubble(),
+										]
+									: [...settled, ...mainMessages, ...unconfirmed];
 							});
 						}
 						if (newAsideMessages.length > 0) {
@@ -529,6 +556,22 @@ export function useConversationSocket(
 						if (msg.messages.length > 0) {
 							lastMessageIdRef.current =
 								msg.messages[msg.messages.length - 1].id;
+						}
+						// Send anything typed while disconnected, once per connection.
+						if (
+							!flushedThisConnectionRef.current &&
+							outboxRef.current.length > 0
+						) {
+							flushedThisConnectionRef.current = true;
+							const queued = outboxRef.current.splice(0);
+							for (const content of queued) {
+								send({ type: "message", content });
+							}
+							awaitingPartnerRef.current = true;
+							isStreamingRef.current = true;
+							setIsStreaming(true);
+							setStreamingRole("partner");
+							setMessages((prev) => [...prev, pendingPartnerBubble()]);
 						}
 						break;
 					}
@@ -889,7 +932,34 @@ export function useConversationSocket(
 
 		connect();
 
+		reconnectNowRef.current = () => {
+			if (fatalErrorRef.current) return;
+			if (reconnectTimeoutRef.current) {
+				clearTimeout(reconnectTimeoutRef.current);
+				reconnectTimeoutRef.current = null;
+			}
+			reconnectAttemptsRef.current = 0;
+			setStatus("connecting");
+			setError(null);
+			connect();
+		};
+
+		// Coming back to the tab (laptop opened, phone unlocked) or getting the
+		// network back: reconnect if the socket closed while we were away,
+		// including the server's clean idle close, which never retries itself.
+		const reconnectIfClosed = () => {
+			if (document.visibilityState !== "visible") return;
+			if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+				reconnectNowRef.current();
+			}
+		};
+		document.addEventListener("visibilitychange", reconnectIfClosed);
+		window.addEventListener("online", reconnectIfClosed);
+
 		return () => {
+			document.removeEventListener("visibilitychange", reconnectIfClosed);
+			window.removeEventListener("online", reconnectIfClosed);
+			reconnectNowRef.current = () => {};
 			// Clean up reconnection timeout
 			if (reconnectTimeoutRef.current) {
 				clearTimeout(reconnectTimeoutRef.current);
