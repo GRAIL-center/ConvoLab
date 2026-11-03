@@ -62,7 +62,9 @@ export const practiceRouter = router({
     }
     const quota = parseQuota(preset.quota);
 
-    let userId = ctx.userId ?? undefined;
+    // A cookie or token can outlive its user (account deletion, #242, on
+    // another device): only reuse the id if the user still exists.
+    let userId = signedInUser ? (ctx.userId ?? undefined) : undefined;
     // Plan 18, step 4: the native app cannot hold the cookie, so when it
     // creates a guest it also gets a bearer token back. The website never
     // sends the X-ConvoLab-Client header, so its responses do not change.

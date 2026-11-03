@@ -435,16 +435,28 @@ async function upsert<T extends Record<string, any>>(
   } as T & { id: string };
 }
 
+/**
+ * Firestore rejects a batch of more than 500 writes, so bulk deletes and
+ * updates commit in chunks. Without this, deleting a long conversation
+ * (account deletion, #242) failed on every attempt.
+ */
+const MAX_BATCH_WRITES = 450;
+
+function chunked<T>(items: T[], size = MAX_BATCH_WRITES): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 async function deleteMany(model: string, args?: { where?: WhereClause }): Promise<void> {
   const query = applyWhere(col(model), args?.where);
   const snapshot = await query.get();
 
-  const batch = getDb().batch();
-  snapshot.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
-
-  await batch.commit();
+  for (const chunk of chunked(snapshot.docs)) {
+    const batch = getDb().batch();
+    for (const doc of chunk) batch.delete(doc.ref);
+    await batch.commit();
+  }
 }
 
 async function updateMany(
@@ -454,12 +466,11 @@ async function updateMany(
   const query = applyWhere(col(model), args.where);
   const snapshot = await query.get();
 
-  const batch = getDb().batch();
-  snapshot.forEach((doc) => {
-    batch.update(doc.ref, args.data as DocumentData);
-  });
-
-  await batch.commit();
+  for (const chunk of chunked(snapshot.docs)) {
+    const batch = getDb().batch();
+    for (const doc of chunk) batch.update(doc.ref, args.data as DocumentData);
+    await batch.commit();
+  }
   return { count: snapshot.size };
 }
 

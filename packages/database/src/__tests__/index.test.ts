@@ -398,3 +398,22 @@ describe('Timestamp -> Date conversion on reads (B26)', () => {
     expect(all[0].startedAt).toBeInstanceOf(Date);
   });
 });
+
+describe('deleteMany / updateMany — Firestore batch limit', () => {
+  it('commits in chunks so more than 500 documents can be deleted or updated', async () => {
+    for (let i = 0; i < 1001; i++) {
+      await prisma.message.create({ data: { id: `m${i}`, sessionId: 's1', content: 'x' } });
+    }
+    const batchSpy = vi.spyOn(fakeDb, 'batch');
+
+    await prisma.message.updateMany({ where: { sessionId: 's1' }, data: { content: 'y' } });
+    expect(batchSpy.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(await prisma.message.count({ where: { content: 'y' } })).toBe(1001);
+
+    batchSpy.mockClear();
+    await prisma.message.deleteMany({ where: { sessionId: 's1' } });
+    expect(batchSpy.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(await prisma.message.count({ where: { sessionId: 's1' } })).toBe(0);
+    batchSpy.mockRestore();
+  });
+});

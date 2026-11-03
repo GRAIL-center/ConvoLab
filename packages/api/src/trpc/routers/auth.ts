@@ -1,4 +1,6 @@
-import { publicProcedure, router } from '../procedures.js';
+import { TRPCError } from '@trpc/server';
+import { deleteAccountData } from '../../data/accountDeletion.js';
+import { protectedProcedure, publicProcedure, router } from '../procedures.js';
 
 export const authRouter = router({
   me: publicProcedure.query(async ({ ctx }) => {
@@ -49,5 +51,26 @@ export const authRouter = router({
       user: { ...user, externalIdentities, contactMethods, sessionCount },
       mergedFrom,
     };
+  }),
+
+  /**
+   * In-app account deletion (#242; App Store guideline 5.1.1(v)). Deletes the
+   * account and its practice conversations; see data/accountDeletion.ts for
+   * exactly what goes and what is kept. Staff and admin accounts are refused:
+   * they own invitations and observation notes other people depend on, and
+   * are removed by hand.
+   */
+  deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.user.role === 'ADMIN' || ctx.user.role === 'STAFF') {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Staff accounts cannot be deleted here. Ask an administrator.',
+      });
+    }
+
+    const result = await deleteAccountData(ctx.user.id, ctx.prisma, ctx.firestore);
+    ctx.req.log.info({ userId: ctx.user.id, ...result }, 'account_deleted');
+    ctx.req.session.delete();
+    return { deleted: true as const };
   }),
 });
