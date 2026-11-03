@@ -71,6 +71,12 @@ steps:
       - ${_REGION}
       - --platform
       - managed
+      # A conversation is one long WebSocket request, and Cloud Run ends any
+      # request at this timeout (default 300 s). At 300 s every conversation
+      # was cut every five minutes, and a reply in flight at the cut only
+      # appeared after a reload (3 Nov 2026). 3600 s is Cloud Run's maximum.
+      - --timeout
+      - '3600'
       # No --allow-unauthenticated: that flag sets the service's IAM policy,
       # which roles/run.developer deliberately cannot do. The service already
       # has allUsers -> roles/run.invoker, and that binding survives redeploys

@@ -611,12 +611,18 @@ export function useConversationSocket(
 					case "partner:done":
 						awaitingPartnerRef.current = false;
 						setMessages((prev) => {
+							// A reconnect can replay this reply in history before its done
+							// message arrives on the new socket; don't add it twice.
+							if (prev.some((m) => !m.isStreaming && String(m.id) === String(msg.messageId))) {
+								return prev.filter((m) => !(m.isStreaming && m.role === "partner"));
+							}
 							const i = lastStreamingIndex(prev, "partner");
 							if (i !== -1) {
 								const last = prev[i];
-								// Prefer the accumulated streaming content; fall back to the server's
-								// confirmed content (e.g. after a partner:retry that cleared the bubble).
-								const finalContent = last.content || msg.content;
+								// The server's text is the whole reply. After a reconnect the
+								// bubble may hold only the tail that streamed to the new socket,
+								// so prefer the server copy and keep the streamed text as fallback.
+								const finalContent = msg.content || last.content;
 								return replaceAt(prev, i, {
 										...last,
 										content: finalContent,
