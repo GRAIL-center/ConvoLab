@@ -10,21 +10,90 @@
 /**
  * Runtime factual context, dated with the day the reply is generated. It said
  * "Today is August 6, 2026" as a literal until 25 Sep 2026, so every session
- * after that day told the model the wrong date. The date is rendered in UTC so
- * the text does not depend on the server's time zone.
+ * after that day told the model the wrong date.
+ *
+ * The date is US Eastern (Hanna, 3 Nov 2026). It used to be UTC, which runs
+ * four or five hours ahead, so every US evening the model believed it was
+ * already tomorrow. A named zone keeps the text independent of the server's
+ * own time zone.
+ *
+ * Around a US general election the context also says so outright (see
+ * electionLine). On Election Day 2026 a tester asked the partner whether he
+ * had been to the polls; it had search available, did not use it, and said it
+ * would vote "tomorrow", because nothing told it what the date meant.
  */
+export const US_TIME_ZONE = 'America/New_York';
+
+/** The calendar date in US Eastern time, as YYYY-MM-DD. */
+export function easternIsoDate(now: Date): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: US_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+/**
+ * US general Election Day in an even year: the Tuesday after the first Monday
+ * in November (so November 2 to 8). Null in odd years.
+ */
+export function usElectionDay(year: number): string | null {
+  if (year % 2 !== 0) return null;
+  const novFirstWeekday = new Date(Date.UTC(year, 10, 1)).getUTCDay(); // 0 = Sunday
+  const firstMonday = 1 + ((1 - novFirstWeekday + 7) % 7);
+  const day = firstMonday + 1;
+  return `${year}-11-${String(day).padStart(2, '0')}`;
+}
+
+const ELECTION_WINDOW_DAYS = 14;
+
+/**
+ * One line about a US general election within two weeks of `todayIso`, or
+ * null. Computed, not searched, so it holds even when the model skips search.
+ */
+export function electionLine(todayIso: string): string | null {
+  const year = Number(todayIso.slice(0, 4));
+  const electionIso = usElectionDay(year);
+  if (!electionIso) return null;
+  const days = Math.round((Date.parse(electionIso) - Date.parse(todayIso)) / 864e5);
+  if (Math.abs(days) > ELECTION_WINDOW_DAYS) return null;
+
+  const kind = year % 4 === 0 ? 'presidential election' : 'midterm elections';
+  const name = `the ${year} U.S. ${kind}`;
+  const dateWords = new Date(`${electionIso}T12:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+
+  if (days === 0) {
+    return `- Today is Election Day for ${name}; people are voting today. Do not say Election Day is tomorrow or still ahead. For results or turnout, search first.`;
+  }
+  if (days > 0) {
+    const when = days === 1 ? 'tomorrow' : `in ${days} days`;
+    return `- Election Day for ${name} is ${when} (${dateWords}). Early voting may already be under way in many states.`;
+  }
+  const ago = days === -1 ? 'yesterday' : `${-days} days ago`;
+  return `- Election Day for ${name} was ${ago} (${dateWords}). Do not state results from memory; search first, and say if counting is still going on.`;
+}
+
 export function buildFactContext(now: Date = new Date()): string {
-  const today = now.toLocaleDateString('en-US', {
+  const todayIso = easternIsoDate(now);
+  const today = new Date(`${todayIso}T12:00:00Z`).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
     timeZone: 'UTC',
   });
+  const election = electionLine(todayIso);
   return `
 Runtime factual context:
-- Today is ${today}.
+- Today is ${today}.${election ? `\n${election}` : ''}
 - The current U.S. president is Donald J. Trump, sworn in on January 20, 2025.
-- For current-events or "right now" factual questions, use web search/grounding when available and let current evidence override stale model memory.
+- For current-events or "right now" factual questions, including elections, voting and anything happening today, use web search/grounding when available and let current evidence override stale model memory.
 - Search results often include older articles. Check each result's date against today's date, and only describe something as happening now if the coverage is from the last few weeks. If the newest coverage you find is older, talk about it in the past tense or say you haven't followed it lately.
 - Hard rule, and it applies to events you bring up yourself, not only to questions you are asked: never present a specific event, case, deployment, or court fight as happening right now unless you ran a web search in this very reply and the coverage is current. No search in this reply means no named current events: open from a general issue you care about (prices, the border, crime, schools) or something timeless about politics instead.
 - Do not claim Joe Biden is the current U.S. president unless current search evidence explicitly says that.

@@ -20,6 +20,18 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-11-03: partner and coach told the US Eastern date and about Election Day (not yet live)
+
+- **Why.** User testing on Election Day 2026: asked "have you been to the polls yet?", the partner said it would vote "tomorrow". Search was available but not used, and the runtime context gave only the date. The date was also computed in UTC, so every US evening the model believed it was already the next day.
+- **What changed** (`packages/api/src/lib/partnerRuntimePrompt.ts`, the runtime fact context appended to every partner reply and used by the coach):
+  - "Today is ..." is now the US Eastern date (America/New_York), not UTC.
+  - Within 14 days of a US general election (even years), one computed line says so: "Election Day ... is in N days", "Today is Election Day for the 2026 U.S. midterm elections; people are voting today ...", or "was N days ago ... search first" for results.
+  - The search instruction now names elections, voting and anything happening today as current-events questions.
+- **Both arms, identical.** Applies to all partner replies from the deploy onward, including sessions already in progress (the context is built at reply time). Outside the election window, only the date's time zone and the search wording differ.
+- **Checked.** Three live replies from claude-sonnet-5 with the new context to "hi Ryan, curious if you've been to the polls yet?" on 3 Nov: all treated today as Election Day; none said tomorrow.
+
+---
+
 ## 2026-10-28: partner openers start with a greeting (not yet live)
 
 - **Why.** Hanna, 28 Oct: the one-sentence openers of 1 Oct felt abrupt, a
