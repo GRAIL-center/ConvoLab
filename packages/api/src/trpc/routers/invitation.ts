@@ -182,7 +182,12 @@ export const invitationRouter = router({
         }
       }
 
-      let userId = ctx.userId ?? undefined;
+      // A cookie or token can outlive its user (account deletion, #242, on
+      // another device): only reuse the id if the user still exists.
+      const existingUser = ctx.userId
+        ? await ctx.prisma.user.findUnique({ where: { id: ctx.userId }, select: { id: true } })
+        : null;
+      let userId = existingUser ? (ctx.userId ?? undefined) : undefined;
 
       // If no session user, create anonymous user. The native app cannot hold
       // the cookie, so it also gets a bearer token back (plan 18, step 4); the

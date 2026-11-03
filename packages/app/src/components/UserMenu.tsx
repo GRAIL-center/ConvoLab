@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
 import { apiUrl } from '../lib/apiUrl';
@@ -8,6 +9,7 @@ import { clearAuthToken, nativeAuthHeaders } from '../lib/authToken';
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const trpc = useTRPC();
 
   const { data, isLoading, refetch } = useQuery(trpc.auth.me.queryOptions());
@@ -15,6 +17,34 @@ export function UserMenu() {
   const { user, mergedFrom } = data || {};
   const isGuest = user?.role === 'GUEST';
   const hasUsage = (user?.sessionCount ?? 0) > 0;
+  // Staff and admin accounts own invitations and notes other people rely on;
+  // the server refuses to delete them, so the option is not offered.
+  const canDelete = user?.role === 'GUEST' || user?.role === 'USER';
+
+  const deleteAccount = useMutation(
+    trpc.auth.deleteAccount.mutationOptions({
+      onSuccess: () => {
+        clearAuthToken();
+        window.location.assign('/');
+      },
+    })
+  );
+
+  const openDeleteConfirm = () => {
+    setIsOpen(false);
+    deleteAccount.reset();
+    setShowDeleteConfirm(true);
+  };
+
+  // Escape closes the dialog (unless a delete is already running).
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !deleteAccount.isPending) setShowDeleteConfirm(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showDeleteConfirm, deleteAccount.isPending]);
 
   const handleLogout = async (unclaim = false) => {
     const url = apiUrl(unclaim ? '/api/auth/logout?unclaim=true' : '/api/auth/logout');
@@ -136,6 +166,13 @@ export function UserMenu() {
                       >
                         or sign out
                       </button>
+                      <button
+                        type="button"
+                        onClick={openDeleteConfirm}
+                        className="mt-1 w-full text-center text-xs text-gray-400 dark:text-[#6B6B6B] hover:text-red-700 dark:hover:text-red-400"
+                      >
+                        Delete my conversations
+                      </button>
                     </>
                   ) : (
                     <>
@@ -196,6 +233,15 @@ export function UserMenu() {
                       >
                         Sign out
                       </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={openDeleteConfirm}
+                          className="mt-2 w-full text-center text-xs text-gray-400 dark:text-[#6B6B6B] hover:text-red-700 dark:hover:text-red-400"
+                        >
+                          Delete my account
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -300,6 +346,70 @@ export function UserMenu() {
           </div>
         </>
       )}
+
+      {/* Account deletion confirmation (#242). Portalled to <body>: the sticky
+          header's backdrop-blur makes it the containing block for fixed
+          children, which would pin this dialog inside the header. */}
+      {showDeleteConfirm &&
+        createPortal(
+          <>
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop */}
+            <div
+              className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm"
+              onClick={() => !deleteAccount.isPending && setShowDeleteConfirm(false)}
+              onKeyDown={(e) =>
+                e.key === 'Escape' && !deleteAccount.isPending && setShowDeleteConfirm(false)
+              }
+              role="presentation"
+            />
+            <div
+              role="alertdialog"
+              aria-labelledby="delete-account-title"
+              className="fixed left-1/2 top-1/2 z-40 w-80 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2
+                          rounded-2xl p-6 shadow-2xl
+                          bg-white dark:bg-[rgba(40,40,40,0.98)]
+                          border border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.12)]"
+            >
+              <h3
+                id="delete-account-title"
+                className="font-semibold text-gray-900 dark:text-[#EBEBEB]"
+              >
+                {isGuest ? 'Delete your conversations?' : 'Delete your account?'}
+              </h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-[#A0A0A0]">
+                {isGuest
+                  ? 'This permanently deletes your conversations from ConvoLab, including your questions to the coach and your scores. It cannot be undone.'
+                  : 'This permanently deletes your account and all your conversations, including your questions to the coach and your scores. It cannot be undone.'}
+              </p>
+              {deleteAccount.isError && (
+                <p className="mt-3 text-sm text-red-700 dark:text-red-400">
+                  Something went wrong before everything was deleted. Please try again, or email
+                  hsistek@fas.harvard.edu.
+                </p>
+              )}
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={deleteAccount.isPending}
+                  onClick={() => deleteAccount.mutate()}
+                  className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white
+                           hover:bg-red-800 disabled:opacity-60 transition-colors"
+                >
+                  {deleteAccount.isPending ? 'Deleting…' : 'Delete permanently'}
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteAccount.isPending}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-sm text-gray-400 dark:text-[#6B6B6B] hover:text-gray-600 dark:hover:text-[#A0A0A0]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }

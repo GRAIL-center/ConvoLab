@@ -195,7 +195,7 @@ export const placeholderCopy = {
     },
     {
       q: 'Is my conversation private?',
-      a: "We store your conversation on our servers so the app can work, so we can improve the coach, and so our research team can study what works. The AI providers that write the partner's and coach's replies, Anthropic and Google, also process your messages. Neither trains its models on them. Anthropic deletes them within 30 days, and Google may log them to check for misuse. We do not sell conversations or share them outside the research team. If you signed in, your conversations are linked to your account. If you were a guest, email us the date and the partner you talked to, and we will remove that conversation.",
+      a: "We store your conversation on our servers so the app can work and so we can improve the partner and the coach. We study conversations for research only when you have agreed to take part in a study. The AI providers that write the partner's and coach's replies, Anthropic and Google, also process your messages. Neither trains its models on them. Anthropic deletes them within 30 days, and Google may log them to check for misuse. We do not sell conversations or share them outside the research team. If you signed in, your conversations are linked to your account, and you can delete the account and its conversations from the account menu. If you were a guest, email us the date and the partner you talked to, and we will remove that conversation.",
     },
     {
       q: 'Is the partner a real person?',

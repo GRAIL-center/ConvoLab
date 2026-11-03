@@ -68,4 +68,15 @@ describe('practice.start captcha gate', () => {
     });
     expect(session?.userId).toBe(user.id);
   });
+  it('treats a cookie or token for a deleted account as anonymous (#242)', async () => {
+    // A second device still holds the id of an account deleted elsewhere: it
+    // must not skip the captcha or attach new conversations to the dead id.
+    const caller = practiceRouter.createCaller(makeContext('deleted-user-id'));
+    await expect(caller.start({ scenarioId })).rejects.toMatchObject({
+      message: 'Captcha verification failed.',
+    });
+    expect(
+      await testPrisma.conversationSession.findMany({ where: { userId: 'deleted-user-id' } })
+    ).toHaveLength(0);
+  });
 });
