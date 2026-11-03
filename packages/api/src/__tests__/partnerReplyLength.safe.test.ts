@@ -17,6 +17,8 @@ import { seedReferenceData } from '../../../database/seed/seedDatabase.js';
 import { competingLengthRules } from '../../../database/src/__tests__/competingLengthRules.js';
 import {
   buildFactContext,
+  electionLine,
+  usElectionDay,
   buildPartnerSystemPrompt,
   PARTNER_RESPONSE_POLICY,
 } from '../lib/partnerRuntimePrompt.js';
@@ -203,12 +205,18 @@ describe('runtime fact context date', () => {
     expect(buildFactContext(NOW)).toContain('events you bring up yourself');
   });
 
-  it('uses the UTC day regardless of server time zone', () => {
-    expect(buildFactContext(new Date('2026-09-25T23:59:59Z'))).toContain(
+  it('uses the US Eastern day, not UTC (3 Nov 2026)', () => {
+    // 8 pm Eastern on Sep 25 is already Sep 26 in UTC: the old UTC date told
+    // the model it was tomorrow every US evening.
+    expect(buildFactContext(new Date('2026-09-26T00:00:00Z'))).toContain(
       '- Today is September 25, 2026.'
     );
-    expect(buildFactContext(new Date('2026-09-26T00:00:00Z'))).toContain(
+    expect(buildFactContext(new Date('2026-09-26T04:00:00Z'))).toContain(
       '- Today is September 26, 2026.'
+    );
+    // Standard time (EST, UTC-5) after daylight saving ends.
+    expect(buildFactContext(new Date('2026-11-04T04:30:00Z'))).toContain(
+      '- Today is November 3, 2026.'
     );
   });
 
@@ -217,7 +225,7 @@ describe('runtime fact context date', () => {
 Runtime factual context:
 - Today is September 25, 2026.
 ${PRESIDENT_LINE}
-- For current-events or "right now" factual questions, use web search/grounding when available and let current evidence override stale model memory.
+- For current-events or "right now" factual questions, including elections, voting and anything happening today, use web search/grounding when available and let current evidence override stale model memory.
 - Search results often include older articles. Check each result's date against today's date, and only describe something as happening now if the coverage is from the last few weeks. If the newest coverage you find is older, talk about it in the past tense or say you haven't followed it lately.
 - Hard rule, and it applies to events you bring up yourself, not only to questions you are asked: never present a specific event, case, deployment, or court fight as happening right now unless you ran a web search in this very reply and the coverage is current. No search in this reply means no named current events: open from a general issue you care about (prices, the border, crime, schools) or something timeless about politics instead.
 - Do not claim Joe Biden is the current U.S. president unless current search evidence explicitly says that.
@@ -233,5 +241,44 @@ ${PRESIDENT_LINE}
     expect(countOccurrences(final, PRESIDENT_LINE)).toBe(1);
     expect(final.endsWith(PARTNER_RESPONSE_POLICY)).toBe(true);
     expect(countOccurrences(final, PARTNER_RESPONSE_POLICY)).toBe(1);
+  });
+});
+
+describe('US election day line', () => {
+  it('finds the Tuesday after the first Monday in November, even years only', () => {
+    expect(usElectionDay(2026)).toBe('2026-11-03');
+    expect(usElectionDay(2028)).toBe('2028-11-07');
+    expect(usElectionDay(2022)).toBe('2022-11-08'); // Nov 1 was a Tuesday
+    expect(usElectionDay(2032)).toBe('2032-11-02'); // Nov 1 is a Monday
+    expect(usElectionDay(2027)).toBeNull();
+  });
+
+  it('says it is Election Day on the day, in Eastern time', () => {
+    // 9:39 pm UTC on Nov 3: the conversation that prompted this fix.
+    const context = buildFactContext(new Date('2026-11-03T21:39:00Z'));
+    expect(context).toContain('- Today is November 3, 2026.');
+    expect(context).toContain('Today is Election Day for the 2026 U.S. midterm elections');
+    expect(context).toContain('Do not say Election Day is tomorrow');
+    // Still Election Day at 11 pm Eastern (04:00 UTC the next day).
+    expect(buildFactContext(new Date('2026-11-04T04:00:00Z'))).toContain('Today is Election Day');
+  });
+
+  it('counts down before and back after, within two weeks', () => {
+    expect(electionLine('2026-11-02')).toContain('is tomorrow (Tuesday, November 3)');
+    expect(electionLine('2026-10-30')).toContain('is in 4 days');
+    expect(electionLine('2026-11-04')).toContain('was yesterday');
+    expect(electionLine('2026-11-10')).toContain('was 7 days ago');
+    expect(electionLine('2026-11-10')).toContain('Do not state results from memory');
+    expect(electionLine('2026-10-20')).toContain('is in 14 days');
+    expect(electionLine('2026-10-19')).toBeNull();
+    expect(electionLine('2026-11-18')).toBeNull();
+    expect(electionLine('2027-11-02')).toBeNull();
+    expect(electionLine('2028-11-07')).toContain('the 2028 U.S. presidential election');
+  });
+
+  it('adds nothing outside the window', () => {
+    const context = buildFactContext(new Date('2026-09-25T12:00:00Z'));
+    expect(context).not.toContain('Election Day');
+    expect(context).toContain('including elections, voting and anything happening today');
   });
 });
