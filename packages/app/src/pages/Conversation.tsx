@@ -684,14 +684,13 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                     // recorded only by the automatic end-of-window effect above.
                     onClick={() => handleFinish('participant_finish')}
                     disabled={!surveyUnlocked || finishMutation.isPending || isStreaming}
-                    className={`rounded-xl px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                      surveyUnlocked
-                        ? 'bg-[#f8f5ec] text-[#24221d] shadow-sm hover:bg-white dark:bg-[#f2efe7] dark:text-[#151513] dark:hover:bg-white'
-                        : 'border border-[#d8d3c8] text-[#6a655c] hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#9d9890] dark:hover:bg-[#22211d]'
-                    }`}
+                    // Same quiet outline whether locked or unlocked: a button that lights
+                    // up when it unlocks pulled participants out of the conversation
+                    // (pilot feedback, 3 Nov 2026).
+                    className="rounded-xl border border-[#d8d3c8] px-5 py-2 text-sm font-medium text-[#6a655c] transition-colors hover:bg-[#eeeae1] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#34312c] dark:text-[#9d9890] dark:hover:bg-[#22211d]"
                   >
                     {surveyUnlocked
-                      ? 'Continue to final survey'
+                      ? 'Done talking? Go to final survey'
                       : 'Final survey opens after a few more replies'}
                   </button>
                 )}
