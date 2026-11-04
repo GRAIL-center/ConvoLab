@@ -690,7 +690,7 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                     className="rounded-xl border border-[#d8d3c8] px-5 py-2 text-sm font-medium text-[#6a655c] transition-colors hover:bg-[#eeeae1] disabled:cursor-not-allowed disabled:opacity-45 dark:border-[#34312c] dark:text-[#9d9890] dark:hover:bg-[#22211d]"
                   >
                     {surveyUnlocked
-                      ? 'Continue to final survey'
+                      ? 'Done talking? Go to final survey'
                       : 'Final survey opens after a few more replies'}
                   </button>
                 )}
