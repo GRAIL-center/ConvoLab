@@ -431,7 +431,6 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const lappRailWidth = railsVisible ? 'xl:w-[335px]' : 'xl:w-0';
   const coachRailWidth = railsVisible && coachEnabled ? 'lg:w-[360px] xl:w-[420px]' : 'lg:w-0';
-  const repliesRemaining = Math.max(0, (study?.minParticipantTurns ?? 6) - participantTurnCount);
   // Either enough turns or enough time is sufficient: a slow participant who has
   // not reached the turn minimum by the soft cap can still choose to finish.
   const surveyUnlocked = !isStudySession || canFinishStudy || pastSoftCap;
@@ -674,11 +673,9 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   composerDocked ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                <span>
-                  {surveyUnlocked
-                    ? 'Finish whenever you are ready'
-                    : `${repliesRemaining} replies left`}
-                </span>
+                {/* No reply countdown: pilot participants found "N replies left" stressful
+                    (3 Nov 2026). The locked button says the survey opens later instead. */}
+                <span>{surveyUnlocked ? 'Finish whenever you are ready' : ''}</span>
                 {isStudySession && (
                   <button
                     type="button"
@@ -693,7 +690,9 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                         : 'border border-[#d8d3c8] text-[#6a655c] hover:bg-[#eeeae1] dark:border-[#34312c] dark:text-[#9d9890] dark:hover:bg-[#22211d]'
                     }`}
                   >
-                    Continue to final survey
+                    {surveyUnlocked
+                      ? 'Continue to final survey'
+                      : 'Final survey opens after a few more replies'}
                   </button>
                 )}
               </div>
