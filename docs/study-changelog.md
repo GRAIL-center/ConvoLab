@@ -20,6 +20,12 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-11-04: "Continue to final survey" button no longer lights up when it unlocks (not yet live)
+
+- **Why.** Once the reply minimum was reached, the button switched from a grey outline to a bright filled button, which invited participants to leave the conversation right away.
+- **What changed** (`packages/app/src/pages/Conversation.tsx`): the button keeps the same grey outline style before and after it unlocks; only the dimming of the locked state goes away. Wording and the unlock rule are unchanged.
+- **Both arms, identical.** Applies to sessions opened or reloaded after the deploy.
+
 ## 2026-11-03: "N replies left" counter removed from the conversation screen (not yet live)
 
 - **Why.** Pilot feedback: the countdown felt stressful. It counted toward a minimum (the final survey unlocks after `minParticipantTurns`, 6 by default), but read like a limit.
