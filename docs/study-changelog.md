@@ -20,6 +20,12 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-11-03: "N replies left" counter removed from the conversation screen (not yet live)
+
+- **Why.** Pilot feedback: the countdown felt stressful. It counted toward a minimum (the final survey unlocks after `minParticipantTurns`, 6 by default), but read like a limit.
+- **What changed** (`packages/app/src/pages/Conversation.tsx`): no number is shown. While the survey is locked, the (disabled) button reads "Final survey opens after a few more replies"; once unlocked it reads "Continue to final survey" with "Finish whenever you are ready" beside it, as before. The unlock rule itself is unchanged.
+- **Both arms, identical.** Applies to sessions opened or reloaded after the deploy. Compare participant turn counts before and after the deploy if pacing matters for analysis.
+
 ## 2026-11-03: partner and coach told the US Eastern date and about Election Day (not yet live)
 
 - **Why.** User testing on Election Day 2026: asked "have you been to the polls yet?", the partner said it would vote "tomorrow". Search was available but not used, and the runtime context gave only the date. The date was also computed in UTC, so every US evening the model believed it was already the next day.
