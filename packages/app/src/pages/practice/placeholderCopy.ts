@@ -95,15 +95,15 @@ export const placeholderCopy = {
     'ConvoLab is a research project on talking across political difference. We build tools that let anyone practice the skills that keep those conversations going.',
   aboutMission2:
     'Conversations you have here help us understand what types of communication actually work, and for whom.',
-  aboutResearchHeading: 'A platform for studying conversation',
+  aboutResearchHeading: 'A platform for conversation research',
   aboutResearch:
-    'ConvoLab is built as a research tool, not a single experiment. The conversation partner, the coach, and the scoring pipeline are all configurable, so other researchers can use the same infrastructure to teach and evaluate their own conversation frameworks, with ours as the first case study.',
-  aboutPersonasHeading: 'How we built the conversation partners',
-  // Iterated from Nebras's draft, 16 Oct 2026; viewpoints grounded in the Pew political typology (linked in AboutSection).
+    'ConvoLab supports research on how people talk across disagreement. The conversation partners, the coaching approach and the assessment methods can each be adapted, so other researchers can use the platform to study their own dialogue frameworks. Our study of cross-partisan conversation is its first application.',
+  aboutPersonasHeading: 'Designing the conversation partners',
+  // Rewritten 5 Nov 2026 (Hanna). aboutPersonas1 ends mid-sentence: AboutSection appends the Pew typology link and a full stop.
   aboutPersonas1:
-    'Each conversation partner is built around a coherent outlook, a personal background, and a conversational style of its own, so it reads as a person with consistent beliefs rather than a collection of talking points. The political personas’ viewpoints are grounded in the',
+    'Each partner has a defined background, outlook and conversational style. The political personas’ positions on contested policy questions, how firmly each is held and how the persona responds when challenged, draw on the',
   aboutPersonas2:
-    'Every political persona carries positions on the major issues, including how strongly each view is held and how it responds when challenged. Consistency safeguards keep beliefs and tone stable across a conversation, and factual-humility rules keep a partner from inventing statistics or studies, so disagreement stays natural and productive without turning into caricature.',
+    'Partners express their views consistently while responding to what the participant says. Their instructions require them to acknowledge uncertainty and to avoid factual claims they cannot support. The aim is to give participants a credible counterpart for practicing how to respond to disagreement, explain their own views and keep a conversation constructive.',
   teamTitle: 'The team',
   team: [
     {
