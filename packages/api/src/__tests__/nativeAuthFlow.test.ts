@@ -16,6 +16,8 @@ const sessionPlugin = (await import('../plugins/session.js')).default;
 const oauthPlugin = (await import('../plugins/oauth.js')).default;
 const authRoutes = (await import('../routes/auth.js')).default;
 const nativeAuthRoutes = (await import('../routes/nativeAuth.js')).default;
+const { START_LIMIT } = await import('../routes/nativeAuth.js');
+const { resolveUserId } = await import('../auth/resolveUser.js');
 // Live binding: testPrisma is assigned in setup's beforeAll, after this import.
 const setup = await import('./setup.js');
 
@@ -304,5 +306,36 @@ describe('native Google sign-in flow', () => {
       payload: { code: codeFrom(callback), codeVerifier: randomBytes(32).toString('base64url') },
     });
     expect(redeem.statusCode).toBe(400);
+  });
+
+  it('start refuses an address after the limit, with Retry-After, and not other addresses (#244)', async () => {
+    const challenge = codeChallengeFrom('a'.repeat(43));
+    const startFrom = (ip: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/native/start',
+        payload: { codeChallenge: challenge },
+        headers: { 'x-forwarded-for': `6.6.6.6, ${ip}` },
+      });
+    for (let i = 0; i < START_LIMIT.max; i++) {
+      expect((await startFrom('203.0.113.7')).statusCode).toBe(200);
+    }
+    const refused = await startFrom('203.0.113.7');
+    expect(refused.statusCode).toBe(429);
+    expect(Number(refused.headers['retry-after'])).toBeGreaterThan(0);
+    expect((await startFrom('203.0.113.8')).statusCode).toBe(200);
+    // Only the allowed calls wrote tickets.
+    expect((await flowDb.collection('authTickets').get()).size).toBe(START_LIMIT.max + 1);
+  });
+
+  it('a guest app token stops working once that guest becomes an account (#244)', async () => {
+    const guest = await setup.testPrisma.user.create({ data: { role: 'GUEST' } });
+    const token = issueAuthToken(guest.id, 'guest');
+    const request = { headers: { authorization: `Bearer ${token}` } } as never;
+    expect(await resolveUserId(request)).toBe(guest.id);
+
+    // What a website Google sign-in does to a guest (auth/handlers.ts).
+    await setup.testPrisma.user.update({ where: { id: guest.id }, data: { role: 'USER' } });
+    expect(await resolveUserId(request)).toBeNull();
   });
 });

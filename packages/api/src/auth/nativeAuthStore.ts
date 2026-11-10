@@ -15,8 +15,8 @@ import type { Firestore } from '@google-cloud/firestore';
  * B26 was (see docs/bugs.md). Numbers compare the same everywhere, including
  * the in-memory test fake. Consumed documents are deleted in the consuming
  * transaction; an abandoned ticket or code is deleted if it is ever read
- * again, and otherwise sits inert past its expiry (both collections hold only
- * random ids, a hash, a user id and an expiry; a periodic sweep can come later).
+ * again, and otherwise is removed by sweepExpiredAuthDocs, which the start
+ * route runs at most once per SWEEP_INTERVAL_MS per instance (#244).
  */
 
 const TICKETS_COLLECTION = 'authTickets';
@@ -150,4 +150,33 @@ export async function redeemAuthCode(
     }
     return { userId: data.userId, guestUserId: data.guestUserId ?? undefined };
   });
+}
+
+/** Most documents one sweep deletes per collection; the next sweep takes the rest. */
+export const SWEEP_BATCH_LIMIT = 200;
+
+/**
+ * Deletes tickets and codes whose expiry has passed (#244). Abandoned sign-ins
+ * otherwise stay in Firestore forever. Bounded per call so a backlog never
+ * turns one sign-in request into a long write; repeated sweeps drain it.
+ * Returns how many documents it deleted in each collection.
+ */
+export async function sweepExpiredAuthDocs(
+  db: Firestore,
+  now = Date.now(),
+  limit = SWEEP_BATCH_LIMIT
+): Promise<{ tickets: number; codes: number }> {
+  const sweep = async (collection: string): Promise<number> => {
+    const expired = await db
+      .collection(collection)
+      .where('expiresAtMs', '<=', now)
+      .limit(limit)
+      .get();
+    if (expired.empty) return 0;
+    const batch = db.batch();
+    for (const doc of expired.docs) batch.delete(doc.ref);
+    await batch.commit();
+    return expired.size;
+  };
+  return { tickets: await sweep(TICKETS_COLLECTION), codes: await sweep(CODES_COLLECTION) };
 }
