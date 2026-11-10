@@ -400,8 +400,10 @@ knows about it.
 5. Push at the end of every session, even if it is unfinished.
 6. When you stop, leave one line on the PR: where it stands, what is next.
 
-If you code with an AI assistant, it reads `CLAUDE.md`, which has the same
-steps, so it will check the board and open PRs before it starts.
+If you code with an AI assistant, it gets the same steps automatically:
+Claude Code reads `CLAUDE.md`; Codex, Cursor, Copilot and most others read
+`AGENTS.md`; Gemini reads `GEMINI.md`. So it will check the board and open
+PRs before it starts.
 
 ### Branch Naming
 
