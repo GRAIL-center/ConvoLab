@@ -129,7 +129,7 @@ async function authRoutes(fastify: FastifyInstance) {
       _reply: FastifyReply
     ) => {
       // Bearer first so the guest "unclaim" works for app users too (plan 18).
-      const userId = resolveUserId(request);
+      const userId = await resolveUserId(request);
       const shouldUnclaim = request.query.unclaim === 'true';
 
       if (userId && shouldUnclaim) {
