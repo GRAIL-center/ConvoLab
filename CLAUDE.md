@@ -96,6 +96,9 @@ and has no pushed branch is invisible to everyone else, and gets duplicated.
 Board columns: **Backlog** (not yet specified), **Ready for dev** (specified,
 nobody on it), **In progress** (assigned, with a draft PR), **Done** (merged).
 
+These steps are copied into `AGENTS.md`, which Codex, Cursor, Copilot and
+other assistants read. If you change them here, change them there too.
+
 ## Technical Notes
 
 ### Git Remote
