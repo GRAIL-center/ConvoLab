@@ -31,7 +31,7 @@ Don't be afraid to:
 - Create quick prototypes to test ideas
 - Throw away code that doesn't work
 
-**It's perfectly fine to have 3 developers working on 3 different implementations of the same feature!** We'll learn what works best through experimentation.
+**It's fine to have 3 developers try 3 different implementations of the same feature**, as long as it is agreed on the issue first, so nobody duplicates work by accident (see "Before you start" below).
 
 ### Learning by Doing
 
@@ -386,6 +386,23 @@ pnpm -F @workspace/landing build
 
 ## Git Workflow
 
+### Before You Start: Claim It on the Board
+
+The [project board](https://github.com/orgs/GRAIL-center/projects/1) is where
+the team sees who is working on what. If your work is not there, nobody else
+knows about it.
+
+1. Pick an issue (or create one, with Why / How / Done when).
+2. Check it has no other assignee and no open PR.
+3. Assign yourself and move the card to **In progress**.
+4. Push a branch and open a **draft PR** right away (`gh pr create --draft`),
+   starting the description with `Part of #<issue>`.
+5. Push at the end of every session, even if it is unfinished.
+6. When you stop, leave one line on the PR: where it stands, what is next.
+
+If you code with an AI assistant, it reads `CLAUDE.md`, which has the same
+steps, so it will check the board and open PRs before it starts.
+
 ### Branch Naming
 
 - `feature/` - New features
@@ -410,11 +427,11 @@ chore: upgrade dependencies to latest versions
 
 ### Pull Request Process
 
-1. Create a feature branch from `main`
-2. Make your changes
-3. Test locally (run builds, check functionality)
-4. Push to GitHub and open a pull request
-5. Request review from maintainers
+1. Claim the issue and create a feature branch from `main` (see above)
+2. Push early and open a draft pull request
+3. Make your changes, pushing as you go
+4. Test locally (run builds, check functionality)
+5. Mark the PR ready for review and request review from maintainers
 6. Address feedback
 7. Merge when approved
 
