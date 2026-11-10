@@ -337,5 +337,14 @@ describe('native Google sign-in flow', () => {
     // What a website Google sign-in does to a guest (auth/handlers.ts).
     await setup.testPrisma.user.update({ where: { id: guest.id }, data: { role: 'USER' } });
     expect(await resolveUserId(request)).toBeNull();
+
+    // The native start route refuses it too, rather than carrying it as a guest to merge.
+    const start = await app.inject({
+      method: 'POST',
+      url: '/api/auth/native/start',
+      payload: { codeChallenge: codeChallengeFrom('a'.repeat(43)) },
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(start.statusCode).toBe(401);
   });
 });

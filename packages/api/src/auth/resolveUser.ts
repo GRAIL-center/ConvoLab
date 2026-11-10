@@ -40,7 +40,7 @@ function cookieUserId(request: FastifyRequest): string | null {
 /** Looks up a user's role; null when the user no longer exists. */
 export type RoleLookup = (userId: string) => Promise<string | null>;
 
-const defaultRoleLookup: RoleLookup = async (userId) => {
+export const defaultRoleLookup: RoleLookup = async (userId) => {
   // Imported lazily so this module stays free of database setup at load time.
   const { db } = await import('../db/firestoreHelpers.js');
   const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } });

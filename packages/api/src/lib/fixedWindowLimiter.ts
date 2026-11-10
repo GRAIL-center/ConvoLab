@@ -12,7 +12,19 @@ export interface LimitResult {
   retryAfterS: number;
 }
 
-export function createFixedWindowLimiter(opts: { max: number; windowMs: number }) {
+/**
+ * Hard cap on tracked addresses, so a flood of distinct addresses cannot grow
+ * memory without bound inside one window. When full, the limiter refuses new
+ * addresses until the window rolls over (failing closed for this route only).
+ */
+export const MAX_TRACKED_KEYS = 50_000;
+
+export function createFixedWindowLimiter(opts: {
+  max: number;
+  windowMs: number;
+  maxKeys?: number;
+}) {
+  const maxKeys = opts.maxKeys ?? MAX_TRACKED_KEYS;
   const windows = new Map<string, { start: number; count: number }>();
   let lastPrune = 0;
 
@@ -29,6 +41,9 @@ export function createFixedWindowLimiter(opts: { max: number; windowMs: number }
       prune(now);
       let w = windows.get(key);
       if (!w || now - w.start >= opts.windowMs) {
+        if (!w && windows.size >= maxKeys) {
+          return { allowed: false, retryAfterS: Math.max(1, Math.ceil(opts.windowMs / 1000)) };
+        }
         w = { start: now, count: 0 };
         windows.set(key, w);
       }
@@ -55,5 +70,29 @@ export function clientAddress(headers: Record<string, unknown>, socketIp: string
     .map((part) => part.trim())
     .filter(Boolean)
     .pop();
-  return last || socketIp;
+  return rateLimitKey(last || socketIp);
+}
+
+/**
+ * One IPv6 client usually controls a whole /64 network and can use a new
+ * address per request, so IPv6 is limited per /64 prefix. IPv4 (including
+ * IPv4-mapped IPv6) is limited per address.
+ */
+export function rateLimitKey(address: string): string {
+  const addr = address.trim().toLowerCase();
+  const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return mapped[1];
+  if (!addr.includes(':')) return addr;
+  const [head, tail = ''] = addr.split('::');
+  const headParts = head ? head.split(':') : [];
+  const tailParts = tail ? tail.split(':') : [];
+  const missing = 8 - headParts.length - tailParts.length;
+  const groups = addr.includes('::')
+    ? [...headParts, ...Array(Math.max(0, missing)).fill('0'), ...tailParts]
+    : headParts;
+  const prefix = groups
+    .slice(0, 4)
+    .map((g) => (g || '0').replace(/^0+(?=.)/, ''))
+    .join(':');
+  return `${prefix}::/64`;
 }

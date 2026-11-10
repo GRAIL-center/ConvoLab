@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { mergeUsers } from '../auth/handlers.js';
 import { createAuthTicket, redeemAuthCode, sweepExpiredAuthDocs } from '../auth/nativeAuthStore.js';
+import { defaultRoleLookup } from '../auth/resolveUser.js';
 import { db as prisma } from '../db/firestoreHelpers.js';
 import { issueAuthToken, verifyAuthTokenDetailed } from '../lib/authToken.js';
 import { getFirestore } from '../lib/firestore.js';
@@ -81,6 +82,11 @@ async function nativeAuthRoutes(fastify: FastifyInstance) {
         }
         if (verified.kind !== 'guest') {
           return reply.status(400).send({ error: 'not_a_guest_token' });
+        }
+        // Same rule as every other bearer path (#244): a guest token whose user
+        // has since become an account, or no longer exists, is signed out.
+        if ((await defaultRoleLookup(verified.userId)) !== 'GUEST') {
+          return reply.status(401).send({ error: 'invalid_token' });
         }
         guestUserId = verified.userId;
       }

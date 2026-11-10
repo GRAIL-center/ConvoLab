@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { clientAddress, createFixedWindowLimiter } from '../lib/fixedWindowLimiter.js';
+import {
+  clientAddress,
+  createFixedWindowLimiter,
+  rateLimitKey,
+} from '../lib/fixedWindowLimiter.js';
 
 describe('fixed-window limiter (#244)', () => {
   it('allows up to max per window, then refuses with a Retry-After', () => {
@@ -36,5 +40,31 @@ describe('clientAddress', () => {
 
   it('falls back to the socket address without the header', () => {
     expect(clientAddress({}, '10.0.0.1')).toBe('10.0.0.1');
+  });
+});
+
+describe('rateLimitKey', () => {
+  it('keys IPv4 per address and unwraps IPv4-mapped IPv6', () => {
+    expect(rateLimitKey('203.0.113.9')).toBe('203.0.113.9');
+    expect(rateLimitKey('::ffff:203.0.113.9')).toBe('203.0.113.9');
+  });
+
+  it('keys IPv6 per /64, however the address is written', () => {
+    const a = rateLimitKey('2001:db8:abcd:12::1');
+    expect(a).toBe('2001:db8:abcd:12::/64');
+    expect(rateLimitKey('2001:0db8:abcd:0012:ffff:eeee:dddd:cccc')).toBe(a);
+    expect(rateLimitKey('2001:db8:abcd:13::1')).not.toBe(a);
+    expect(rateLimitKey('2001:db8::1')).toBe('2001:db8:0:0::/64');
+  });
+});
+
+describe('tracked-address cap', () => {
+  it('refuses new addresses once the cap is reached, until the window rolls over', () => {
+    const limiter = createFixedWindowLimiter({ max: 5, windowMs: 60_000, maxKeys: 2 });
+    expect(limiter.hit('a', 0).allowed).toBe(true);
+    expect(limiter.hit('b', 0).allowed).toBe(true);
+    expect(limiter.hit('c', 0).allowed).toBe(false);
+    expect(limiter.hit('a', 0).allowed).toBe(true);
+    expect(limiter.hit('c', 60_000).allowed).toBe(true);
   });
 });
