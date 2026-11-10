@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ConvoLab</string>
+    <string name="title_activity_main">ConvoLab</string>
+    <string name="package_name">edu.harvard.ethics.convolab</string>
+    <string name="custom_url_scheme">edu.harvard.ethics.convolab</string>
+</resources>

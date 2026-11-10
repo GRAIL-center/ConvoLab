@@ -51,3 +51,8 @@ LICENSE
 # Misc
 .cache/
 *.tmp
+
+# Native app projects (#236): built on a Mac with Xcode / Android Studio, never part of the web image
+packages/app/android/
+packages/app/ios/
+packages/app/assets/

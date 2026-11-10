@@ -291,6 +291,50 @@ Output goes to `dist/` directory.
 - Change password (email auth)
 - Manage settings
 
+## The iPhone and Android App (Capacitor)
+
+The installed app (#236) wraps this same React app with
+[Capacitor](https://capacitorjs.com). The web build is bundled inside the app
+rather than loaded from convolab.us, and it talks to the API at convolab.us.
+
+- **App ID:** `edu.harvard.ethics.convolab` (in `capacitor.config.ts`). It is
+  permanent once a build is uploaded to either store, so do not change it after
+  that. Suggested by HUIT to mirror Harvard's host naming.
+- **Native projects:** `ios/` (Xcode, Swift Package Manager, no CocoaPods) and
+  `android/` (Android Studio, Gradle). Both are committed. The web build copied
+  into them (`ios/App/App/public`, `android/app/src/main/assets/public`) is not.
+- **Icons and splash screens:** generated from `assets/` (made from
+  `public/convolab-logo.svg`). After changing a file there, run
+  `pnpm -F @workspace/app app:assets`.
+
+### You need
+
+- A Mac with **Xcode** (for iOS) and/or **Android Studio** (for Android), both free.
+- Node and pnpm as for the website.
+
+### Build and run
+
+```bash
+# From the repo root, after pnpm install
+pnpm -F @workspace/app app:build     # web build for the app + copy into ios/ and android/
+pnpm -F @workspace/app app:ios       # opens Xcode: pick an iPhone simulator, press Run
+pnpm -F @workspace/app app:android   # opens Android Studio: pick an emulator, press Run
+```
+
+Always build with `app:build`, never plain `pnpm build`: it sets `VITE_NATIVE=1`
+(token sign-in instead of cookies) and `VITE_API_URL=https://convolab.us`. To
+point a test build at another server, set `VITE_API_URL` before running it.
+
+`app:build` also rewrites `android/capacitor.settings.gradle`, whose paths
+follow the installed Capacitor version; commit that change when it appears.
+
+### What works yet
+
+The app opens on the landing page. Requests to the server need #238 (the
+server must accept the app's origin), sign-in needs #237, and the guest
+"I'm not a robot" check needs #243. The pilot pages (`/pilot`, `/study`) are
+not part of the app.
+
 ## Type Safety
 
 React 19 + TypeScript + tRPC provides end-to-end type safety:
