@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import { verifyAuthToken } from '../lib/authToken.js';
+import { verifyAuthTokenDetailed } from '../lib/authToken.js';
 
 /**
  * Who is making this request? Bearer token first (the native app), cookie
@@ -37,10 +37,41 @@ function cookieUserId(request: FastifyRequest): string | null {
   return viaGet ?? session.userId ?? null;
 }
 
-export function resolveUserId(request: FastifyRequest): string | null {
+/** Looks up a user's role; null when the user no longer exists. */
+export type RoleLookup = (userId: string) => Promise<string | null>;
+
+export const defaultRoleLookup: RoleLookup = async (userId) => {
+  // Imported lazily so this module stays free of database setup at load time.
+  const { db } = await import('../db/firestoreHelpers.js');
+  const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+  return (user?.role as string | undefined) ?? null;
+};
+
+/**
+ * A guest token stays valid only while its user is still a guest (#244). When
+ * a guest signs in with Google on the website, the same user id becomes an
+ * account, and the year-long guest token the app issued earlier must stop
+ * working: otherwise anyone holding that old token (a shared or lost phone)
+ * would be signed in to the new account. Account tokens and cookies are not
+ * checked here, so only guest app requests pay for the lookup.
+ */
+async function verifyBearer(token: string, lookupRole: RoleLookup): Promise<string | null> {
+  const verified = verifyAuthTokenDetailed(token);
+  if (!verified) return null;
+  if (verified.kind === 'guest') {
+    const role = await lookupRole(verified.userId);
+    if (role !== 'GUEST') return null;
+  }
+  return verified.userId;
+}
+
+export async function resolveUserId(
+  request: FastifyRequest,
+  lookupRole: RoleLookup = defaultRoleLookup
+): Promise<string | null> {
   const header = request.headers.authorization;
   if (typeof header === 'string' && header.startsWith('Bearer ')) {
-    return verifyAuthToken(header.slice('Bearer '.length).trim());
+    return verifyBearer(header.slice('Bearer '.length).trim(), lookupRole);
   }
   return cookieUserId(request);
 }
@@ -51,7 +82,10 @@ export function resolveUserId(request: FastifyRequest): string | null {
  * 'bearer.' + token])` (plan 18, step 3). The website calls
  * `new WebSocket(url)` and takes the cookie path, exactly as today.
  */
-export function resolveWsUserId(request: FastifyRequest): string | null {
+export async function resolveWsUserId(
+  request: FastifyRequest,
+  lookupRole: RoleLookup = defaultRoleLookup
+): Promise<string | null> {
   const offered = request.headers['sec-websocket-protocol'];
   if (typeof offered === 'string' && offered.length > 0) {
     const bearer = offered
@@ -60,7 +94,7 @@ export function resolveWsUserId(request: FastifyRequest): string | null {
       .find((entry) => entry.startsWith(WS_BEARER_PREFIX));
     if (bearer) {
       // Same rule as resolveUserId: an invalid token is signed out, not cookie.
-      return verifyAuthToken(bearer.slice(WS_BEARER_PREFIX.length));
+      return verifyBearer(bearer.slice(WS_BEARER_PREFIX.length), lookupRole);
     }
   }
   return cookieUserId(request);

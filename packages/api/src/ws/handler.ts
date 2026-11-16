@@ -24,7 +24,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
 
       // Get user from the bearer subprotocol (native app) or the session
       // cookie (website); an invalid bearer means signed out, not cookie.
-      const userId = resolveWsUserId(request);
+      const userId = await resolveWsUserId(request);
 
       // Load session with scenario and messages
       const session = await getSession(sessionIdStr);
@@ -210,7 +210,7 @@ export async function registerWebSocketHandler(fastify: FastifyInstance): Promis
       }
 
       // Verify STAFF+ role
-      const userId = resolveWsUserId(request) ?? undefined;
+      const userId = (await resolveWsUserId(request)) ?? undefined;
       const access = await verifyObserverAccess(prisma, userId);
 
       if (!access.allowed) {

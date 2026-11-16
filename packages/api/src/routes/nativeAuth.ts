@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { mergeUsers } from '../auth/handlers.js';
-import { createAuthTicket, redeemAuthCode } from '../auth/nativeAuthStore.js';
+import { createAuthTicket, redeemAuthCode, sweepExpiredAuthDocs } from '../auth/nativeAuthStore.js';
+import { defaultRoleLookup } from '../auth/resolveUser.js';
 import { db as prisma } from '../db/firestoreHelpers.js';
 import { issueAuthToken, verifyAuthTokenDetailed } from '../lib/authToken.js';
 import { getFirestore } from '../lib/firestore.js';
+import { clientAddress, createFixedWindowLimiter } from '../lib/fixedWindowLimiter.js';
 
 /**
  * The native app's half of Google sign-in (plan 18, step 5): ask for a ticket,
@@ -27,10 +29,39 @@ const CODE_SHAPE = /^[A-Za-z0-9_-]{1,128}$/;
 // that would weaken PKCE surfaces here instead of shipping.
 const CODE_VERIFIER_SHAPE = /^[A-Za-z0-9\-._~]{43,128}$/;
 
+// Every /start call writes a ticket, and the route needs no sign-in, so one
+// address could otherwise fill Firestore (#244). A person signing in calls it
+// once or twice; 20 per 10 minutes leaves room for retries.
+export const START_LIMIT = { max: 20, windowMs: 10 * 60 * 1000 };
+// How often one instance sweeps expired tickets and codes (#244).
+export const SWEEP_INTERVAL_MS = 15 * 60 * 1000;
+
 async function nativeAuthRoutes(fastify: FastifyInstance) {
+  const startLimiter = createFixedWindowLimiter(START_LIMIT);
+  let lastSweepAt = 0;
+
   fastify.post<{ Body: { codeChallenge?: unknown } }>(
     '/api/auth/native/start',
     async (request, reply) => {
+      const limit = startLimiter.hit(clientAddress(request.headers, request.ip));
+      if (!limit.allowed) {
+        reply.header('Retry-After', String(limit.retryAfterS));
+        return reply.status(429).send({ error: 'rate_limited' });
+      }
+
+      // Sweep in the background: a failed sweep must never fail a sign-in.
+      const now = Date.now();
+      if (now - lastSweepAt >= SWEEP_INTERVAL_MS) {
+        lastSweepAt = now;
+        sweepExpiredAuthDocs(getFirestore(), now)
+          .then((swept) => {
+            if (swept.tickets || swept.codes) {
+              request.log.info(swept, 'Swept expired native sign-in tickets and codes');
+            }
+          })
+          .catch((err) => request.log.warn({ err }, 'Native sign-in sweep failed'));
+      }
+
       const codeChallenge = request.body?.codeChallenge;
       if (typeof codeChallenge !== 'string' || !CODE_CHALLENGE_SHAPE.test(codeChallenge)) {
         return reply.status(400).send({ error: 'invalid_code_challenge' });
@@ -51,6 +82,11 @@ async function nativeAuthRoutes(fastify: FastifyInstance) {
         }
         if (verified.kind !== 'guest') {
           return reply.status(400).send({ error: 'not_a_guest_token' });
+        }
+        // Same rule as every other bearer path (#244): a guest token whose user
+        // has since become an account, or no longer exists, is signed out.
+        if ((await defaultRoleLookup(verified.userId)) !== 'GUEST') {
+          return reply.status(401).send({ error: 'invalid_token' });
         }
         guestUserId = verified.userId;
       }

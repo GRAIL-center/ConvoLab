@@ -5,7 +5,7 @@ import { getFirestore } from '../lib/firestore.js';
 
 export async function createContext({ req, res }: CreateFastifyContextOptions) {
   // Bearer token (native app) first, cookie session (website) second.
-  const userId = resolveUserId(req);
+  const userId = await resolveUserId(req);
   const firestore = getFirestore();
   return { req, res, userId, prisma, firestore };
 }
