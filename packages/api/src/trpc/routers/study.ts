@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
 import { createMessage } from '../../data/messages.js';
 import { createSession } from '../../data/sessions.js';
+import { assertWithinRateLimit, clientAddress, PUBLIC_LIMITS } from '../../lib/ipRateLimit.js';
 import { providersFromEnv, resolveSessionModels } from '../../lib/modelResolution.js';
 import { getPartnerOpener } from '../../lib/partnerOpeners.js';
 import { decideStudySession } from '../../lib/studySessionDecision.js';
@@ -259,6 +260,12 @@ export const studyRouter = router({
   }),
 
   enter: publicProcedure.input(enterInput).mutation(async ({ ctx, input }) => {
+    assertWithinRateLimit(
+      clientAddress(ctx.req),
+      'study.enter',
+      PUBLIC_LIMITS.studyEnter.limit,
+      PUBLIC_LIMITS.studyEnter.windowMs
+    );
     const condition = parseBinary(input.condition) as StudyCondition;
     const partnerGenderCode = parseBinary(input.partner);
     const partnerGender: PartnerGender = partnerGenderCode === 1 ? 'female' : 'male';
@@ -327,7 +334,22 @@ export const studyRouter = router({
     }
 
     if (existingSession) {
-      if (existingSession.userId) {
+      // The study link is a capability URL for a browser that has no session
+      // yet. It must not replace a cookie that already belongs to someone else.
+      if (ctx.userId && existingSession.userId && ctx.userId !== existingSession.userId) {
+        ctx.req.log.warn(
+          {
+            event: 'study_session_owner_mismatch',
+            sessionId: String(existingSession.id),
+          },
+          '[study] refused to attach a session owned by someone else'
+        );
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Not authorized for this session.',
+        });
+      }
+      if (!ctx.userId && existingSession.userId) {
         ctx.req.session.set('userId', existingSession.userId);
       }
       return {
@@ -357,6 +379,7 @@ export const studyRouter = router({
       });
       userId = anonymousUser.id;
       ctx.req.session.set('userId', userId);
+      ctx.req.log.info({ event: 'guest_created', userId, source: 'study' }, 'guest created');
     }
 
     const scenario = await ctx.prisma.scenario.findUnique({

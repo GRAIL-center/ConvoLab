@@ -1,20 +1,30 @@
-import path from "node:path";
-import dotenv from "dotenv";
-import { assertSafeFirestoreTestTarget } from './firestoreProductionGuard.js';
-import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
+import path from 'node:path';
 import type { PrismaClient } from '@workspace/database';
+import dotenv from 'dotenv';
+import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
 import { FakeFirestore } from './fakeFirestore.js';
+import { assertSafeFirestoreTestTarget } from './firestoreProductionGuard.js';
 
 dotenv.config({
-  path: path.resolve(process.cwd(), ".env"),
+  path: path.resolve(process.cwd(), '.env'),
 });
 
 assertSafeFirestoreTestTarget();
 
-const fakeDb = new FakeFirestore();
+export const fakeDb = new FakeFirestore();
 
 vi.mock('../../../database/src/firestoreClient', () => ({
   getFirestoreClient: () => fakeDb,
+}));
+
+vi.mock('../lib/firestore.js', () => ({
+  getFirestore: () => fakeDb,
+  collection: (name: string) => fakeDb.collection(name),
+  createDoc: async () => {
+    throw new Error('createDoc not used in tests');
+  },
+  getDoc: async () => null,
+  queryCollection: async () => [],
 }));
 
 export let testPrisma: PrismaClient;
