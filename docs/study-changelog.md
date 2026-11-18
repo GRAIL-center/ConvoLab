@@ -20,6 +20,12 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-11-17: unlocked final-survey button reads "Keep chatting or continue to final survey"
+
+- **Why.** Team meeting, 17 Nov: the button should say plainly that participants can keep talking, not only that they may leave.
+- **What changed** (`packages/app/src/pages/Conversation.tsx`): once unlocked, the button reads "Keep chatting or continue to final survey" (was "Done talking? Go to final survey"). Style, the locked text and the unlock rule are unchanged.
+- **Both arms, identical.** Applies to sessions opened or reloaded after the deploy.
+
 ## 2026-11-04: final-survey button no longer lights up when it unlocks, and reads "Done talking? Go to final survey" (not yet live)
 
 - **Why.** Once the reply minimum was reached, the button switched from a grey outline to a bright filled button, which invited participants to leave the conversation right away.
