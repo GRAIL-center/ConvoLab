@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { wsUrl } from "../lib/apiUrl";
 import { wsProtocols } from "../lib/authToken";
+import { lightTap } from "../lib/haptics";
 import { lastStreamingIndex, removeAt, replaceAt } from "./streamingMessages";
 
 export type EntityId = string | number;
@@ -292,6 +293,7 @@ export function useConversationSocket(
 		(content: string) => {
 			// Use ref to avoid recreating callback on every isStreaming change
 			if (!content.trim() || isStreamingRef.current) return;
+			lightTap();
 
 			// Optimistically add user message
 			const userMessage: Message = {
@@ -748,6 +750,7 @@ export function useConversationSocket(
 						});
 						lastMessageIdRef.current = msg.messageId;
 						coachStreamingContentRef.current = "";
+						lightTap();
 						break;
 
 					case "aside:delta":
