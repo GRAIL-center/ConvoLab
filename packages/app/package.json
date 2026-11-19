@@ -18,7 +18,6 @@
   "dependencies": {
     "@capacitor/android": "8.6.0",
     "@capacitor/core": "8.6.0",
-    "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.6.0",
     "@capacitor/share": "8.0.3",
     "@tanstack/react-query": "^5.90.16",

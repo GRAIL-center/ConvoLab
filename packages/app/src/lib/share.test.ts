@@ -1,17 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const native = vi.hoisted(() => ({ isNative: false, share: vi.fn(), impact: vi.fn() }));
+const native = vi.hoisted(() => ({ isNative: false, share: vi.fn() }));
 
 vi.mock('@capacitor/core', () => ({
   Capacitor: { isNativePlatform: () => native.isNative },
 }));
 vi.mock('@capacitor/share', () => ({ Share: { share: native.share } }));
-vi.mock('@capacitor/haptics', () => ({
-  Haptics: { impact: native.impact },
-  ImpactStyle: { Light: 'LIGHT' },
-}));
 
-import { lightTap } from './haptics';
 import { canShare, shareLink } from './share';
 
 const link = { title: 'ConvoLab', text: 'hi', url: 'https://convolab.us/' };
@@ -19,7 +14,6 @@ const link = { title: 'ConvoLab', text: 'hi', url: 'https://convolab.us/' };
 beforeEach(() => {
   native.isNative = false;
   native.share.mockReset().mockResolvedValue({});
-  native.impact.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -70,25 +64,5 @@ describe('shareLink on the website', () => {
     expect(canShare()).toBe(false);
     expect(await shareLink(link)).toBe('copied');
     expect(writeText).toHaveBeenCalledWith(link.url);
-  });
-});
-
-describe('lightTap', () => {
-  it('does nothing on the website', () => {
-    lightTap();
-    expect(native.impact).not.toHaveBeenCalled();
-  });
-
-  it('gives a light tap in the installed app', () => {
-    native.isNative = true;
-    lightTap();
-    expect(native.impact).toHaveBeenCalledWith({ style: 'LIGHT' });
-  });
-
-  it('never throws when the phone cannot vibrate', async () => {
-    native.isNative = true;
-    native.impact.mockRejectedValue(new Error('no motor'));
-    expect(() => lightTap()).not.toThrow();
-    await Promise.resolve();
   });
 });
