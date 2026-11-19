@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '../../components/ThemeToggle';
-import { apiUrl } from '../../lib/apiUrl';
+import { apiUrl, publicUrl } from '../../lib/apiUrl';
 import { isNativeApp, startNativeSignIn } from '../../lib/authToken';
+import { canShare, SHARE_MESSAGE, shareLink } from '../../lib/share';
 import { muted, scrollToSection, textLink } from './ui';
 
 // Each label is the exact heading it scrolls to, listed in page order, so the
@@ -61,6 +62,22 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
     </a>
   );
 
+  // Opens the phone's share sheet with a link to this page (#249). Only shown
+  // where a share sheet exists: the installed app and most phone browsers.
+  const shareButton = (className: string) =>
+    canShare() ? (
+      <button
+        type="button"
+        onClick={() => {
+          setMenuOpen(false);
+          void shareLink({ ...SHARE_MESSAGE, url: publicUrl('/') });
+        }}
+        className={className}
+      >
+        Share ConvoLab
+      </button>
+    ) : null;
+
   return (
     <header
       className={`sticky top-0 z-30 transition-[background-color,border-color,backdrop-filter] duration-300 ${
@@ -105,6 +122,12 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
               className={`hidden rounded-md border border-black/10 px-2.5 py-1 text-[11px] sm:inline dark:border-white/10 ${muted}`}
             >
               Preview
+            </span>
+          ) : null}
+          {/* xl, not lg: at 1024 px the bar has no room left for it. */}
+          {canShare() ? (
+            <span className="hidden whitespace-nowrap xl:inline">
+              {shareButton(`text-sm ${muted} ${textLink}`)}
             </span>
           ) : null}
           <span className="hidden whitespace-nowrap lg:inline">{accountLink}</span>
@@ -152,6 +175,9 @@ export function PracticeNav({ isSignedIn, showPreviewBadge }: PracticeNavProps) 
                 </a>
               </li>
             ))}
+            {canShare() ? (
+              <li>{shareButton(`block w-full py-2.5 text-left text-base ${textLink}`)}</li>
+            ) : null}
             <li className="pt-2">{accountLink}</li>
           </ul>
         </div>

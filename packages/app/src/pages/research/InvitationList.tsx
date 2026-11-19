@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 import { publicUrl } from '../../lib/apiUrl';
-import { canShare, INVITE_SHARE, shareLink } from '../../lib/share';
+import { canShare, SHARE_MESSAGE, shareLink } from '../../lib/share';
 
 export function InvitationList() {
   const [scenarioId, setScenarioId] = useState<number | ''>('');
@@ -241,7 +241,7 @@ export function InvitationList() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void shareLink({ ...INVITE_SHARE, url: publicUrl(`/invite/${inv.token}`) });
+                      void shareLink({ ...SHARE_MESSAGE, url: publicUrl(`/invite/${inv.token}`) });
                     }}
                     className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                   >

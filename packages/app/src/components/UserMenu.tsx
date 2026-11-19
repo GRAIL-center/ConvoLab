@@ -3,9 +3,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useTRPC } from '../api/trpc';
-import { apiUrl, publicUrl } from '../lib/apiUrl';
+import { apiUrl } from '../lib/apiUrl';
 import { clearAuthToken, nativeAuthHeaders } from '../lib/authToken';
-import { APP_SHARE, canShare, shareLink } from '../lib/share';
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -260,21 +259,6 @@ export function UserMenu() {
                     Sign in with Google
                   </a>
                 </div>
-              )}
-
-              {canShare() && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOpen(false);
-                    void shareLink({ ...APP_SHARE, url: publicUrl('/') });
-                  }}
-                  className="mt-3 w-full border-t border-[rgba(130,167,161,0.2)] dark:border-[rgba(212,232,229,0.1)]
-                             pt-3 text-center text-sm text-gray-600 dark:text-[#A0A0A0]
-                             hover:text-gray-900 dark:hover:text-[#EBEBEB]"
-                >
-                  Share ConvoLab
-                </button>
               )}
             </div>
           </div>

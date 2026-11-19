@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { placeholderCopy } from '../pages/practice/placeholderCopy';
 
 // Opens the phone's own share sheet (#249). In the installed app this is the
 // native sheet; on a website that supports it (most phones, some desktops)
@@ -13,14 +14,12 @@ export interface ShareLinkOptions {
   url: string;
 }
 
-// Wording of the two things people can share.
-export const APP_SHARE = {
+// What goes with a shared link: the landing page's own name and approved
+// headline, so the share sheet adds no wording of its own. Used for both the
+// app link and invitation links.
+export const SHARE_MESSAGE = {
   title: 'ConvoLab',
-  text: 'Practice difficult political conversations with an AI coach.',
-};
-export const INVITE_SHARE = {
-  title: 'Your ConvoLab invitation',
-  text: 'Here is your invitation to practice a conversation on ConvoLab.',
+  text: placeholderCopy.heroHeadline,
 };
 
 // Show a Share button only where a share sheet will actually open.
