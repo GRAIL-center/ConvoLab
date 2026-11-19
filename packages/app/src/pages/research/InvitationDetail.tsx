@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useTRPC } from '../../api/trpc';
 import { MessageBubble } from '../../components/conversation/MessageBubble';
 import { publicUrl } from '../../lib/apiUrl';
+import { canShare, SHARE_MESSAGE, shareLink } from '../../lib/share';
 
 export function InvitationDetail() {
   const { invitationId } = useParams<{ invitationId: string }>();
@@ -177,6 +178,15 @@ export function InvitationDetail() {
               >
                 Copy link
               </button>
+              {canShare() && (
+                <button
+                  type="button"
+                  onClick={() => void shareLink({ ...SHARE_MESSAGE, url: inviteUrl })}
+                  className="mt-2 text-sm text-indigo-600 hover:underline"
+                >
+                  Share link
+                </button>
+              )}
             </div>
           ) : (
             <button
