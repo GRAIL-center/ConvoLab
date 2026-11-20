@@ -84,6 +84,10 @@ export async function deleteAccountData(
     }
   }
 
+  // The per-account practice-limit counter is keyed on the user id, so it goes
+  // with the account (#277).
+  await firestore.collection('practiceUsage').doc(userId).delete();
+
   await deleteUserCascade(userId, prisma);
 
   return {

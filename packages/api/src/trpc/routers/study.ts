@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
 import { createMessage } from '../../data/messages.js';
 import { createSession } from '../../data/sessions.js';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
 import { providersFromEnv, resolveSessionModels } from '../../lib/modelResolution.js';
 import { getPartnerOpener } from '../../lib/partnerOpeners.js';
 import { decideStudySession } from '../../lib/studySessionDecision.js';
@@ -259,6 +260,7 @@ export const studyRouter = router({
   }),
 
   enter: publicProcedure.input(enterInput).mutation(async ({ ctx, input }) => {
+    assertWithinRateLimit('study.enter', requestAddress(ctx.req));
     const condition = parseBinary(input.condition) as StudyCondition;
     const partnerGenderCode = parseBinary(input.partner);
     const partnerGender: PartnerGender = partnerGenderCode === 1 ? 'female' : 'male';
@@ -327,7 +329,21 @@ export const studyRouter = router({
     }
 
     if (existingSession) {
-      if (existingSession.userId) {
+      // The study link is a capability URL. The browser may already carry a
+      // different cookie -- someone who practiced first, or signed in mid-study
+      // -- and we cannot block a participant from their own study session. So
+      // when the cookie does not match the session's owner we log it and adopt
+      // the session's user, as the flow did before (Hanna, PR #277).
+      if (ctx.userId && existingSession.userId && ctx.userId !== existingSession.userId) {
+        ctx.req.log.warn(
+          {
+            event: 'study_session_owner_switch',
+            sessionId: String(existingSession.id),
+          },
+          '[study] browser cookie did not match the study session owner; switching to the session owner'
+        );
+      }
+      if (existingSession.userId && ctx.userId !== existingSession.userId) {
         ctx.req.session.set('userId', existingSession.userId);
       }
       return {
@@ -357,6 +373,7 @@ export const studyRouter = router({
       });
       userId = anonymousUser.id;
       ctx.req.session.set('userId', userId);
+      ctx.req.log.info({ event: 'guest_created', userId, source: 'study' }, 'guest created');
     }
 
     const scenario = await ctx.prisma.scenario.findUnique({
