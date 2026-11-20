@@ -1,60 +1,42 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { TRPCError } from '@trpc/server';
+import { clientAddress, createFixedWindowLimiter } from './fixedWindowLimiter.js';
 
-export type AddressRequest = {
+/**
+ * Rate limits for the unauthenticated public tRPC routes, built on the same
+ * fixed-window limiter the native sign-in route uses (#271). Reusing it gives
+ * us the IPv6 /64 grouping and the 50,000-key memory cap without a second
+ * copy of that logic.
+ *
+ * Per Cloud Run instance, like the sign-in limiter: a backstop against one
+ * address hammering a model-backed route, not an exact quota.
+ */
+const limiters = {
+  // High enough that a shared campus NAT reopening study links is not locked out.
+  'study.enter': createFixedWindowLimiter({ max: 120, windowMs: 5 * 60 * 1000 }),
+  'feedback.submit': createFixedWindowLimiter({ max: 10, windowMs: 15 * 60 * 1000 }),
+  'scenario.elaborate': createFixedWindowLimiter({ max: 8, windowMs: 15 * 60 * 1000 }),
+} as const;
+
+export type PublicLimiterName = keyof typeof limiters;
+
+type AddressSource = {
   ip?: string;
   headers?: IncomingHttpHeaders;
 };
 
+/** Pull the client address straight from the request the way #271 does. */
+export function requestAddress(req: AddressSource): string {
+  return clientAddress(req.headers ?? {}, req.ip ?? 'unknown');
+}
+
 /**
- * Cloud Run appends the address it actually saw. The left-most value is
- * whatever the client sent, so the last hop is the one we can trust when a
- * proxy is in front. With no forwarded header, use the socket address.
+ * Throw TOO_MANY_REQUESTS when the caller has used up a public route's window.
+ * `address` should come from requestAddress / clientAddress so every counter
+ * keys on the same value.
  */
-export function clientAddress(req: AddressRequest): string {
-  const header = req.headers?.['x-forwarded-for'];
-  const raw = Array.isArray(header) ? header.join(',') : header;
-  if (raw) {
-    const hops = raw
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const last = hops[hops.length - 1];
-    if (last) return last;
-  }
-  return req.ip || 'unknown';
-}
-
-type Bucket = { count: number; resetAt: number };
-
-const buckets = new Map<string, Bucket>();
-
-export function resetIpRateLimits(): void {
-  buckets.clear();
-}
-
-export const PUBLIC_LIMITS = {
-  // High enough that a shared campus NAT reopening study links is not locked out.
-  studyEnter: { limit: 120, windowMs: 5 * 60 * 1000 },
-  feedback: { limit: 10, windowMs: 15 * 60 * 1000 },
-  elaborate: { limit: 8, windowMs: 15 * 60 * 1000 },
-} as const;
-
-export function assertWithinRateLimit(
-  address: string,
-  bucket: string,
-  limit: number,
-  windowMs: number,
-  now = Date.now()
-): void {
-  const key = `${bucket}:${address}`;
-  const current = buckets.get(key);
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return;
-  }
-  current.count += 1;
-  if (current.count > limit) {
+export function assertWithinRateLimit(name: PublicLimiterName, address: string): void {
+  if (!limiters[name].hit(address).allowed) {
     throw new TRPCError({
       code: 'TOO_MANY_REQUESTS',
       message: 'Too many requests. Try again shortly.',

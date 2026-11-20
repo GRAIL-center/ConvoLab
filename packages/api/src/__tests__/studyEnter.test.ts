@@ -1,6 +1,5 @@
 import { Role } from '@workspace/database';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { resetIpRateLimits } from '../lib/ipRateLimit.js';
 import { studyRouter } from '../trpc/routers/study.js';
 import { testPrisma } from './setup.js';
 
@@ -40,7 +39,6 @@ describe('study.enter session ownership', () => {
   let ownerId: string;
 
   beforeEach(async () => {
-    resetIpRateLimits();
     const owner = await testPrisma.user.create({ data: { role: Role.GUEST } });
     ownerId = owner.id;
     await testPrisma.conversationSession.create({
@@ -57,15 +55,18 @@ describe('study.enter session ownership', () => {
     });
   });
 
-  it('refuses to replace a different user cookie', async () => {
+  it('switches a mismatched cookie to the study session owner (does not block the participant)', async () => {
+    // A participant who practiced or signed in first carries a different
+    // cookie. We cannot lock them out of their own study session, so the
+    // capability link adopts the session's owner (Hanna, PR #277).
     const other = await testPrisma.user.create({ data: { role: Role.USER } });
     const { caller, setCalls } = makeContext(other.id);
 
-    await expect(caller.enter(enterInput)).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-      message: 'Not authorized for this session.',
-    });
-    expect(setCalls).toEqual([]);
+    const result = await caller.enter(enterInput);
+
+    expect(result.sessionId).toBe('study-session-1');
+    expect(result.alreadyExisted).toBe(true);
+    expect(setCalls).toEqual([['userId', ownerId]]);
   });
 
   it('resumes a cookieless caller onto the session owner', async () => {

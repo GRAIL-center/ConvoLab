@@ -7,11 +7,13 @@ import {
   decideAccountStart,
   decideGuestStart,
   GUEST_DAILY_STARTS,
+  hashIpForDocId,
+  IP_DAILY_NEW_GUEST_STARTS,
   IP_HOURLY_NEW_GUEST_STARTS,
   PRACTICE_LIMIT_MESSAGES,
+  releaseGuestPracticeStart,
   reserveAccountPracticeStart,
   reserveGuestPracticeStart,
-  sanitizeIpForDocId,
   utcDayKey,
   utcHourKey,
   utcMonthKey,
@@ -90,6 +92,7 @@ describe('decideGuestStart', () => {
         allowanceRemaining: 1000,
         guestDayStarts: GUEST_DAILY_STARTS,
         ipHourStarts: IP_HOURLY_NEW_GUEST_STARTS,
+        ipDayStarts: IP_DAILY_NEW_GUEST_STARTS,
       })
     ).toEqual({ kind: 'reopen', sessionId: 'sess-1' });
   });
@@ -102,6 +105,7 @@ describe('decideGuestStart', () => {
         allowanceRemaining: 0,
         guestDayStarts: 0,
         ipHourStarts: 0,
+        ipDayStarts: 0,
       })
     ).toEqual({ kind: 'allow_new' });
   });
@@ -114,6 +118,7 @@ describe('decideGuestStart', () => {
         allowanceRemaining: 0,
         guestDayStarts: 0,
         ipHourStarts: 0,
+        ipDayStarts: 0,
       })
     ).toMatchObject({
       kind: 'refuse',
@@ -122,26 +127,30 @@ describe('decideGuestStart', () => {
     });
   });
 
-  it('pauses new guest starts when the day or IP bucket is full', () => {
-    expect(
-      decideGuestStart({
-        practiceSessionCount: 0,
-        existingSessionId: null,
-        allowanceRemaining: null,
-        guestDayStarts: GUEST_DAILY_STARTS,
-        ipHourStarts: 0,
-      })
-    ).toMatchObject({ kind: 'refuse', reason: 'guest_busy' });
+  it('pauses new guest starts when the site-wide day, IP-hour, or IP-day bucket is full', () => {
+    const base = {
+      practiceSessionCount: 0,
+      existingSessionId: null,
+      allowanceRemaining: null,
+      guestDayStarts: 0,
+      ipHourStarts: 0,
+      ipDayStarts: 0,
+    };
 
-    expect(
-      decideGuestStart({
-        practiceSessionCount: 0,
-        existingSessionId: null,
-        allowanceRemaining: null,
-        guestDayStarts: 0,
-        ipHourStarts: IP_HOURLY_NEW_GUEST_STARTS,
-      })
-    ).toMatchObject({ kind: 'refuse', reason: 'guest_busy' });
+    expect(decideGuestStart({ ...base, guestDayStarts: GUEST_DAILY_STARTS })).toMatchObject({
+      kind: 'refuse',
+      reason: 'guest_busy',
+    });
+
+    expect(decideGuestStart({ ...base, ipHourStarts: IP_HOURLY_NEW_GUEST_STARTS })).toMatchObject({
+      kind: 'refuse',
+      reason: 'guest_busy',
+    });
+
+    expect(decideGuestStart({ ...base, ipDayStarts: IP_DAILY_NEW_GUEST_STARTS })).toMatchObject({
+      kind: 'refuse',
+      reason: 'guest_busy',
+    });
   });
 });
 
@@ -186,40 +195,81 @@ describe('reserve*PracticeStart transactions', () => {
     });
   });
 
-  it('refuses the 31st new guest start from one IP in an hour', async () => {
+  it('refuses a new guest start from one IP once the daily per-IP cap is hit', async () => {
     const now = new Date('2026-11-10T15:30:00.000Z');
     const firestore = asFirestore(db);
     const ip = '203.0.113.9';
 
-    for (let i = 0; i < IP_HOURLY_NEW_GUEST_STARTS; i++) {
+    for (let i = 0; i < IP_DAILY_NEW_GUEST_STARTS; i++) {
       expect(await reserveGuestPracticeStart(firestore, ip, now)).toEqual({ kind: 'allow_new' });
     }
     expect(await reserveGuestPracticeStart(firestore, ip, now)).toMatchObject({
       kind: 'refuse',
       reason: 'guest_busy',
     });
+  });
 
-    const hourKey = utcHourKey(now);
-    const ipDoc = await db
+  it('stores a hashed id with a TTL and never the raw IP', async () => {
+    const now = new Date('2026-11-10T15:30:00.000Z');
+    const ip = '203.0.113.42';
+    await reserveGuestPracticeStart(asFirestore(db), ip, now);
+
+    const hash = hashIpForDocId(ip);
+    expect(hash).not.toContain(ip);
+
+    const ipHourDoc = await db
       .collection('practiceIp')
-      .doc(`${hourKey}__${sanitizeIpForDocId(ip)}`)
+      .doc(`${utcHourKey(now)}__${hash}`)
       .get();
-    expect(ipDoc.data()?.starts).toBe(IP_HOURLY_NEW_GUEST_STARTS);
+    expect(ipHourDoc.data()?.starts).toBe(1);
+    expect(ipHourDoc.data()?.ip).toBeUndefined();
+    expect(ipHourDoc.data()?.expireAt).toBeInstanceOf(Date);
 
-    const dayDoc = await db.collection('guestSpend').doc(utcDayKey(now)).get();
-    expect(dayDoc.data()?.starts).toBe(IP_HOURLY_NEW_GUEST_STARTS);
+    const ipDayDoc = await db
+      .collection('practiceIpDay')
+      .doc(`${utcDayKey(now)}__${hash}`)
+      .get();
+    expect(ipDayDoc.data()?.starts).toBe(1);
+    expect(ipDayDoc.data()?.ip).toBeUndefined();
   });
 
   it('still allows a guest from a different IP when one network is paused', async () => {
     const now = new Date('2026-11-10T15:30:00.000Z');
     await db
-      .collection('practiceIp')
-      .doc(`${utcHourKey(now)}__${sanitizeIpForDocId('203.0.113.1')}`)
-      .set({ starts: IP_HOURLY_NEW_GUEST_STARTS });
+      .collection('practiceIpDay')
+      .doc(`${utcDayKey(now)}__${hashIpForDocId('203.0.113.1')}`)
+      .set({ starts: IP_DAILY_NEW_GUEST_STARTS });
 
     expect(await reserveGuestPracticeStart(asFirestore(db), '203.0.113.2', now)).toEqual({
       kind: 'allow_new',
     });
+  });
+
+  it('hands a reserved start back on release so a failed start is not burned', async () => {
+    const now = new Date('2026-11-10T15:30:00.000Z');
+    const firestore = asFirestore(db);
+    const ip = '203.0.113.7';
+
+    await reserveGuestPracticeStart(firestore, ip, now);
+    await reserveGuestPracticeStart(firestore, ip, now);
+    await releaseGuestPracticeStart(firestore, ip, now);
+
+    const hash = hashIpForDocId(ip);
+    const ipDayDoc = await db
+      .collection('practiceIpDay')
+      .doc(`${utcDayKey(now)}__${hash}`)
+      .get();
+    expect(ipDayDoc.data()?.starts).toBe(1);
+    const dayDoc = await db.collection('guestSpend').doc(utcDayKey(now)).get();
+    expect(dayDoc.data()?.starts).toBe(1);
+  });
+
+  it('never drives a counter below zero on release', async () => {
+    const now = new Date('2026-11-10T15:30:00.000Z');
+    const firestore = asFirestore(db);
+    await releaseGuestPracticeStart(firestore, '203.0.113.8', now);
+    const dayDoc = await db.collection('guestSpend').doc(utcDayKey(now)).get();
+    expect(dayDoc.data()?.starts).toBe(0);
   });
 });
 

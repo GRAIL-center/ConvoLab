@@ -1,12 +1,12 @@
-import path from 'node:path';
-import type { PrismaClient } from '@workspace/database';
-import dotenv from 'dotenv';
-import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
-import { FakeFirestore } from './fakeFirestore.js';
+import path from "node:path";
+import dotenv from "dotenv";
 import { assertSafeFirestoreTestTarget } from './firestoreProductionGuard.js';
+import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
+import type { PrismaClient } from '@workspace/database';
+import { FakeFirestore } from './fakeFirestore.js';
 
 dotenv.config({
-  path: path.resolve(process.cwd(), '.env'),
+  path: path.resolve(process.cwd(), ".env"),
 });
 
 assertSafeFirestoreTestTarget();

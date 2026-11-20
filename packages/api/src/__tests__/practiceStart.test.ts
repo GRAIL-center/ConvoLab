@@ -4,11 +4,10 @@ import {
   ACCOUNT_DAILY_LIMIT,
   ACCOUNT_MONTHLY_LIMIT,
   GUEST_CONVERSATIONS_PER_COOKIE,
-  IP_HOURLY_NEW_GUEST_STARTS,
+  hashIpForDocId,
+  IP_DAILY_NEW_GUEST_STARTS,
   PRACTICE_LIMIT_MESSAGES,
-  sanitizeIpForDocId,
   utcDayKey,
-  utcHourKey,
   utcMonthKey,
 } from '../lib/practiceLimits.js';
 import { practiceRouter } from '../trpc/routers/practice.js';
@@ -208,13 +207,13 @@ describe('practice.start conversation limits', () => {
     expect(invitations).toHaveLength(GUEST_CONVERSATIONS_PER_COOKIE);
   });
 
-  it('refuses the 31st new guest from one IP, but still lets a returning signed-in user through', async () => {
+  it('refuses a new guest from a maxed-out IP, but still lets a returning signed-in user through', async () => {
     const ip = '198.51.100.44';
     const now = new Date();
     await fakeDb
-      .collection('practiceIp')
-      .doc(`${utcHourKey(now)}__${sanitizeIpForDocId(ip)}`)
-      .set({ starts: IP_HOURLY_NEW_GUEST_STARTS });
+      .collection('practiceIpDay')
+      .doc(`${utcDayKey(now)}__${hashIpForDocId(ip)}`)
+      .set({ starts: IP_DAILY_NEW_GUEST_STARTS });
 
     const guestCaller = practiceRouter.createCaller(makeContext(null, ip));
     await expect(guestCaller.start({ scenarioId, recaptchaToken: 'dev-ok' })).rejects.toMatchObject(

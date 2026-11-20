@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Firestore } from '@google-cloud/firestore';
 
 /** New practice conversations a signed-in Google account may start each UTC month. */
@@ -10,6 +11,14 @@ export const GUEST_CONVERSATIONS_PER_COOKIE = 5;
 export const GUEST_DAILY_STARTS = 50;
 /** Brand-new guest starts allowed from one network address per UTC hour. */
 export const IP_HOURLY_NEW_GUEST_STARTS = 30;
+/**
+ * Brand-new guest starts allowed from one network address per UTC day. Lower
+ * than hourly * 24 so one address cannot drain the site-wide 50/day on its own
+ * in a couple of hours (Hanna, PR #277).
+ */
+export const IP_DAILY_NEW_GUEST_STARTS = 15;
+/** Per-IP guest counters expire after this long; the raw IP is never stored. */
+const IP_COUNTER_TTL_MS = 48 * 60 * 60 * 1000;
 
 export const PRACTICE_LIMIT_MESSAGES = {
   accountDay: "You've started 8 conversations today. Come back tomorrow.",
@@ -41,9 +50,14 @@ export function utcHourKey(now = new Date()): string {
   return now.toISOString().slice(0, 13);
 }
 
-/** Firestore document ids cannot contain `/`; IPv6 uses `:`. */
-export function sanitizeIpForDocId(ip: string): string {
-  return ip.replace(/[/:]/g, '_').slice(0, 128) || 'unknown';
+/**
+ * The address is hashed before it becomes a Firestore document id, and the raw
+ * IP is never stored in the document. Our privacy policy keeps IPs only in the
+ * 30-day Cloud logs, so the per-IP counter must not be a second durable copy
+ * (Hanna, PR #277). The hash is one-way and good enough to key a counter.
+ */
+export function hashIpForDocId(ip: string): string {
+  return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }
 
 type AccountUsageCounts = {
@@ -95,6 +109,7 @@ export function decideGuestStart(input: {
   allowanceRemaining: number | null;
   guestDayStarts: number;
   ipHourStarts: number;
+  ipDayStarts: number;
 }): PracticeLimitDecision {
   // Mid-chat Start should reopen the open conversation, not burn another of the five.
   if (
@@ -114,7 +129,8 @@ export function decideGuestStart(input: {
 
   if (
     input.guestDayStarts >= GUEST_DAILY_STARTS ||
-    input.ipHourStarts >= IP_HOURLY_NEW_GUEST_STARTS
+    input.ipHourStarts >= IP_HOURLY_NEW_GUEST_STARTS ||
+    input.ipDayStarts >= IP_DAILY_NEW_GUEST_STARTS
   ) {
     return {
       kind: 'refuse',
@@ -181,8 +197,12 @@ export async function reserveAccountPracticeStart(
 
 /**
  * Atomically reserve one brand-new guest start against the site-wide day
- * ceiling and the per-IP hourly pause. Returning guests that reopen an
- * existing conversation never call this.
+ * ceiling and the per-IP hourly and daily pauses. Returning guests that reopen
+ * an existing conversation never call this.
+ *
+ * The per-IP counters are keyed on a hash of the address and carry an
+ * `expireAt` for a Firestore TTL policy; the raw IP is never written (Hanna,
+ * PR #277).
  */
 export async function reserveGuestPracticeStart(
   db: Firestore,
@@ -191,15 +211,23 @@ export async function reserveGuestPracticeStart(
 ): Promise<PracticeLimitDecision> {
   const dayKey = utcDayKey(now);
   const hourKey = utcHourKey(now);
-  // Flat doc id (hour__ip) so the in-memory fake and real Firestore both work
+  const ipHash = hashIpForDocId(ip);
+  const expireAt = new Date(now.getTime() + IP_COUNTER_TTL_MS);
+  // Flat doc ids (key__hash) so the in-memory fake and real Firestore both work
   // without a nested collection API.
   const guestRef = db.collection('guestSpend').doc(dayKey);
-  const ipRef = db.collection('practiceIp').doc(`${hourKey}__${sanitizeIpForDocId(ip)}`);
+  const ipHourRef = db.collection('practiceIp').doc(`${hourKey}__${ipHash}`);
+  const ipDayRef = db.collection('practiceIpDay').doc(`${dayKey}__${ipHash}`);
 
   return db.runTransaction(async (tx) => {
-    const [guestSnap, ipSnap] = await Promise.all([tx.get(guestRef), tx.get(ipRef)]);
+    const [guestSnap, ipHourSnap, ipDaySnap] = await Promise.all([
+      tx.get(guestRef),
+      tx.get(ipHourRef),
+      tx.get(ipDayRef),
+    ]);
     const guestDayStarts = readStarts((guestSnap.exists ? guestSnap.data() : {}) as CounterDoc);
-    const ipHourStarts = readStarts((ipSnap.exists ? ipSnap.data() : {}) as CounterDoc);
+    const ipHourStarts = readStarts((ipHourSnap.exists ? ipHourSnap.data() : {}) as CounterDoc);
+    const ipDayStarts = readStarts((ipDaySnap.exists ? ipDaySnap.data() : {}) as CounterDoc);
 
     const decision = decideGuestStart({
       practiceSessionCount: 0,
@@ -207,16 +235,59 @@ export async function reserveGuestPracticeStart(
       allowanceRemaining: null,
       guestDayStarts,
       ipHourStarts,
+      ipDayStarts,
     });
     if (decision.kind !== 'allow_new') return decision;
 
     tx.set(guestRef, { starts: guestDayStarts + 1, updatedAtMs: now.getTime() });
-    tx.set(ipRef, {
-      starts: ipHourStarts + 1,
-      hourKey,
-      ip,
-      updatedAtMs: now.getTime(),
-    });
+    tx.set(ipHourRef, { starts: ipHourStarts + 1, updatedAtMs: now.getTime(), expireAt });
+    tx.set(ipDayRef, { starts: ipDayStarts + 1, updatedAtMs: now.getTime(), expireAt });
     return { kind: 'allow_new' } as const;
+  });
+}
+
+/**
+ * Hand back a guest start reserved by reserveGuestPracticeStart when the start
+ * failed before a session was created, so a crash mid-start does not silently
+ * burn one of the five. Decrements the same site-wide and per-IP counters,
+ * never below zero.
+ */
+export async function releaseGuestPracticeStart(
+  db: Firestore,
+  ip: string,
+  now = new Date()
+): Promise<void> {
+  const dayKey = utcDayKey(now);
+  const hourKey = utcHourKey(now);
+  const ipHash = hashIpForDocId(ip);
+  const guestRef = db.collection('guestSpend').doc(dayKey);
+  const ipHourRef = db.collection('practiceIp').doc(`${hourKey}__${ipHash}`);
+  const ipDayRef = db.collection('practiceIpDay').doc(`${dayKey}__${ipHash}`);
+
+  await db.runTransaction(async (tx) => {
+    const [guestSnap, ipHourSnap, ipDaySnap] = await Promise.all([
+      tx.get(guestRef),
+      tx.get(ipHourRef),
+      tx.get(ipDayRef),
+    ]);
+    const guestDayStarts = readStarts((guestSnap.exists ? guestSnap.data() : {}) as CounterDoc);
+    const ipHourStarts = readStarts((ipHourSnap.exists ? ipHourSnap.data() : {}) as CounterDoc);
+    const ipDayStarts = readStarts((ipDaySnap.exists ? ipDaySnap.data() : {}) as CounterDoc);
+
+    tx.set(
+      guestRef,
+      { starts: Math.max(0, guestDayStarts - 1), updatedAtMs: now.getTime() },
+      { merge: true }
+    );
+    tx.set(
+      ipHourRef,
+      { starts: Math.max(0, ipHourStarts - 1), updatedAtMs: now.getTime() },
+      { merge: true }
+    );
+    tx.set(
+      ipDayRef,
+      { starts: Math.max(0, ipDayStarts - 1), updatedAtMs: now.getTime() },
+      { merge: true }
+    );
   });
 }

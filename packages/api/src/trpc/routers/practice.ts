@@ -3,10 +3,13 @@ import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { createSession } from '../../data/sessions.js';
 import { issueAuthToken } from '../../lib/authToken.js';
-import { clientAddress } from '../../lib/ipRateLimit.js';
+import { requestAddress } from '../../lib/ipRateLimit.js';
 import {
   decideGuestStart,
+  GUEST_CONVERSATIONS_PER_COOKIE,
+  PRACTICE_LIMIT_MESSAGES,
   type PracticeLimitDecision,
+  releaseGuestPracticeStart,
   reserveAccountPracticeStart,
   reserveGuestPracticeStart,
 } from '../../lib/practiceLimits.js';
@@ -87,13 +90,16 @@ export const practiceRouter = router({
     // creates a guest it also gets a bearer token back. The website never
     // sends the X-ConvoLab-Client header, so its responses do not change.
     let authToken: string | undefined;
+    // Track a bumped guest start so a later failure can hand it back (#277).
+    let guestStartAddress: string | undefined;
+    let guestStartReserved = false;
 
     if (isSignedInAccount && userId) {
       const decision = await reserveAccountPracticeStart(ctx.firestore, userId);
       if (decision.kind === 'refuse') refuse(decision);
     } else {
-      // Guest cookie: reopen a conversation that still has allowance; otherwise
-      // start another until they hit five, then ask them to sign in.
+      // Guest cookie: pressing Start on a partner they already have an open
+      // chat with reopens that chat; otherwise it counts against the five.
       if (userId) {
         const invitations = await ctx.prisma.invitation.findMany({
           where: { linkedUserId: userId },
@@ -104,8 +110,8 @@ export const practiceRouter = router({
         );
 
         if (practiceInvitations.length > 0) {
-          const invitationIds = new Set(
-            practiceInvitations.map((inv: { id: string }) => String(inv.id))
+          const invitationById = new Map(
+            practiceInvitations.map((inv: { id: string }) => [String(inv.id), inv])
           );
           const sessions = await ctx.prisma.conversationSession.findMany({
             where: { userId },
@@ -114,45 +120,66 @@ export const practiceRouter = router({
             sessions as Array<{
               id: string | number;
               invitationId?: string | null;
+              scenarioId?: string | number | null;
+              status?: string | null;
               startedAt?: unknown;
             }>
           )
-            .filter((s) => s.invitationId && invitationIds.has(String(s.invitationId)))
+            .filter((s) => s.invitationId && invitationById.has(String(s.invitationId)))
             .sort((a, b) => {
               const at = a.startedAt ? new Date(String(a.startedAt)).getTime() : 0;
               const bt = b.startedAt ? new Date(String(b.startedAt)).getTime() : 0;
               return bt - at;
             });
-          const existing = practiceSessions[0];
 
-          if (existing) {
-            const invitation = practiceInvitations.find(
-              (inv: { id: string }) => String(inv.id) === String(existing.invitationId)
-            );
+          // Reopen only the latest ACTIVE chat for the same scenario the guest
+          // is starting now. A 600k-token chat almost never runs dry, so
+          // matching on allowance alone trapped a guest on their first partner
+          // (Hanna, PR #277). A different partner, or a finished chat, starts
+          // fresh and counts against the five.
+          const resumable = practiceSessions.find(
+            (s) =>
+              String(s.scenarioId) === String(scenario.id) && (s.status ?? 'ACTIVE') === 'ACTIVE'
+          );
+          if (resumable) {
+            const invitation = invitationById.get(String(resumable.invitationId)) as
+              | { id: string; quota?: unknown }
+              | undefined;
             const invitationQuota = invitation ? parseQuota(invitation.quota) : quota;
             const status = invitation
               ? await getInvitationQuotaStatus(ctx.prisma, String(invitation.id), invitationQuota)
               : { remaining: 0 };
             const decision = decideGuestStart({
               practiceSessionCount: practiceSessions.length,
-              existingSessionId: String(existing.id),
+              existingSessionId: String(resumable.id),
               allowanceRemaining: status.remaining,
               // Day/IP are checked inside reserveGuestPracticeStart when we mint a new one.
               guestDayStarts: 0,
               ipHourStarts: 0,
+              ipDayStarts: 0,
             });
             if (decision.kind === 'refuse') refuse(decision);
             if (decision.kind === 'reopen') {
               return { sessionId: decision.sessionId, authToken };
             }
-            // allow_new: latest chat is spent and they still have free slots left.
+            // allow_new: this chat is spent and they still have free slots left.
+          } else if (practiceSessions.length >= GUEST_CONVERSATIONS_PER_COOKIE) {
+            // No reopenable chat for this partner, and the five are already
+            // used up: ask them to sign in rather than minting a sixth.
+            refuse({
+              kind: 'refuse',
+              reason: 'guest_allowance_spent',
+              message: PRACTICE_LIMIT_MESSAGES.guestAllowanceSpent,
+            });
           }
         }
       }
 
       // New guest conversation (first cookie, or next of the five after spending one).
-      const decision = await reserveGuestPracticeStart(ctx.firestore, clientAddress(ctx.req));
+      guestStartAddress = requestAddress(ctx.req);
+      const decision = await reserveGuestPracticeStart(ctx.firestore, guestStartAddress);
       if (decision.kind === 'refuse') refuse(decision);
+      guestStartReserved = true;
 
       if (!userId) {
         const anonymousUser = await ctx.prisma.user.create({ data: { role: Role.GUEST } });
@@ -172,39 +199,51 @@ export const practiceRouter = router({
       });
     }
 
-    const invitation = await ctx.prisma.invitation.create({
-      data: {
-        token: generateToken(),
-        label: `${PRACTICE_INVITATION_PREFIX}${scenario.name}`,
+    // From here on a bumped guest counter must be handed back if we fail before
+    // the session exists, or a crash mid-start would silently burn a start.
+    try {
+      const invitation = await ctx.prisma.invitation.create({
+        data: {
+          token: generateToken(),
+          label: `${PRACTICE_INVITATION_PREFIX} ${scenario.name}`,
+          scenarioId: scenario.id,
+          quota: { tokens: quota.tokens, label: preset.label },
+          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          linkedUserId: userId,
+          claimedAt: new Date(),
+          // No createdById -- no authenticated staff user initiated this.
+        },
+      });
+
+      const sessionId = await createSession({
         scenarioId: scenario.id,
-        quota: { tokens: quota.tokens, label: preset.label },
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-        linkedUserId: userId,
-        claimedAt: new Date(),
-        // No createdById -- no authenticated staff user initiated this.
-      },
-    });
+        userId,
+        invitationId: invitation.id,
+        status: 'ACTIVE',
+      } as Parameters<typeof createSession>[0]);
 
-    const sessionId = await createSession({
-      scenarioId: scenario.id,
-      userId,
-      invitationId: invitation.id,
-      status: 'ACTIVE',
-    } as Parameters<typeof createSession>[0]);
+      await track(
+        ctx.prisma,
+        TelemetryEvents.CONVERSATION_STARTED,
+        {
+          scenarioId: scenario.id,
+          scenarioSlug: scenario.slug,
+          isCustom: false,
+          source: 'public_practice',
+        },
+        { userId, sessionId }
+      );
 
-    await track(
-      ctx.prisma,
-      TelemetryEvents.CONVERSATION_STARTED,
-      {
-        scenarioId: scenario.id,
-        scenarioSlug: scenario.slug,
-        isCustom: false,
-        source: 'public_practice',
-      },
-      { userId, sessionId }
-    );
-
-    return { sessionId, authToken };
+      return { sessionId, authToken };
+    } catch (err) {
+      if (guestStartReserved && guestStartAddress) {
+        await releaseGuestPracticeStart(ctx.firestore, guestStartAddress).catch(() => {
+          // Best effort: the counters self-heal on the next UTC rollover, so a
+          // failed refund must not mask the original error.
+        });
+      }
+      throw err;
+    }
   }),
 });

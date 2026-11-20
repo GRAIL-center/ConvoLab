@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { assertWithinRateLimit, clientAddress, PUBLIC_LIMITS } from '../../lib/ipRateLimit.js';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
 import { adminProcedure, publicProcedure, router } from '../procedures.js';
 
 export const feedbackRouter = router({
@@ -16,12 +16,7 @@ export const feedbackRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertWithinRateLimit(
-        clientAddress(ctx.req),
-        'feedback.submit',
-        PUBLIC_LIMITS.feedback.limit,
-        PUBLIC_LIMITS.feedback.windowMs
-      );
+      assertWithinRateLimit('feedback.submit', requestAddress(ctx.req));
       const trimmed = input.comment?.trim();
 
       const docRef = ctx.firestore.collection('feedback').doc();
@@ -75,8 +70,7 @@ export const feedbackRouter = router({
           rating: typeof data.rating === 'number' ? data.rating : 0,
           comment: typeof data.comment === 'string' ? data.comment : null,
           userId: typeof data.userId === 'string' ? data.userId : null,
-          createdAt:
-            typeof data.createdAt === 'string' ? data.createdAt : new Date(0).toISOString(),
+          createdAt: typeof data.createdAt === 'string' ? data.createdAt : new Date(0).toISOString(),
         };
       });
       const userIds = [
@@ -102,20 +96,19 @@ export const feedbackRouter = router({
    * Aggregate stats for the admin dashboard header.
    */
   stats: adminProcedure.query(async ({ ctx }) => {
-    const feedbackCol = ctx.firestore.collection('feedback');
-    const snapshot = await feedbackCol.get();
-    const total = snapshot.size;
-    const ratings = snapshot.docs
-      .map((d) => d.data().rating)
-      .filter((r): r is number => typeof r === 'number');
-    const average =
-      ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
-    const distribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const r of ratings) {
-      if (r >= 1 && r <= 5) {
-        distribution[r as 1 | 2 | 3 | 4 | 5] += 1;
+      const feedbackCol = ctx.firestore.collection('feedback');
+      const snapshot = await feedbackCol.get();
+      const total = snapshot.size;
+      const ratings = snapshot.docs
+        .map((d) => d.data().rating)
+        .filter((r): r is number => typeof r === 'number');
+      const average = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+      const distribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      for (const r of ratings) {
+        if (r >= 1 && r <= 5) {
+          distribution[r as 1 | 2 | 3 | 4 | 5] += 1;
+        }
       }
-    }
-    return { total, average, distribution };
+      return { total, average, distribution };
   }),
 });

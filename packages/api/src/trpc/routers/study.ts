@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { completeSession } from '../../data/index.js';
 import { createMessage } from '../../data/messages.js';
 import { createSession } from '../../data/sessions.js';
-import { assertWithinRateLimit, clientAddress, PUBLIC_LIMITS } from '../../lib/ipRateLimit.js';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
 import { providersFromEnv, resolveSessionModels } from '../../lib/modelResolution.js';
 import { getPartnerOpener } from '../../lib/partnerOpeners.js';
 import { decideStudySession } from '../../lib/studySessionDecision.js';
@@ -260,12 +260,7 @@ export const studyRouter = router({
   }),
 
   enter: publicProcedure.input(enterInput).mutation(async ({ ctx, input }) => {
-    assertWithinRateLimit(
-      clientAddress(ctx.req),
-      'study.enter',
-      PUBLIC_LIMITS.studyEnter.limit,
-      PUBLIC_LIMITS.studyEnter.windowMs
-    );
+    assertWithinRateLimit('study.enter', requestAddress(ctx.req));
     const condition = parseBinary(input.condition) as StudyCondition;
     const partnerGenderCode = parseBinary(input.partner);
     const partnerGender: PartnerGender = partnerGenderCode === 1 ? 'female' : 'male';
@@ -334,22 +329,21 @@ export const studyRouter = router({
     }
 
     if (existingSession) {
-      // The study link is a capability URL for a browser that has no session
-      // yet. It must not replace a cookie that already belongs to someone else.
+      // The study link is a capability URL. The browser may already carry a
+      // different cookie -- someone who practiced first, or signed in mid-study
+      // -- and we cannot block a participant from their own study session. So
+      // when the cookie does not match the session's owner we log it and adopt
+      // the session's user, as the flow did before (Hanna, PR #277).
       if (ctx.userId && existingSession.userId && ctx.userId !== existingSession.userId) {
         ctx.req.log.warn(
           {
-            event: 'study_session_owner_mismatch',
+            event: 'study_session_owner_switch',
             sessionId: String(existingSession.id),
           },
-          '[study] refused to attach a session owned by someone else'
+          '[study] browser cookie did not match the study session owner; switching to the session owner'
         );
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized for this session.',
-        });
       }
-      if (!ctx.userId && existingSession.userId) {
+      if (existingSession.userId && ctx.userId !== existingSession.userId) {
         ctx.req.session.set('userId', existingSession.userId);
       }
       return {

@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { elaborateDescription } from '../../lib/elaborate.js';
-import { assertWithinRateLimit, clientAddress, PUBLIC_LIMITS } from '../../lib/ipRateLimit.js';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
 import { isPublicScenario } from '../../lib/publicScenario.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { publicProcedure, router } from '../procedures.js';
@@ -63,12 +63,7 @@ export const scenarioRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertWithinRateLimit(
-        clientAddress(ctx.req),
-        'scenario.elaborate',
-        PUBLIC_LIMITS.elaborate.limit,
-        PUBLIC_LIMITS.elaborate.windowMs
-      );
+      assertWithinRateLimit('scenario.elaborate', requestAddress(ctx.req));
       try {
         const result = await elaborateDescription(input.description);
 
