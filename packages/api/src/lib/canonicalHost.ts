@@ -3,8 +3,8 @@
  *
  * `www.convolab.us` and `convolab.us` both resolve to this service once both
  * Cloud Run domain mappings exist. Serving the app on two hostnames would split
- * the session cookie and fall foul of the CORS allowlist, which is a single
- * origin (`FRONTEND_URL`, see server.ts). So the alternate host is not served:
+ * the session cookie and fall foul of the CORS allowlist, which has a single
+ * website origin (`FRONTEND_URL`, see lib/corsOrigins.ts). So the alternate host is not served:
  * it is redirected to the canonical origin before the browser makes any API
  * call, which keeps one origin for cookies and CORS while still letting someone
  * who types "www" reach the site.
