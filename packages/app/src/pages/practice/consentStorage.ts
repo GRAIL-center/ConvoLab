@@ -5,7 +5,7 @@
  * The answer is kept on this device. Bump CONSENT_VERSION whenever the wording
  * below changes, so everyone sees the new wording once.
  */
-export const CONSENT_VERSION = '2026-11-17';
+export const CONSENT_VERSION = '2026-11-23';
 export const CONSENT_STORAGE_KEY = 'convolab.firstUseConsent';
 
 /** Placeholder until the policy is published (#245). */
@@ -14,9 +14,11 @@ export const PRIVACY_POLICY_URL = 'https://convolab.us/privacy';
 export const consentCopy = {
   title: 'Before you start',
   aiParagraph:
-    'ConvoLab lets you practice a difficult conversation. Your conversation partner and your coach are both AI, not people. Their replies are written by AI models from Anthropic (Claude) and Google (Gemini).',
+    "ConvoLab lets you practice a difficult conversation. Your conversation partner and your coach are both AI, not people. Their replies are written by AI models from Anthropic (Claude) and Google (Gemini). AI can get things wrong, and the coach's tips are for practice, not professional advice.",
+  topicsParagraph:
+    'Conversations can touch on sensitive political or personal topics and may feel uncomfortable. You can stop at any time.',
   storageParagraph:
-    'We store your conversations so the app can work, show your progress, and help us improve the partner and the coach. If you sign in, you can delete your conversations or your account at any time from the account menu.',
+    "We store your conversations so the app can work, show your progress, and help us improve the partner and the coach. Anthropic and Google don't use them to train their AI. If you use ConvoLab as a guest, we don't know who you are. You can delete your conversations at any time from the account menu.",
   sharingParagraph:
     "Please don't share details that could identify you or anyone else, such as full names, addresses or health information.",
   privacyLink: 'Read our privacy policy',

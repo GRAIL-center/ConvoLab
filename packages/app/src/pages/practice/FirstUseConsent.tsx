@@ -46,6 +46,7 @@ export function FirstUseConsent({ onAccept, onBack }: FirstUseConsentProps) {
           </h2>
           <div className={`mt-5 space-y-4 text-[1rem] leading-relaxed ${soft}`}>
             <p>{consentCopy.aiParagraph}</p>
+            <p>{consentCopy.topicsParagraph}</p>
             <p>{consentCopy.storageParagraph}</p>
             <p>{consentCopy.sharingParagraph}</p>
             <p>
