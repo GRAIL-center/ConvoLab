@@ -36,6 +36,7 @@ import Fastify from 'fastify';
 import { selectWsProtocol } from './auth/resolveUser.js';
 import { db as prisma } from './db/firestoreHelpers.js';
 import { canonicalRedirectTarget } from './lib/canonicalHost.js';
+import { corsOrigins } from './lib/corsOrigins.js';
 
 import {
   getAIProviderSummary,
@@ -71,8 +72,8 @@ fastify.log.info(`AI providers available: ${getAIProviderSummary()}`);
 fastify.log.info(`Firestore target: ${getFirestoreTargetSummary()}`);
 
 // Serve the app on one hostname only. www.convolab.us is mapped to this same
-// service, and two live origins would split the session cookie and break the
-// single-origin CORS allowlist below, so the www form is redirected here
+// service, and two live website origins would split the session cookie and
+// fall outside the CORS allowlist below, so the www form is redirected here
 // rather than served. Registered before every other route so it applies to
 // static files, tRPC and the WebSocket upgrade alike.
 fastify.addHook('onRequest', async (request, reply) => {
@@ -89,8 +90,9 @@ fastify.addHook('onRequest', async (request, reply) => {
 });
 
 // Register plugins
+// The website's origin plus the installed app's two local origins (#238).
 await fastify.register(cors, {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: corsOrigins(process.env.FRONTEND_URL),
   credentials: true,
 });
 
