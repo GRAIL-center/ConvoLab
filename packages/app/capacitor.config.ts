@@ -20,8 +20,9 @@ const config: CapacitorConfig = {
   // Without them iOS crashes as soon as a token is requested, and the iOS
   // build would pull in the whole Firebase SDK. When the config files are in
   // place, add '@capacitor-firebase/app-check' here (see
-  // docs/app-check-setup.md). Any other native plugin (e.g. for #237) must be
-  // listed here too, or `cap sync` leaves it out.
+  // docs/app-check-setup.md). Any other native plugin must be listed here too,
+  // or `cap sync` leaves it out: '@capacitor/share' from PR #280 (#249) as soon
+  // as both are on main, and whatever #237 adds.
   includePlugins: [],
   experimental: {
     ios: {
