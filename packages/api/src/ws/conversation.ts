@@ -504,9 +504,10 @@ export class ConversationManager {
             // longer means "the participant has not started".
             partnerOpens: this.session.studyPartnerOpens === true,
             participantTurnCount: this.countParticipantTurns(),
-            // softCap is no longer a deadline: it is the point where the
-            // participant is free to finish. They may keep talking until
-            // hardStop, which is the only enforced limit.
+            // softCap is no longer a deadline: it is the earliest point where the
+            // participant is free to finish, once they also have
+            // minParticipantTurns replies (both are required since 24 Nov 2026).
+            // They may keep talking until hardStop, the only enforced limit.
             softCapSeconds: 8 * 60,
             hardStopSeconds: 12 * 60,
             minParticipantTurns: 6,
