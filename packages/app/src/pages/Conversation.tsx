@@ -327,7 +327,11 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
   const hardStopped = !!study && elapsedSeconds >= study.hardStopSeconds;
   const showWrapSoon =
     !!study && !hardStopped && elapsedSeconds >= Math.max(0, study.hardStopSeconds - 90);
-  const showCanFinishNotice = pastSoftCap && !showWrapSoon && !hardStopped;
+  // Both are required (Hanna, 24 Nov 2026): six replies alone can take under
+  // three minutes when the replies are short, and the pilot wants at least
+  // eight minutes in the conversation.
+  const studyFinishUnlocked = canFinishStudy && pastSoftCap;
+  const showCanFinishNotice = studyFinishUnlocked && !showWrapSoon && !hardStopped;
 
   // isAsideStreaming is part of this: while the coach answers a private
   // question the server holds a single processing lock and rejects a spoken
@@ -431,9 +435,10 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
 
   const lappRailWidth = railsVisible ? 'xl:w-[335px]' : 'xl:w-0';
   const coachRailWidth = railsVisible && coachEnabled ? 'lg:w-[360px] xl:w-[420px]' : 'lg:w-0';
-  // Either enough turns or enough time is sufficient: a slow participant who has
-  // not reached the turn minimum by the soft cap can still choose to finish.
-  const surveyUnlocked = !isStudySession || canFinishStudy || pastSoftCap;
+  // Enough turns AND enough time. A participant who has not reached the turn
+  // minimum keeps the button locked until they do, or until the hard stop ends
+  // the conversation; "End conversation early" stays available throughout.
+  const surveyUnlocked = !isStudySession || studyFinishUnlocked;
 
   return (
     <div
@@ -691,7 +696,9 @@ function ConversationContent({ sessionId }: { sessionId: string }) {
                   >
                     {surveyUnlocked
                       ? 'Keep chatting or continue to final survey'
-                      : 'Final survey opens after a few more replies'}
+                      : canFinishStudy
+                        ? 'Final survey opens a little later'
+                        : 'Final survey opens after a few more replies'}
                   </button>
                 )}
               </div>

@@ -20,6 +20,13 @@ exception: they read their scenario's prompt live (see the 2026-09-27 reconcile 
 
 ---
 
+## 2026-11-24: final-survey button needs 6 replies AND 8 minutes (not yet live)
+
+- **Why.** Hanna, 24 Nov: six short replies can take under three minutes, and the pilot wants participants to spend at least eight minutes in the conversation.
+- **What changed** (`packages/app/src/pages/Conversation.tsx`): the "Keep chatting or continue to final survey" button unlocks only once the participant has sent 6 replies **and** 8 minutes have passed (was 6 replies **or** 8 minutes). The banner "You can continue as long as you like, or head to the survey whenever you are ready" now appears at that same moment, not at 8 minutes regardless of replies. While locked, the button reads "Final survey opens after a few more replies" if replies are short, or "Final survey opens a little later" if only time is short. "End conversation early" and the 12-minute automatic stop are unchanged.
+- **Consequence.** A participant with fewer than 6 replies at 8 minutes can no longer use the survey button until they reach 6; otherwise the conversation ends at 12 minutes as before, or they use "End conversation early" (recorded as `early_exit`).
+- **Both arms, identical.** Applies to sessions opened or reloaded after the deploy.
+
 ## 2026-11-17: unlocked final-survey button reads "Keep chatting or continue to final survey"
 
 - **Why.** Team meeting, 17 Nov: the button should say plainly that participants can keep talking, not only that they may leave.
