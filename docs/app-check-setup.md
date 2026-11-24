@@ -5,6 +5,15 @@ starts. reCAPTCHA does not work inside the installed app. So the app uses
 **Firebase App Check** instead. The phone itself vouches that the request comes
 from our real app: **App Attest** on iPhone, **Play Integrity** on Android.
 
+**Status (24 Nov 2026).** Done for iPhone: the App Check API is on for
+`convolab-490517`; the iOS app is registered in Firebase as "ConvoLab iOS"
+(`1:633459139926:ios:dd786326684746538a22f7`, bundle id
+`edu.harvard.ethics.convolab`, Apple Team ID `UHX83HR959`); App Attest is
+registered for it; and `GoogleService-Info.plist` is committed at
+`packages/app/ios/App/App/` (not yet added to the App target in Xcode). Nothing
+is enforced in Firebase. Still to do: everything for Android (needs the app in
+Play Console first), and the native wiring in Part 2.
+
 How it works:
 
 1. The app asks the App Check plugin for a token.
