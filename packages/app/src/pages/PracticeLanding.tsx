@@ -5,7 +5,7 @@ import { useTRPC } from '../api/trpc';
 import Recaptcha from '../components/Recaptcha';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { apiUrl } from '../lib/apiUrl';
-import { setAuthToken } from '../lib/authToken';
+import { isNativeApp, setAuthToken } from '../lib/authToken';
 import { PersonaPicker, type PracticeScenario } from './practice/PersonaPicker';
 import { PracticeMarketing } from './practice/PracticeMarketing';
 
@@ -91,8 +91,13 @@ export function PracticeLanding() {
   const picking = step === 'pick' || step === 'auth';
   const awaitingAuthChoice = step === 'auth' && selectedScenario !== null;
   const recaptchaSiteKey = (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined) ?? '';
+  // reCAPTCHA cannot run inside the installed app; there the guest start is
+  // vouched for by Firebase App Check instead, added as a request header in
+  // lib/appCheck.ts (#243). On the website this is just "is there a site key".
+  const nativeApp = isNativeApp();
+  const guestNeedsRecaptcha = Boolean(recaptchaSiteKey) && !nativeApp;
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(
-    recaptchaSiteKey ? null : 'local-dev'
+    guestNeedsRecaptcha ? null : 'local-dev'
   );
 
   const { data: authData } = useQuery(trpc.auth.me.queryOptions());
@@ -172,7 +177,7 @@ export function PracticeLanding() {
 
   const handleContinueAsGuest = () => {
     if (!selectedScenario || !recaptchaToken || !canStartLive) return;
-    startWithScenario(selectedScenario.id, recaptchaToken);
+    startWithScenario(selectedScenario.id, nativeApp ? undefined : recaptchaToken);
   };
 
   const handleSignIn = () => {
@@ -303,7 +308,7 @@ export function PracticeLanding() {
                 </span>
                 <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
               </div>
-              {recaptchaSiteKey ? (
+              {guestNeedsRecaptcha ? (
                 <>
                   <p className="text-xs text-[#7a756c] dark:text-[#8f8a80]">
                     Guests check the box first. No account needed.

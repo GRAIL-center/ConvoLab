@@ -16,6 +16,7 @@
     "app:assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#f7faf9' --iconBackgroundColorDark '#11110f' --splashBackgroundColor '#f7faf9' --splashBackgroundColorDark '#11110f'"
   },
   "dependencies": {
+    "@capacitor-firebase/app-check": "^8.6.0",
     "@capacitor/android": "8.6.0",
     "@capacitor/core": "8.6.0",
     "@capacitor/ios": "8.6.0",
@@ -24,6 +25,7 @@
     "@trpc/tanstack-react-query": "^11.8.1",
     "@workspace/api": "workspace:*",
     "@workspace/database": "workspace:*",
+    "firebase": "^12.19.0",
     "lucide-react": "^0.577.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
