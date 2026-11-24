@@ -1,4 +1,12 @@
 import { randomBytes } from 'node:crypto';
+import type { PrismaClient } from '@workspace/database';
+import {
+  ANGRY_UNCLE_PROMPT,
+  FEMALE_MAGA_PROMPT,
+  FEMALE_PROGRESSIVE_PROMPT,
+  MALE_MAGA_PROMPT,
+  MALE_PROGRESSIVE_PROMPT,
+} from './prompts/personaPrompts.js';
 import {
   computeContentHash,
   currentSeedVersion,
@@ -7,13 +15,6 @@ import {
   QUOTA_PRESET_HASH_FIELDS,
   SCENARIO_HASH_FIELDS,
 } from './referenceHash.js';
-import type { PrismaClient } from '@workspace/database';
-import {
-  FEMALE_MAGA_PROMPT,
-  FEMALE_PROGRESSIVE_PROMPT,
-  MALE_MAGA_PROMPT,
-  MALE_PROGRESSIVE_PROMPT,
-} from './prompts/personaPrompts.js';
 
 const TEST_ADMIN_ID = 'test-admin-user';
 const DEV_TEST_INVITATION_LABEL = 'Dev test invitation';
@@ -228,8 +229,7 @@ const PILOT_NAME: Record<'man' | 'woman', PersonaName> = {
 // Card copy for the public picker only. Nothing in the pilot or study renders a
 // scenario description: those surfaces carry their own partner summaries in
 // trpc/routers/study.ts and pages/PilotLanding.tsx, so edits here stay public-side.
-const PROGRESSIVE_DESCRIPTION =
-  'A leftist who argues from systemic and structural reasoning.';
+const PROGRESSIVE_DESCRIPTION = 'A leftist who argues from systemic and structural reasoning.';
 const POPULIST_DESCRIPTION =
   'A MAGA supporter who argues from fairness, accountability, and distrust of elites.';
 
@@ -315,12 +315,8 @@ const SCENARIOS = [
     audience: 'general',
     description:
       'Practice navigating political disagreements with a family member during a holiday dinner.',
-    partnerPersona: 'Your uncle who has strong political opinions',
-    partnerSystemPrompt: `You are playing the role of an uncle at a Thanksgiving dinner who has strong, contentious political views. You're not trying to be mean, but you're passionate and can get worked up. You make sweeping statements and sometimes interrupt. However, you do care about your family and can be reasoned with if approached thoughtfully.
-
-Keep your responses conversational - 2-4 sentences typically, like a real back-and-forth dialogue. Leave room for the other person to respond. Don't monologue.
-
-Start the conversation with a provocative political statement about current events.`,
+    partnerPersona: 'Richard "Rick" Miller',
+    partnerSystemPrompt: ANGRY_UNCLE_PROMPT,
     coachSystemPrompt: ANGRY_UNCLE_COACH_PROMPT,
   },
   ...PILOT_SCENARIOS,

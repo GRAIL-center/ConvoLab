@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import type { PrismaClient } from '@workspace/database';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ALL_PERSONA_PROMPT_FILES,
+  ANGRY_UNCLE_PROMPT,
   FEMALE_MAGA_PROMPT,
   FEMALE_PROGRESSIVE_PROMPT,
   MALE_MAGA_PROMPT,
@@ -57,12 +59,12 @@ const personas = [
 describe('persona prompt text files', () => {
   const read = (file: string) => readFileSync(`${PERSONA_PROMPTS_DIR}/${file}.txt`, 'utf8');
 
-  it('the prompts directory holds exactly the four persona files', () => {
+  it('the prompts directory holds exactly the declared persona files', () => {
     const txt = readdirSync(PERSONA_PROMPTS_DIR).filter((f) => f.endsWith('.txt'));
-    expect(txt.sort()).toEqual(PERSONA_PROMPT_FILES.map((f) => `${f}.txt`).sort());
+    expect(txt.sort()).toEqual(ALL_PERSONA_PROMPT_FILES.map((f) => `${f}.txt`).sort());
   });
 
-  it.each(PERSONA_PROMPT_FILES)('%s.txt exists and is non-empty', (file) => {
+  it.each(ALL_PERSONA_PROMPT_FILES)('%s.txt exists and is non-empty', (file) => {
     expect(existsSync(personaPromptPath(file))).toBe(true);
     expect(read(file).trim().length).toBeGreaterThan(1000);
   });
@@ -72,7 +74,7 @@ describe('persona prompt text files', () => {
     expect(prompt).toBe(read(file).replace(/\n$/, ''));
   });
 
-  it.each(PERSONA_PROMPT_FILES)('%s.txt has no stray whitespace', (file) => {
+  it.each(ALL_PERSONA_PROMPT_FILES)('%s.txt has no stray whitespace', (file) => {
     const text = read(file);
     expect(text, 'Windows line endings (CR)').not.toMatch(/\r/);
     expect(text, 'leading whitespace').toBe(text.trimStart());
@@ -86,21 +88,32 @@ describe('persona prompt text files', () => {
     expect(badLines, 'lines ending in spaces or tabs').toEqual([]);
   });
 
-  it.each(PERSONA_PROMPT_FILES)('%s.txt starts with ROLE:', (file) => {
+  it.each(ALL_PERSONA_PROMPT_FILES)('%s.txt starts with ROLE:', (file) => {
     const firstLine = read(file)
       .split('\n')
       .find((line) => line.trim() !== '');
     expect(firstLine?.trim()).toBe('ROLE:');
   });
 
-  it.each(PERSONA_PROMPT_FILES)('%s.txt has no em or en dash', (file) => {
+  it.each(ALL_PERSONA_PROMPT_FILES)('%s.txt has no em or en dash', (file) => {
     const offenders = read(file)
       .split('\n')
       .flatMap((line, i) => (/[\u2013\u2014]/.test(line) ? [`${file}.txt:${i + 1}: ${line}`] : []));
     expect(offenders).toEqual([]);
   });
 
-  it.each(PERSONA_PROMPT_FILES)('%s.txt has no competing reply-length rule', (file) => {
+  it('angryUncle.txt is what the Angry Uncle scenario seed loads', async () => {
+    expect(ANGRY_UNCLE_PROMPT).toBe(read('angryUncle').replace(/\n$/, ''));
+    expect(ANGRY_UNCLE_PROMPT).toContain('You are Richard "Rick" Miller');
+    const calls = await captureScenarios();
+    const [{ update }] = calls.filter((args) => args.where.slug === 'angry-uncle-thanksgiving');
+    expect(update).toMatchObject({
+      partnerPersona: 'Richard "Rick" Miller',
+      partnerSystemPrompt: ANGRY_UNCLE_PROMPT,
+    });
+  });
+
+  it.each(ALL_PERSONA_PROMPT_FILES)('%s.txt has no competing reply-length rule', (file) => {
     expect(competingLengthRules(`${file}.txt`, read(file))).toEqual([]);
   });
 
