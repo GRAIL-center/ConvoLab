@@ -19,6 +19,7 @@
     "@capacitor/android": "8.6.0",
     "@capacitor/core": "8.6.0",
     "@capacitor/ios": "8.6.0",
+    "@capacitor/share": "8.0.3",
     "@tanstack/react-query": "^5.90.16",
     "@trpc/client": "^11.8.1",
     "@trpc/tanstack-react-query": "^11.8.1",
