@@ -12,12 +12,15 @@ import type { IntroIdeology } from './conversationIntro.js';
  * style: the wording is the instrument.
  *
  * Each opener sounds like someone starting a conversation rather than
- * delivering a position (Hanna, 28 Oct 2026): a greeting, a line saying what
- * the partner has been thinking about, then the partner's position in one
- * sentence. Every opener uses the same greeting and the same frame, so the
- * topic and the partner's ideology are the only things that differ. The
- * invitation to respond is still the intro card's closing question ("How do
- * you respond?"), so the opener ends on the position, not on a question.
+ * delivering a position (Hanna, 28 Oct 2026): the same greeting, then a line
+ * saying what the partner has been thinking about, then the partner's
+ * position. Since the team's revision of 27 Nov 2026 (source:
+ * ConvoLab_partner_openers_10Nov2026.docx, "Proposed revision" column) some
+ * openers also give the partner a personal detail ("I run a small business",
+ * "I've been renting a home for years"), so the middle line is no longer
+ * identical across openers; only the greeting is. The invitation to respond
+ * is still the intro card's closing question ("How do you respond?"), so the
+ * opener ends on the position, not on a question.
  *
  * Keyed by the canonical study topic labels (the keys of TOPIC_PHRASES in
  * conversationIntro.ts, which are the seven presets in STUDY_TOPICS) crossed
@@ -27,33 +30,33 @@ import type { IntroIdeology } from './conversationIntro.js';
 const OPENERS: Record<IntroIdeology, Record<string, string>> = {
   right: {
     Immigration:
-      "Hi, how's your day going? I've been thinking quite a bit about immigration lately. I really feel like if we don't enforce our immigration laws, citizenship stops meaning anything.",
+      "Hi, how's your day going? I've been thinking quite a bit about immigration lately. I worry that if we don't enforce our immigration laws, citizenship stops meaning anything.",
     'Freedom of speech':
-      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I really feel like calling an opinion hate speech is just a way to shut people up.",
-    Guns: "Hi, how's your day going? I've been thinking quite a bit about guns lately. I own guns to protect my family, so bans are a hard no for me.",
+      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I worry that calling an opinion hate speech is just a way to shut people up.",
+    Guns: "Hi, how's your day going? I've owned a gun for years and I've been thinking quite a bit about gun bans lately. I have mine to protect my family, so honestly bans are a no for me.",
     Housing:
-      "Hi, how's your day going? I've been thinking quite a bit about housing lately. I'm in construction, and I really feel like permits and red tape are why houses cost so much.",
+      "Hi, how's your day going? I've been working in construction for years and have been thinking about housing lately. I feel like permits and red tape are why houses cost so much.",
     Environment:
-      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. I want clean air, but not climate rules from people who never pay the bill.",
+      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. I want clean air, but I worry about the cost of Washington's excessive regulations.",
     Taxes:
-      "Hi, how's your day going? I've been thinking quite a bit about taxes lately. I run a small business, and I really feel like government should cut spending before asking me for more.",
+      "Hi, how's your day going? I run a small business and I've been thinking quite a bit about taxes lately. I really feel like the government should cut spending before asking me for more money.",
     Healthcare:
-      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. It costs too much, but I really don't think handing it all to Washington will fix that.",
+      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. It costs too much, but I think there are serious problems with universal healthcare.",
   },
   left: {
     Immigration:
-      "Hi, how's your day going? I've been thinking quite a bit about immigration lately. I've organized workers for years, and immigrants were never why wages stayed flat.",
+      "Hi, how's your day going? I've organized workers for years and have been thinking quite a bit about immigration lately. I really feel like the wage stagnation we see was never related to immigrants.",
     'Freedom of speech':
-      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I really feel like it's about protecting ordinary people from the powerful, not the other way around.",
-    Guns: "Hi, how's your day going? I've been thinking quite a bit about guns lately. To me gun violence is a safety problem, so background checks are the bare minimum.",
+      "Hi, how's your day going? I've been thinking quite a bit about free speech lately. I honestly think that harmful speech should be limited in the public sphere.",
+    Guns: "Hi, how's your day going? I've been thinking quite a bit about gun violence lately. I see it as a safety problem. To me, background checks are the bare minimum.",
     Housing:
-      "Hi, how's your day going? I've been thinking quite a bit about housing lately. A home shouldn't be treated like a stock, and I really feel like renters need real protections.",
+      "Hi, how's your day going? I've been renting a home for years and have been thinking quite a bit about housing lately. I really feel like renters need real protections.",
     Environment:
-      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. Climate change needs real action, and towns like mine need a real plan too.",
+      "Hi, how's your day going? I've felt really worried about the environment lately. I honestly believe that climate change needs real actionable plans.",
     Taxes:
-      "Hi, how's your day going? I've been thinking quite a bit about billionaires and big corporations lately. I really feel like they should pay a lot more in taxes than they do.",
+      "Hi, how's your day going? I've been thinking quite a bit about taxes lately. I really feel like billionaires and big corporations should pay a lot more in taxes than they do.",
     Healthcare:
-      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. I did home health care for years, and I really feel like nobody's care should depend on their job.",
+      "Hi, how's your day going? I worked in home health care for years, and I feel like people's access to care should not depend on what insurance they can afford.",
   },
 };
 
