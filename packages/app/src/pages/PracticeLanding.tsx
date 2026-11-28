@@ -6,6 +6,8 @@ import Recaptcha from '../components/Recaptcha';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { apiUrl } from '../lib/apiUrl';
 import { setAuthToken } from '../lib/authToken';
+import { hasAcceptedConsent, recordConsent } from './practice/consentStorage';
+import { FirstUseConsent } from './practice/FirstUseConsent';
 import { PersonaPicker, type PracticeScenario } from './practice/PersonaPicker';
 import { PracticeMarketing } from './practice/PracticeMarketing';
 
@@ -94,6 +96,10 @@ export function PracticeLanding() {
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(
     recaptchaSiteKey ? null : 'local-dev'
   );
+
+  // First-use screen (#246): shown once, before the partner picker. Starting a
+  // conversation is only reachable from the picker, so this blocks it until accepted.
+  const [consented, setConsented] = useState(() => hasAcceptedConsent());
 
   const { data: authData } = useQuery(trpc.auth.me.queryOptions());
   const isSignedIn = Boolean(authData?.user && authData.user.role !== 'GUEST');
@@ -250,6 +256,14 @@ export function PracticeLanding() {
           isSignedIn={isSignedIn}
           showPreviewBadge={showPreviewBadge}
           onChoosePartner={() => setSearchParams({ step: 'pick' })}
+        />
+      ) : !consented ? (
+        <FirstUseConsent
+          onAccept={() => {
+            recordConsent();
+            setConsented(true);
+          }}
+          onBack={() => setSearchParams({}, { replace: true })}
         />
       ) : awaitingAuthChoice && !isSignedIn ? (
         <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-7 sm:px-10 sm:py-10">
