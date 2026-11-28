@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { Role } from '@workspace/database';
 import { z } from 'zod';
 import { createSession } from '../../data/sessions.js';
+import { APP_CHECK_HEADER, verifyAppCheck } from '../../lib/appCheck.js';
 import { issueAuthToken } from '../../lib/authToken.js';
 import { parseQuota } from '../../lib/quota.js';
 import { verifyRecaptcha } from '../../lib/recaptcha.js';
@@ -34,10 +35,24 @@ export const practiceRouter = router({
       ? await ctx.prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true } })
       : null;
     const isSignedInAccount = !!signedInUser && signedInUser.role !== Role.GUEST;
+    const isNativeClient = ctx.req.headers['x-convolab-client'] === 'native';
     if (!isSignedInAccount) {
-      const humanVerified = input.recaptchaToken
-        ? await verifyRecaptcha(input.recaptchaToken, ctx.req.log)
-        : false;
+      // Inside the installed app reCAPTCHA cannot run, so the app proves it is
+      // the genuine app on a real device with a Firebase App Check token
+      // instead (#243). A request that claims to be the app is held to that
+      // and only that: a reCAPTCHA token does not count for it, so adding the
+      // header to a website request gains nothing. Requests without the
+      // header (the website) go through reCAPTCHA exactly as before.
+      let humanVerified: boolean;
+      if (isNativeClient) {
+        const appCheckHeader = ctx.req.headers[APP_CHECK_HEADER];
+        const appCheckToken = typeof appCheckHeader === 'string' ? appCheckHeader : undefined;
+        humanVerified = await verifyAppCheck(appCheckToken, ctx.req.log);
+      } else {
+        humanVerified = input.recaptchaToken
+          ? await verifyRecaptcha(input.recaptchaToken, ctx.req.log)
+          : false;
+      }
       if (!humanVerified) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Captcha verification failed.' });
       }
@@ -73,7 +88,7 @@ export const practiceRouter = router({
       const anonymousUser = await ctx.prisma.user.create({ data: { role: Role.GUEST } });
       userId = anonymousUser.id;
       ctx.req.session.set('userId', userId);
-      if (ctx.req.headers['x-convolab-client'] === 'native') {
+      if (isNativeClient) {
         authToken = issueAuthToken(anonymousUser.id, 'guest');
       }
     }

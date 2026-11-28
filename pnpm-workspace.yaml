@@ -3,12 +3,15 @@ packages:
 
 allowBuilds:
   '@prisma/engines': true
+  # Firebase SDK postinstall (web auto-init config); not needed (#243).
+  '@firebase/util': false
   esbuild: true
   prisma: true
   protobufjs: true
   sharp: true
 
 ignoredBuiltDependencies:
+  - '@firebase/util'
   - esbuild
   - prisma
   - sharp

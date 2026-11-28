@@ -32,6 +32,9 @@ enabled or the role is missing) or a network error all reject the request with
 "Captcha verification failed". `/pilot` and `/study` do not use reCAPTCHA and
 are unaffected.
 
+Inside the installed phone app, reCAPTCHA is replaced by Firebase App Check:
+see `docs/app-check-setup.md`.
+
 ## 1. Enable the API (one-time)
 
 ```bash
