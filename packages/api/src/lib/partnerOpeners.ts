@@ -37,11 +37,11 @@ const OPENERS: Record<IntroIdeology, Record<string, string>> = {
     Housing:
       "Hi, how's your day going? I've been working in construction for years and have been thinking about housing lately. I feel like permits and red tape are why houses cost so much.",
     Environment:
-      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. I want clean air. But, I worry about the cost of Washington's excessive regulations.",
+      "Hi, how's your day going? I've been thinking quite a bit about the environment lately. I want clean air, but I worry about the cost of Washington's excessive regulations.",
     Taxes:
       "Hi, how's your day going? I run a small business and I've been thinking quite a bit about taxes lately. I really feel like the government should cut spending before asking me for more money.",
     Healthcare:
-      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. It costs too much, but I think there's serious problems with universal healthcare.",
+      "Hi, how's your day going? I've been thinking quite a bit about healthcare lately. It costs too much, but I think there are serious problems with universal healthcare.",
   },
   left: {
     Immigration:
