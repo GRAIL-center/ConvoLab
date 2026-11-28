@@ -1,6 +1,8 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { elaborateDescription } from '../../lib/elaborate.js';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
+import { isPublicScenario } from '../../lib/publicScenario.js';
 import { TelemetryEvents, track } from '../../lib/telemetry.js';
 import { publicProcedure, router } from '../procedures.js';
 
@@ -20,11 +22,14 @@ export const scenarioRouter = router({
         },
         orderBy: { name: 'asc' },
       });
-      // The four pilot personas share matched names by design (see the seed) and
-      // are reached through the study flow, not the picker. Research views that
-      // need them (invitations) ask explicitly. Filtered here rather than in the
-      // query so scenario records created before the field existed still list.
-      return input?.includePilot ? scenarios : scenarios.filter((s) => s.audience !== 'pilot');
+      // Pilot personas are reached through the study flow, and draft personas
+      // (angry uncle, difficult coworker) are withheld while their prompts are
+      // rewritten. Research views that need every scenario (invitations) ask
+      // explicitly. Filtered here rather than in the query so records created
+      // before `audience` existed still list.
+      return input?.includePilot
+        ? scenarios
+        : scenarios.filter((s) => isPublicScenario(s.audience));
     }),
 
   get: publicProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
@@ -58,6 +63,7 @@ export const scenarioRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertWithinRateLimit('scenario.elaborate', requestAddress(ctx.req));
       try {
         const result = await elaborateDescription(input.description);
 

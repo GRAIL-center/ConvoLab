@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { assertWithinRateLimit, requestAddress } from '../../lib/ipRateLimit.js';
 import { adminProcedure, publicProcedure, router } from '../procedures.js';
 
 export const feedbackRouter = router({
@@ -15,6 +16,7 @@ export const feedbackRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      assertWithinRateLimit('feedback.submit', requestAddress(ctx.req));
       const trimmed = input.comment?.trim();
 
       const docRef = ctx.firestore.collection('feedback').doc();

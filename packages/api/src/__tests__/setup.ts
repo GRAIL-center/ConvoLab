@@ -11,10 +11,20 @@ dotenv.config({
 
 assertSafeFirestoreTestTarget();
 
-const fakeDb = new FakeFirestore();
+export const fakeDb = new FakeFirestore();
 
 vi.mock('../../../database/src/firestoreClient', () => ({
   getFirestoreClient: () => fakeDb,
+}));
+
+vi.mock('../lib/firestore.js', () => ({
+  getFirestore: () => fakeDb,
+  collection: (name: string) => fakeDb.collection(name),
+  createDoc: async () => {
+    throw new Error('createDoc not used in tests');
+  },
+  getDoc: async () => null,
+  queryCollection: async () => [],
 }));
 
 export let testPrisma: PrismaClient;
