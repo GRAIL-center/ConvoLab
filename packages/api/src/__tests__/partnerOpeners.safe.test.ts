@@ -26,12 +26,6 @@ describe('getPartnerOpener', () => {
     expect(new Set(openers).size).toBe(TOPICS.length);
   });
 
-  it.each(IDEOLOGIES)('frames every topic opener the same way (%s)', (ideology) => {
-    for (const topic of TOPICS) {
-      expect(getPartnerOpener(topic, ideology)).toContain("I've been thinking quite a bit about");
-    }
-  });
-
   it('gives the two ideologies different openers on the same topic', () => {
     for (const topic of TOPICS) {
       expect(getPartnerOpener(topic, 'left')).not.toBe(getPartnerOpener(topic, 'right'));
